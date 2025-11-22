@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Royal Cash - League Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #F5F5DC;
+            --gold: #D4AF37;
+            --green: #2ecc71;
+            --red: #e74c3c;
+            --gray: #888;
+            --accent-blue: #3498db;
+            --bit-blue: #0066CC;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* --- Navigation & Header --- */
+        .app-header {
+            background: #000;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 2px solid var(--gold);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-logo {
+            max-height: 50px;
+            width: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--gold);
+            font-size: 1.2rem;
+            cursor: pointer;
+            visibility: hidden;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-name {
+            color: var(--gold);
+            font-size: 0.9rem;
+        }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid var(--red);
+            color: var(--red);
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        .hidden { display: none !important; }
+
+        /* --- Buttons --- */
+        .btn-gold {
+            background: var(--gold);
+            color: #000;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-size: 1rem;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .btn-food { background: #e67e22; color: #fff; border:none; }
+
+        /* --- Pay with Bit Button --- */
+        .btn-bit {
+            background: var(--bit-blue);
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 0.9rem;
+        }
+        .btn-bit img {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+        }
+
+        /* --- Cards --- */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        .card-title { font-size: 1.2rem; font-weight: bold; color: #fff; margin-bottom: 5px; }
+        
+        /* --- Player Row in Table --- */
+        .player-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #252525;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--gold);
+        }
+        .rebuy-btn {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: none;
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        .rebuy-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* --- Leaderboard Table --- */
+        .league-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .league-table th { text-align: right; color: var(--gray); padding: 8px; border-bottom: 1px solid #444; }
+        .league-table td { padding: 10px 8px; border-bottom: 1px solid #333; }
+        .profit { color: var(--green); }
+        .loss { color: var(--red); }
+
+        /* --- Hall of Fame --- */
+        .hall-of-fame {
+            margin-top: 20px;
+        }
+        .hof-stat {
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--gold);
+        }
+        .hof-stat-title {
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-bottom: 5px;
+        }
+        .hof-stat-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--gold);
+        }
+
+        /* --- Auth Views --- */
+        .auth-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .auth-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background: #222;
+            border: 1px solid #444;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+        }
+        .auth-tab.active {
+            background: var(--gold);
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* --- Settlement Transfer Row --- */
+        .transfer-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #252525;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .transfer-info {
+            flex: 1;
+        }
+
+        /* --- Toast Notification --- */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--gold);
+            color: #000;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* --- Modals --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .modal-box {
+            background: #222;
+            padding: 20px;
+            width: 90%; max-width: 380px;
+            border-radius: 12px;
+            border: 1px solid var(--gold);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        input, select {
+            width: 100%; padding: 10px; margin: 8px 0;
+            background: #000; border: 1px solid #444; color: #fff;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        /* Toggle Switch for Food */
+        .toggle-container {
+            display: flex;
+            background: #000;
+            border-radius: 20px;
+            margin: 10px 0;
+            border: 1px solid #444;
+            overflow: hidden;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        .toggle-btn.active {
+            background: var(--gold);
+            color: #000;
+            font-weight: bold;
+        }
+
+        .error-message {
+            color: var(--red);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--gray);
+            padding: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <button id="backBtn" class="back-btn" onclick="goBack()">➔</button>
+        <img src="logo.png" class="app-logo" alt="Royal Cash">
+        <div class="user-menu" id="userMenu" style="display:none;">
+            <span class="user-name" id="userName"></span>
+            <button class="logout-btn" onclick="handleLogout()">התנתק</button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- Auth View -->
+        <div id="view-auth">
+            <div class="auth-container">
+                <div class="auth-tabs">
+                    <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">התחברות</div>
+                    <div class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">הרשמה</div>
+                </div>
+                <div class="card">
+                    <div id="auth-form-login">
+                        <h3>התחברות</h3>
+                        <input type="email" id="loginEmail" placeholder="אימייל">
+                        <input type="password" id="loginPassword" placeholder="סיסמה">
+                        <div id="loginError" class="error-message hidden"></div>
+                        <button class="btn-gold" onclick="handleLogin()">התחבר</button>
+                    </div>
+                    <div id="auth-form-signup" class="hidden">
+                        <h3>הרשמה</h3>
+                        <input type="text" id="signupUsername" placeholder="שם משתמש">
+                        <input type="email" id="signupEmail" placeholder="אימייל">
+                        <input type="tel" id="signupPhone" placeholder="מספר טלפון (חובה)" pattern="[0-9]{10}">
+                        <input type="password" id="signupPassword" placeholder="סיסמה">
+                        <div id="signupError" class="error-message hidden"></div>
+                        <button class="btn-gold" onclick="handleSignup()">הירשם</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App Views -->
+        <div id="view-lobby" class="hidden">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; flex:1;">שולחנות פעילים</h3>
+                <button class="btn-outline" onclick="showMyStats()" style="width:auto; margin:0 0 0 10px; padding:8px 15px;">
+                    📊 הנתונים שלי
+            </button>
+            </div>
+            <div id="tablesListContainer" class="loading">טוען...</div>
+            
+            <button class="btn-gold" onclick="openModal('modal-create')">+ פתח שולחן חדש</button>
+        </div>
+
+        <!-- My Stats View -->
+        <div id="view-my-stats" class="hidden">
+            <h2 style="text-align:center; color:var(--gold); margin-bottom:20px;">📊 הנתונים שלי</h2>
+            <div class="card">
+                <div id="myStatsContent" class="loading">טוען נתונים...</div>
+            </div>
+        </div>
+
+        <div id="view-table" class="hidden">
+            <div class="card" style="text-align:center; border-color:var(--gold);">
+                <h2 id="activeTableName" style="margin:0; color:var(--gold)"></h2>
+                <div style="display:flex; justify-content:space-around; margin-top:10px;">
+                    <div><small style="color:var(--gray)">כניסה</small><div id="activeBuyIn" style="font-weight:bold"></div></div>
+                    <div><small style="color:var(--gray)">קופה</small><div id="activePot" style="font-weight:bold"></div></div>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <span>שחקנים</span>
+                <button onclick="openModal('modal-add-player')" style="background:none; border:none; color:var(--gold);">+ הוסף</button>
+            </div>
+            
+            <div id="activePlayersList"></div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
+                <button class="btn-gold btn-food" onclick="openFoodModal()">🍔🍕 היינו רעבים</button>
+                <button class="btn-outline" onclick="openShareModal()">🔗 שתף קישור</button>
+                <button class="btn-gold" style="grid-column:span 2;" onclick="startSettle()">💰 שולם</button>
+            </div>
+
+            <!-- Hall of Fame Section -->
+            <div class="hall-of-fame">
+                <button class="btn-outline" onclick="toggleHallOfFame()" style="margin-top: 20px;">
+                    🏆 היכל התהילה
+                </button>
+                <div id="hallOfFameContent" class="hidden">
+                    <div class="card" style="margin-top: 15px;">
+                        <h3 style="text-align:center; color:var(--gold); margin-top:0;">🏆 היכל התהילה</h3>
+                        
+                        <div class="hof-stat">
+                            <div class="hof-stat-title">🦈 הכריש (הרווח הגדול ביותר במשחק בודד)</div>
+                            <div class="hof-stat-value" id="hofShark">-</div>
+                        </div>
+
+                        <div class="hof-stat">
+                            <div class="hof-stat-title">🐑 המפסיד (ההפסד הגדול ביותר במשחק בודד)</div>
+                            <div class="hof-stat-value" id="hofLoser">-</div>
+                        </div>
+
+                        <h4 style="color:var(--gray); margin-top:20px; margin-bottom:10px;">טבלת ליגה (שולחן זה בלבד)</h4>
+                        <table class="league-table" id="tableLeagueTable">
+                            <thead>
+                                <tr>
+                                    <th>שחקן</th>
+                                    <th>משחקים</th>
+                                    <th>רווח/הפסד</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableLeagueTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-settle" class="hidden">
+            <h2 style="text-align:center">ספירת כסף בקופה</h2>
+            <p style="color:#888; text-align:center; margin-bottom:20px;">כמה כסף יש לכל אחד ביד?</p>
+            <div id="settleInputs"></div>
+            <button class="btn-gold" onclick="calcResult()">חשב תוצאות</button>
+            
+            <div id="settleResults" class="card hidden" style="margin-top:20px; background:#111;"></div>
+            
+            <button id="btnSaveLeague" class="btn-gold hidden" style="background:var(--green); color:#fff;" onclick="saveToLeague()">✅ שמור לליגה וסגור שולחן</button>
+        </div>
+
+    </div>
+
+    <div id="modal-create" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3>שולחן חדש</h3>
+            <input type="text" id="newTableName" placeholder="שם השולחן">
+            <input type="number" id="newTableBuyIn" placeholder="מחיר כניסה (₪)">
+            <button class="btn-gold" onclick="createNewTable()">צור</button>
+            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-create')">ביטול</button>
+        </div>
+    </div>
+
+    <div id="modal-add-player" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3>הוסף שחקן</h3>
+            <input type="text" id="newPlayerName" placeholder="שם השחקן">
+            <button class="btn-gold" onclick="addPlayer()">הוסף</button>
+            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-add-player')">ביטול</button>
+        </div>
+    </div>
+
+    <div id="modal-food" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3>מי שילם?</h3>
+            <select id="foodPayerSelect"></select>
+            
+            <div style="margin: 15px 0;">
+                <div class="toggle-container">
+                    <div class="toggle-btn active" id="btnSplitEqual" onclick="setFoodMode('equal')">חלוקה שווה</div>
+                    <div class="toggle-btn" id="btnSplitIndiv" onclick="setFoodMode('indiv')">לפי סועד</div>
+                </div>
+            </div>
+
+            <div id="foodModeEqual">
+                <input type="number" id="foodTotalAmount" placeholder="סה״כ לתשלום">
+                <p style="font-size:0.8rem; color:#888;">בחר מי השתתף בארוחה:</p>
+                <div id="foodEatersListEqual" style="max-height:150px; overflow-y:auto;"></div>
+            </div>
+
+            <div id="foodModeIndiv" class="hidden">
+                <p style="font-size:0.8rem; color:#888;">הזן סכום לכל מי שהזמין:</p>
+                <div id="foodEatersListIndiv" style="max-height:200px; overflow-y:auto;"></div>
+            </div>
+
+            <button class="btn-gold" onclick="submitFood()">שמור הוצאה</button>
+            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-food')">ביטול</button>
+        </div>
+    </div>
+
+    <div id="modal-share" class="modal-overlay hidden">
+        <div class="modal-box" style="text-align:center;">
+            <h3>סרוק להצטרפות</h3>
+            <img id="qrImage" src="" style="border:5px solid #fff; border-radius:4px; margin:10px 0;">
+            <input type="text" id="shareLink" readonly style="text-align:center; font-size:0.8rem;">
+            <button class="btn-gold" onclick="closeModal('modal-share')">סגור</button>
+        </div>
+    </div>
+
+    <script>
+        // --- SUPABASE INIT ---
+        const SUPABASE_URL = 'https://gfchswspvayyvdlxbggw.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmY2hzd3NwdmF5eXZkbHhiZ2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MDI1NTUsImV4cCI6MjA3OTM3ODU1NX0.5vIkcgyGEWEW3uI5Y2bJKG7Ex2uhIAsUtC8US6BFVtA';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // --- STATE ---
+        let currentUser = null;
+        let currentProfile = null;
+        let activeTableId = null;
+        let currentFoodMode = 'equal';
+        let pendingJoinTableId = null;
+        let realtimeChannels = {}; // Store realtime subscriptions
+
+        // --- TOAST NOTIFICATION ---
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+
+        // --- AUTHENTICATION ---
+        async function checkAuth() {
+            // Check for email confirmation token in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const type = urlParams.get('type');
+            const tokenHash = urlParams.get('token_hash');
+            
+            if ((token || tokenHash) && (type === 'signup' || type === 'email')) {
+                // User clicked email confirmation link
+                try {
+                    const verifyToken = tokenHash || token;
+                    const { data, error } = await supabase.auth.verifyOtp({
+                        token_hash: verifyToken,
+                        type: type === 'signup' ? 'signup' : 'email'
+                    });
+                    
+                    if (error) {
+                        console.error('Email verification error:', error);
+                        // Show error message
+                        showAuth();
+                        const errorDiv = document.getElementById('loginError') || document.getElementById('signupError');
+                        if (errorDiv) {
+                            errorDiv.textContent = 'שגיאה באימות אימייל. נסה להתחבר ידנית.';
+                            errorDiv.style.color = 'var(--red)';
+                            errorDiv.classList.remove('hidden');
+                        }
+                    } else {
+                        console.log('Email verified successfully');
+                        showToast('אימייל אומת בהצלחה!');
+                    }
+                    
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (err) {
+                    console.error('Error verifying email:', err);
+                }
+            }
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                currentUser = session.user;
+                await loadProfile();
+                handleJoinFlow();
+                showLobby();
+            } else {
+                showAuth();
+            }
+        }
+
+        async function loadProfile() {
+            if (!currentUser) return;
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') {
+                console.error('Error loading profile:', error);
+            } else if (data) {
+                currentProfile = data;
+                document.getElementById('userName').textContent = data.username || 'משתמש';
+                document.getElementById('userMenu').style.display = 'flex';
+            }
+        }
+
+        async function handleSignup() {
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const username = document.getElementById('signupUsername').value.trim();
+            const phone = document.getElementById('signupPhone').value;
+            const errorDiv = document.getElementById('signupError');
+
+            // Clear previous errors
+            errorDiv.classList.add('hidden');
+            errorDiv.textContent = '';
+
+            if (!email || !password || !username || !phone) {
+                errorDiv.textContent = 'מלא את כל השדות (כולל מספר טלפון)';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Validate phone number (10 digits)
+            if (!/^[0-9]{10}$/.test(phone)) {
+                errorDiv.textContent = 'מספר טלפון חייב להיות 10 ספרות';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Validate username (not empty after trim)
+            if (username.length === 0) {
+                errorDiv.textContent = 'שם משתמש לא יכול להיות ריק';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                // Sign up user
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email,
+                    password
+                });
+
+                if (authError) {
+                    console.error('Auth error:', authError);
+                    throw authError;
+                }
+
+                if (!authData.user) {
+                    throw new Error('לא ניתן ליצור משתמש. נסה שוב.');
+                }
+
+                console.log('User created:', authData.user.id);
+
+                // CRITICAL: Try to sign in FIRST to get a session
+                // Without a session, auth.uid() will be null and RLS will block the insert
+                let session = null;
+                
+                // Check if we already have a session from signup
+                const { data: { session: existingSession } } = await supabase.auth.getSession();
+                if (existingSession) {
+                    session = existingSession;
+                    console.log('Session exists from signup');
+                } else {
+                    // Try to sign in to get a session
+                    console.log('No session, attempting sign in...');
+                    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                        email,
+                        password
+                    });
+                    
+                    if (signInError) {
+                        console.error('Sign in error:', signInError);
+                        // If email confirmation is required, we can't sign in yet
+                        if (signInError.message.includes('Email not confirmed') || signInError.message.includes('email')) {
+                            errorDiv.textContent = 'הרשמה הצליחה! אנא בדוק את האימייל שלך לאימות ואז התחבר.';
+                            errorDiv.style.color = 'var(--green)';
+                            errorDiv.classList.remove('hidden');
+                            setTimeout(() => {
+                                switchAuthTab('login');
+                                document.getElementById('loginEmail').value = email;
+                            }, 2000);
+                            return;
+                        }
+                        throw new Error('לא ניתן להתחבר אחרי הרשמה. נסה להתחבר ידנית.');
+                    }
+                    
+                    session = signInData.session;
+                    console.log('Signed in successfully, session:', session ? 'exists' : 'none');
+                }
+
+                // Now we have a session, create/update profile
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Check if profile already exists (from trigger)
+                const { data: existingProfile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', authData.user.id)
+                    .single();
+
+                if (existingProfile) {
+                    // Profile exists, update it with username and phone
+                    console.log('Profile exists, updating...');
+                    const { error: updateError } = await supabase
+                        .from('profiles')
+                        .update({
+                            username: username,
+                            email: email,
+                            phone_number: phone
+                        })
+                        .eq('id', authData.user.id);
+
+                    if (updateError) {
+                        console.error('Profile update error:', updateError);
+                        throw new Error('שגיאה בעדכון פרופיל: ' + updateError.message);
+                    }
+                    console.log('Profile updated successfully');
+                } else {
+                    // Profile doesn't exist, create it (now we have a session!)
+                    console.log('Creating profile for user:', authData.user.id);
+                    
+                    // Verify we have a session
+                    const { data: { session: verifySession } } = await supabase.auth.getSession();
+                    if (!verifySession) {
+                        throw new Error('אין session פעיל. נסה להתחבר ידנית.');
+                    }
+                    
+                    const { data: profileData, error: profileError } = await supabase
+                        .from('profiles')
+                        .insert([{
+                            id: authData.user.id,
+                            username: username,
+                            email: email,
+                            phone_number: phone
+                        }])
+                        .select()
+                        .single();
+
+                    if (profileError) {
+                        console.error('Profile error details:', {
+                            code: profileError.code,
+                            message: profileError.message,
+                            details: profileError.details,
+                            hint: profileError.hint,
+                            userId: authData.user.id,
+                            hasSession: !!verifySession
+                        });
+                        
+                        if (profileError.code === '23505') {
+                            throw new Error('שם המשתמש כבר תפוס. בחר שם אחר.');
+                        } else if (profileError.code === '42501' || profileError.message.includes('row-level security') || profileError.message.includes('RLS') || profileError.message.includes('policy')) {
+                            throw new Error('בעיית הרשאות RLS. שגיאה: ' + profileError.message + '. ודא שיש לך session פעיל.');
+                        } else {
+                            throw new Error('שגיאה ביצירת פרופיל: ' + profileError.message + ' (קוד: ' + (profileError.code || 'unknown') + ')');
+                        }
+                    }
+                    
+                    console.log('Profile created successfully:', profileData);
+                }
+
+                // Now set current user from the session we have
+                const { data: { session: finalSession } } = await supabase.auth.getSession();
+                
+                if (finalSession) {
+                    currentUser = finalSession.user;
+                    await loadProfile();
+                    
+                    if (pendingJoinTableId) {
+                        await joinTable(pendingJoinTableId);
+                        pendingJoinTableId = null;
+                    }
+                    
+                    showLobby();
+                } else {
+                    // This shouldn't happen, but just in case
+                    throw new Error('לא ניתן לקבל session. נסה להתחבר ידנית.');
+                }
+            } catch (error) {
+                console.error('Signup error:', error);
+                errorDiv.textContent = error.message || 'שגיאה בהרשמה. נסה שוב.';
+                errorDiv.style.color = 'var(--red)';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+
+            if (!email || !password) {
+                errorDiv.textContent = 'מלא את כל השדות';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) {
+                    // Handle specific error cases
+                    if (error.message.includes('Email not confirmed') || error.message.includes('email')) {
+                        errorDiv.textContent = 'האימייל לא אומת. כבה את אימות האימייל ב-Supabase Settings או בדוק את תיבת הדואר.';
+                        errorDiv.style.color = 'var(--red)';
+                        errorDiv.classList.remove('hidden');
+                        return;
+                    }
+                    if (error.message.includes('Invalid login credentials') || error.message.includes('credentials')) {
+                        errorDiv.textContent = 'סיסמה או אימייל לא נכונים. אם נרשמת לאחרונה, נסה להירשם מחדש (מחק את המשתמש ב-Supabase Users קודם).';
+                        errorDiv.style.color = 'var(--red)';
+                        errorDiv.classList.remove('hidden');
+                        return;
+                    }
+                    throw error;
+                }
+
+                currentUser = data.user;
+                await loadProfile();
+                
+                // If there's a pending join, handle it now
+                if (pendingJoinTableId) {
+                    await joinTable(pendingJoinTableId);
+                    pendingJoinTableId = null;
+                }
+                
+                showLobby();
+            } catch (error) {
+                errorDiv.textContent = error.message || 'שגיאה בהתחברות';
+                errorDiv.style.color = 'var(--red)';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function handleLogout() {
+            // Unsubscribe from all realtime channels
+            Object.values(realtimeChannels).forEach(channel => {
+                channel.unsubscribe();
+            });
+            realtimeChannels = {};
+            
+            await supabase.auth.signOut();
+            currentUser = null;
+            currentProfile = null;
+            showAuth();
+        }
+
+        function switchAuthTab(tab) {
+            document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+            document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+            document.getElementById('auth-form-login').classList.toggle('hidden', tab !== 'login');
+            document.getElementById('auth-form-signup').classList.toggle('hidden', tab !== 'signup');
+            document.getElementById('loginError').classList.add('hidden');
+            document.getElementById('signupError').classList.add('hidden');
+        }
+
+        // --- JOIN FLOW ---
+        function handleJoinFlow() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const joinTableId = urlParams.get('joinTable');
+            
+            if (joinTableId) {
+                if (currentUser) {
+                    // User is logged in, join immediately
+                    joinTable(joinTableId);
+                } else {
+                    // User not logged in, store for after auth
+                    pendingJoinTableId = joinTableId;
+                }
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+
+        async function joinTable(tableId) {
+            if (!currentUser) return;
+
+            // Check if already a player
+            const { data: existing } = await supabase
+                .from('table_players')
+                .select('*')
+                .eq('table_id', tableId)
+                .eq('user_id', currentUser.id)
+                .single();
+
+            if (!existing) {
+                // Add user as player
+                const { error } = await supabase
+                    .from('table_players')
+                    .insert([{
+                        table_id: tableId,
+                        user_id: currentUser.id,
+                        rebuys: 1,
+                        food_credit: 0,
+                        food_debt: 0
+                    }]);
+
+                if (error) {
+                    console.error('Error joining table:', error);
+                    alert('שגיאה בהצטרפות לשולחן');
+                } else {
+                    openTable(tableId);
+                }
+            } else {
+                openTable(tableId);
+            }
+        }
+
+        // --- REALTIME SUBSCRIPTIONS ---
+        function setupRealtimeForTable(tableId) {
+            // Unsubscribe from previous table if exists
+            if (realtimeChannels[tableId]) {
+                realtimeChannels[tableId].unsubscribe();
+            }
+
+            // Subscribe to table_players changes
+            const channel = supabase
+                .channel(`table:${tableId}`)
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'table_players',
+                    filter: `table_id=eq.${tableId}`
+                }, (payload) => {
+                    console.log('Table players changed:', payload);
+                    if (activeTableId === tableId) {
+                        renderTable();
+                    }
+                })
+                .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'tables',
+                    filter: `id=eq.${tableId}`
+                }, (payload) => {
+                    console.log('Table changed:', payload);
+                    if (activeTableId === tableId) {
+                        renderTable();
+                    }
+                })
+                .subscribe();
+
+            realtimeChannels[tableId] = channel;
+        }
+
+        // --- NAVIGATION ---
+        function showAuth() {
+            hideAllViews();
+            document.getElementById('view-auth').classList.remove('hidden');
+            document.getElementById('backBtn').style.visibility = 'hidden';
+            document.getElementById('userMenu').style.display = 'none';
+        }
+
+        function showLobby() {
+            hideAllViews();
+            document.getElementById('view-lobby').classList.remove('hidden');
+            document.getElementById('backBtn').style.visibility = 'hidden';
+            renderLobby();
+        }
+
+        function showMyStats() {
+            hideAllViews();
+            document.getElementById('view-my-stats').classList.remove('hidden');
+            document.getElementById('backBtn').style.visibility = 'visible';
+            renderMyStats();
+        }
+
+        async function openTable(id) {
+            activeTableId = id;
+            hideAllViews();
+            document.getElementById('view-table').classList.remove('hidden');
+            document.getElementById('backBtn').style.visibility = 'visible';
+            setupRealtimeForTable(id);
+            await renderTable();
+            await renderHallOfFame();
+        }
+
+        function goBack() {
+            if (!document.getElementById('view-settle').classList.contains('hidden')) {
+                document.getElementById('view-settle').classList.add('hidden');
+                document.getElementById('view-table').classList.remove('hidden');
+                renderTable();
+                renderHallOfFame();
+            } else if (!document.getElementById('view-my-stats').classList.contains('hidden')) {
+                showLobby();
+            } else {
+                showLobby();
+            }
+        }
+
+        function hideAllViews() {
+            ['view-auth', 'view-lobby', 'view-table', 'view-settle', 'view-my-stats'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+        }
+
+        // --- LOBBY ---
+        async function createNewTable() {
+            const name = document.getElementById('newTableName').value;
+            const buyIn = parseInt(document.getElementById('newTableBuyIn').value);
+            if (!name || !buyIn) return alert('מלא את כל הפרטים');
+
+            try {
+                const { data, error } = await supabase
+                    .from('tables')
+                    .insert([{
+                        name: name,
+                        buy_in: buyIn,
+                        owner_id: currentUser.id,
+                        is_active: true
+                    }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+            closeModal('modal-create');
+                await openTable(data.id);
+            } catch (error) {
+                alert('שגיאה ביצירת שולחן: ' + error.message);
+            }
+        }
+
+        async function renderLobby() {
+            const container = document.getElementById('tablesListContainer');
+            container.innerHTML = '<div class="loading">טוען...</div>';
+
+            try {
+                // Get tables where user is owner or player
+                const { data: ownedTables, error: ownedError } = await supabase
+                    .from('tables')
+                    .select('*')
+                    .eq('owner_id', currentUser.id)
+                    .eq('is_active', true);
+
+                if (ownedError) throw ownedError;
+
+                const { data: playerTables, error: playerError } = await supabase
+                    .from('table_players')
+                    .select('table_id, tables(*)')
+                    .eq('user_id', currentUser.id);
+
+                if (playerError) throw playerError;
+
+                // Combine and deduplicate
+                const tableMap = new Map();
+                ownedTables?.forEach(t => tableMap.set(t.id, t));
+                playerTables?.forEach(tp => {
+                    if (tp.tables && tp.tables.is_active) {
+                        tableMap.set(tp.tables.id, tp.tables);
+                    }
+                });
+
+                const activeTables = Array.from(tableMap.values());
+
+                container.innerHTML = '';
+            if (activeTables.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#666;">אין שולחנות פעילים</div>';
+                return;
+            }
+
+                // Get player counts
+                for (const table of activeTables) {
+                    const { count } = await supabase
+                        .from('table_players')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('table_id', table.id);
+                    table.playerCount = count || 0;
+                }
+
+            activeTables.forEach(t => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.style.cursor = 'pointer';
+                div.innerHTML = `
+                    <div class="card-title">${t.name}</div>
+                        <div style="color:#888;">כניסה: ${t.buy_in}₪ | ${t.playerCount || 0} שחקנים</div>
+                `;
+                div.onclick = () => openTable(t.id);
+                container.appendChild(div);
+            });
+            } catch (error) {
+                container.innerHTML = '<div style="text-align:center; color:var(--red);">שגיאה בטעינת שולחנות</div>';
+                console.error('Error loading tables:', error);
+            }
+        }
+
+        // --- MY STATS ---
+        async function renderMyStats() {
+            const container = document.getElementById('myStatsContent');
+            container.innerHTML = '<div class="loading">טוען נתונים...</div>';
+
+            try {
+                // Get all game results for this user across all tables
+                const { data: results, error } = await supabase
+                    .from('game_results')
+                    .select('*')
+                    .eq('user_id', currentUser.id);
+
+                if (error) throw error;
+
+                let totalGames = 0;
+                let totalNet = 0;
+                let maxWin = null;
+                let maxLoss = null;
+
+                results?.forEach(result => {
+                    totalGames++;
+                    totalNet += result.net_profit || 0;
+                    
+                    if (result.net_profit > 0 && (!maxWin || result.net_profit > maxWin.net_profit)) {
+                        maxWin = result;
+                    }
+                    if (result.net_profit < 0 && (!maxLoss || result.net_profit < maxLoss.net_profit)) {
+                        maxLoss = result;
+                    }
+                });
+
+                const colorClass = totalNet >= 0 ? 'profit' : 'loss';
+                const sign = totalNet > 0 ? '+' : '';
+
+                container.innerHTML = `
+                    <div style="text-align:center; margin-bottom:20px;">
+                        <div style="font-size:2rem; font-weight:bold; color:var(--gold); margin-bottom:10px;">
+                            ${sign}${Math.round(totalNet)}₪
+                        </div>
+                        <div style="color:var(--gray);">סה״כ רווח/הפסד</div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+                        <div class="hof-stat">
+                            <div class="hof-stat-title">משחקים</div>
+                            <div class="hof-stat-value">${totalGames}</div>
+                        </div>
+                        <div class="hof-stat">
+                            <div class="hof-stat-title">ממוצע למשחק</div>
+                            <div class="hof-stat-value">${totalGames > 0 ? Math.round(totalNet / totalGames) : 0}₪</div>
+                        </div>
+                    </div>
+                    ${maxWin ? `
+                        <div class="hof-stat">
+                            <div class="hof-stat-title">🦈 הרווח הגדול ביותר</div>
+                            <div class="hof-stat-value" style="color:var(--green);">+${Math.round(maxWin.net_profit)}₪</div>
+                        </div>
+                    ` : ''}
+                    ${maxLoss ? `
+                        <div class="hof-stat">
+                            <div class="hof-stat-title">🐑 ההפסד הגדול ביותר</div>
+                            <div class="hof-stat-value" style="color:var(--red);">${Math.round(maxLoss.net_profit)}₪</div>
+                        </div>
+                    ` : ''}
+                    ${results?.length === 0 ? '<div style="text-align:center; color:#666; padding:20px;">אין נתונים עדיין</div>' : ''}
+                `;
+            } catch (error) {
+                container.innerHTML = '<div style="text-align:center; color:var(--red);">שגיאה בטעינת נתונים</div>';
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // --- ACTIVE TABLE ---
+        async function renderTable() {
+            try {
+                const { data: table, error: tableError } = await supabase
+                    .from('tables')
+                    .select('*')
+                    .eq('id', activeTableId)
+                    .single();
+
+                if (tableError) throw tableError;
+
+                document.getElementById('activeTableName').innerText = table.name;
+                document.getElementById('activeBuyIn').innerText = table.buy_in + '₪';
+
+                // Get players
+                const { data: players, error: playersError } = await supabase
+                    .from('table_players')
+                    .select('*, profiles(username)')
+                    .eq('table_id', activeTableId);
+
+                if (playersError) throw playersError;
+            
+            let pot = 0;
+            const list = document.getElementById('activePlayersList');
+            list.innerHTML = '';
+
+                players?.forEach(p => {
+                    const invested = (p.rebuys || 1) * table.buy_in;
+                pot += invested;
+                
+                const div = document.createElement('div');
+                div.className = 'player-row';
+                    const playerName = p.profiles?.username || 'שחקן';
+                div.innerHTML = `
+                    <div>
+                            <div style="font-weight:bold;">${playerName}</div>
+                        <div style="font-size:0.8rem; color:#888;">השקיע: ${invested}₪</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                            <button class="rebuy-btn" onclick="removeRebuy('${p.id}')" ${(p.rebuys || 1) <= 1 ? 'disabled' : ''}>-</button>
+                            <span style="font-size:0.9rem;">${p.rebuys || 1}</span>
+                            <button class="rebuy-btn" onclick="addRebuy('${p.id}')">+</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+
+            document.getElementById('activePot').innerText = pot + '₪';
+            } catch (error) {
+                console.error('Error rendering table:', error);
+                alert('שגיאה בטעינת השולחן');
+            }
+        }
+
+        async function addPlayer() {
+            const name = document.getElementById('newPlayerName').value;
+            if(!name) return;
+
+            try {
+                // Find user by username
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .eq('username', name)
+                    .single();
+
+                if (!profile) {
+                    alert('משתמש לא נמצא');
+                    return;
+                }
+
+                // Check if already a player
+                const { data: existing } = await supabase
+                    .from('table_players')
+                    .select('*')
+                    .eq('table_id', activeTableId)
+                    .eq('user_id', profile.id)
+                    .single();
+
+                if (existing) {
+                    alert('השחקן כבר בשולחן');
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('table_players')
+                    .insert([{
+                        table_id: activeTableId,
+                        user_id: profile.id,
+                rebuys: 1,
+                        food_credit: 0,
+                        food_debt: 0
+                    }]);
+
+                if (error) throw error;
+
+            document.getElementById('newPlayerName').value = '';
+            closeModal('modal-add-player');
+                await renderTable();
+            } catch (error) {
+                alert('שגיאה בהוספת שחקן: ' + error.message);
+            }
+        }
+
+        async function addRebuy(playerId) {
+            try {
+                const { data: player } = await supabase
+                    .from('table_players')
+                    .select('rebuys')
+                    .eq('id', playerId)
+                    .single();
+
+                const { error } = await supabase
+                    .from('table_players')
+                    .update({ rebuys: (player.rebuys || 1) + 1 })
+                    .eq('id', playerId);
+
+                if (error) throw error;
+                // Realtime will update automatically
+            } catch (error) {
+                console.error('Error adding rebuy:', error);
+            }
+        }
+
+        async function removeRebuy(playerId) {
+            try {
+                const { data: player } = await supabase
+                    .from('table_players')
+                    .select('rebuys')
+                    .eq('id', playerId)
+                    .single();
+
+                if ((player.rebuys || 1) <= 1) return;
+
+                const { error } = await supabase
+                    .from('table_players')
+                    .update({ rebuys: (player.rebuys || 1) - 1 })
+                    .eq('id', playerId);
+
+                if (error) throw error;
+                // Realtime will update automatically
+            } catch (error) {
+                console.error('Error removing rebuy:', error);
+            }
+        }
+
+        // --- HALL OF FAME (Table-specific stats) ---
+        function toggleHallOfFame() {
+            const content = document.getElementById('hallOfFameContent');
+            content.classList.toggle('hidden');
+            if (!content.classList.contains('hidden')) {
+                renderHallOfFame();
+            }
+        }
+
+        async function renderHallOfFame() {
+            try {
+                // Get all game results for this table
+                const { data: results, error } = await supabase
+                    .from('game_results')
+                    .select('*, profiles(username)')
+                    .eq('table_id', activeTableId);
+
+                if (error) throw error;
+
+                if (!results || results.length === 0) {
+                    document.getElementById('hofShark').innerText = 'אין נתונים';
+                    document.getElementById('hofLoser').innerText = 'אין נתונים';
+                    document.getElementById('tableLeagueTableBody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#666;">אין נתונים עדיין</td></tr>';
+                    return;
+                }
+
+                // Calculate stats
+                const tableStats = {};
+                let maxWin = null;
+                let maxLoss = null;
+
+                results.forEach(result => {
+                    const username = result.profiles?.username || 'שחקן';
+                    if (!tableStats[result.user_id]) {
+                        tableStats[result.user_id] = {
+                            username: username,
+                            gamesPlayed: 0,
+                            net: 0
+                        };
+                    }
+                    tableStats[result.user_id].gamesPlayed++;
+                    tableStats[result.user_id].net += result.net_profit || 0;
+
+                    // Track single-game records
+                    if (result.net_profit > 0) {
+                        if (!maxWin || result.net_profit > maxWin.net_profit) {
+                            maxWin = { username: username, net_profit: result.net_profit };
+                        }
+                    }
+                    if (result.net_profit < 0) {
+                        if (!maxLoss || result.net_profit < maxLoss.net_profit) {
+                            maxLoss = { username: username, net_profit: result.net_profit };
+                        }
+                    }
+                });
+
+                // Display The Shark
+                if (maxWin) {
+                    document.getElementById('hofShark').innerHTML = 
+                        `<span style="color:var(--green);">${maxWin.username}</span>: +${Math.round(maxWin.net_profit)}₪`;
+                } else {
+                    document.getElementById('hofShark').innerText = 'אין נתונים';
+                }
+
+                // Display The Loser (🐑)
+                if (maxLoss) {
+                    document.getElementById('hofLoser').innerHTML = 
+                        `<span style="color:var(--red);">${maxLoss.username}</span>: ${Math.round(maxLoss.net_profit)}₪`;
+                } else {
+                    document.getElementById('hofLoser').innerText = 'אין נתונים';
+                }
+
+                // Display League Table
+                const tbody = document.getElementById('tableLeagueTableBody');
+                tbody.innerHTML = '';
+                
+                const sortedPlayers = Object.values(tableStats).sort((a,b) => b.net - a.net);
+                
+                sortedPlayers.forEach(p => {
+                    const colorClass = p.net >= 0 ? 'profit' : 'loss';
+                    const sign = p.net > 0 ? '+' : '';
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><b>${p.username}</b></td>
+                        <td style="text-align:center;">${p.gamesPlayed}</td>
+                        <td class="${colorClass}" style="direction:ltr; text-align:right;">${sign}${Math.round(p.net)}₪</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error rendering Hall of Fame:', error);
+            }
+        }
+
+        // --- FOOD LOGIC ---
+        function setFoodMode(mode) {
+            currentFoodMode = mode;
+            document.getElementById('btnSplitEqual').className = mode === 'equal' ? 'toggle-btn active' : 'toggle-btn';
+            document.getElementById('btnSplitIndiv').className = mode === 'indiv' ? 'toggle-btn active' : 'toggle-btn';
+            
+            if(mode === 'equal') {
+                document.getElementById('foodModeEqual').classList.remove('hidden');
+                document.getElementById('foodModeIndiv').classList.add('hidden');
+            } else {
+                document.getElementById('foodModeEqual').classList.add('hidden');
+                document.getElementById('foodModeIndiv').classList.remove('hidden');
+            }
+        }
+
+        async function openFoodModal() {
+            try {
+                const { data: players } = await supabase
+                    .from('table_players')
+                    .select('*, profiles(username)')
+                    .eq('table_id', activeTableId);
+
+                if (!players || players.length === 0) return alert('אין שחקנים');
+
+            // Populate Payer Select
+            const select = document.getElementById('foodPayerSelect');
+            select.innerHTML = '';
+                players.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                    opt.innerText = p.profiles?.username || 'שחקן';
+                select.appendChild(opt);
+            });
+
+            // Populate Checkboxes (Equal Mode)
+            const listEq = document.getElementById('foodEatersListEqual');
+            listEq.innerHTML = '';
+                players.forEach(p => {
+                    listEq.innerHTML += `<div style="padding:5px;"><label><input type="checkbox" value="${p.id}" checked> ${p.profiles?.username || 'שחקן'}</label></div>`;
+            });
+
+            // Populate Inputs (Indiv Mode)
+            const listInd = document.getElementById('foodEatersListIndiv');
+            listInd.innerHTML = '';
+                players.forEach(p => {
+                listInd.innerHTML += `
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
+                            <label>${p.profiles?.username || 'שחקן'}</label>
+                        <input type="number" class="indiv-amount" data-id="${p.id}" placeholder="0" style="width:80px; margin:0;">
+                    </div>
+                `;
+            });
+
+            document.getElementById('foodTotalAmount').value = '';
+            openModal('modal-food');
+            } catch (error) {
+                console.error('Error opening food modal:', error);
+            }
+        }
+
+        async function submitFood() {
+            try {
+                const payerId = document.getElementById('foodPayerSelect').value;
+            let totalAmount = 0;
+
+            if (currentFoodMode === 'equal') {
+                totalAmount = parseFloat(document.getElementById('foodTotalAmount').value) || 0;
+                const checkboxes = document.querySelectorAll('#foodEatersListEqual input:checked');
+                
+                if(!totalAmount || checkboxes.length === 0) return alert('חסרים פרטים');
+                
+                const amountPerPerson = totalAmount / checkboxes.length;
+                    for (const cb of checkboxes) {
+                        const { data: player } = await supabase
+                            .from('table_players')
+                            .select('food_debt')
+                            .eq('id', cb.value)
+                            .single();
+                        
+                        await supabase
+                            .from('table_players')
+                            .update({ food_debt: (player.food_debt || 0) + amountPerPerson })
+                            .eq('id', cb.value);
+                    }
+            } else {
+                const inputs = document.querySelectorAll('.indiv-amount');
+                    for (const inp of inputs) {
+                    const val = parseFloat(inp.value) || 0;
+                    if (val > 0) {
+                        totalAmount += val;
+                            const { data: player } = await supabase
+                                .from('table_players')
+                                .select('food_debt')
+                                .eq('id', inp.dataset.id)
+                                .single();
+                            
+                            await supabase
+                                .from('table_players')
+                                .update({ food_debt: (player.food_debt || 0) + val })
+                                .eq('id', inp.dataset.id);
+                        }
+                    }
+                if(totalAmount === 0) return alert('לא הוזנו סכומים');
+            }
+
+            // Credit the payer
+                const { data: payer } = await supabase
+                    .from('table_players')
+                    .select('food_credit')
+                    .eq('id', payerId)
+                    .single();
+
+                await supabase
+                    .from('table_players')
+                    .update({ food_credit: (payer.food_credit || 0) + totalAmount })
+                    .eq('id', payerId);
+                
+            closeModal('modal-food');
+            alert('נשמר! המשלם זוכה, הסועדים חויבו.');
+            } catch (error) {
+                alert('שגיאה בשמירת הוצאה: ' + error.message);
+            }
+        }
+
+        // --- SETTLEMENT & LEAGUE ---
+        async function startSettle() {
+            try {
+                const { data: players } = await supabase
+                    .from('table_players')
+                    .select('*, profiles(username, phone_number)')
+                    .eq('table_id', activeTableId);
+
+            const container = document.getElementById('settleInputs');
+            container.innerHTML = '';
+            
+                players?.forEach(p => {
+                container.innerHTML += `
+                    <div style="margin-bottom:10px;">
+                            <label>${p.profiles?.username || 'שחקן'}</label>
+                        <input type="number" class="cashout-input" data-id="${p.id}" placeholder="כסף ביד">
+                    </div>`;
+            });
+
+            hideAllViews();
+            document.getElementById('view-settle').classList.remove('hidden');
+            document.getElementById('backBtn').style.visibility = 'visible';
+            document.getElementById('settleResults').classList.add('hidden');
+            document.getElementById('btnSaveLeague').classList.add('hidden');
+            } catch (error) {
+                console.error('Error starting settle:', error);
+            }
+        }
+
+        async function calcResult() {
+            try {
+                const { data: table } = await supabase
+                    .from('tables')
+                    .select('buy_in')
+                    .eq('id', activeTableId)
+                    .single();
+
+                const { data: players } = await supabase
+                    .from('table_players')
+                    .select('*, profiles(username, phone_number)')
+                    .eq('table_id', activeTableId);
+
+            const inputs = document.querySelectorAll('.cashout-input');
+            let tempPlayers = [];
+
+            inputs.forEach(inp => {
+                    const playerId = inp.dataset.id;
+                const cash = parseFloat(inp.value) || 0;
+                    const p = players.find(x => x.id === playerId);
+                    
+                    const invested = (p.rebuys || 1) * table.buy_in;
+                    const net = (cash - invested) + ((p.food_credit || 0) - (p.food_debt || 0));
+                    
+                    tempPlayers.push({
+                        id: playerId,
+                        userId: p.user_id,
+                        name: p.profiles?.username || 'שחקן',
+                        phone: p.profiles?.phone_number || null,
+                        net: net
+                    });
+            });
+
+            // Validate Sum
+            const total = tempPlayers.reduce((sum, p) => sum + p.net, 0);
+            if (Math.abs(total) > 2) {
+                return alert(`הסכומים לא מתאזנים! יש הפרש של ${Math.round(total)}₪. בדוק ספירה.`);
+            }
+
+                // Display Logic with Pay with Bit buttons
+            let debtors = tempPlayers.filter(p => p.net < -0.5).sort((a,b) => a.net - b.net);
+            let creditors = tempPlayers.filter(p => p.net > 0.5).sort((a,b) => b.net - a.net);
+            let transfers = [];
+
+            let d=0, c=0;
+            while(d < debtors.length && c < creditors.length) {
+                let amount = Math.min(Math.abs(debtors[d].net), creditors[c].net);
+                    const creditorPhone = creditors[c].phone;
+                    const creditorName = creditors[c].name;
+                    const debtorName = debtors[d].name;
+                    
+                    let transferHtml = `
+                        <div class="transfer-row">
+                            <div class="transfer-info">
+                                <b>${debtorName}</b> מעביר <b>${Math.round(amount)}₪</b> ל-<b>${creditorName}</b>
+                            </div>
+                    `;
+                    
+                    // Add Pay with Bit button if phone number exists
+                    if (creditorPhone) {
+                        transferHtml += `
+                            <button class="btn-bit" onclick="payWithBit('${creditorPhone}', '${creditorName}')">
+                                <img src="bit-logo.png" alt="Bit">
+                                שלם עם Bit
+                            </button>
+                        `;
+                    }
+                    
+                    transferHtml += '</div>';
+                    transfers.push(transferHtml);
+                
+                debtors[d].net += amount;
+                creditors[c].net -= amount;
+                
+                if(Math.abs(debtors[d].net) < 0.5) d++;
+                if(creditors[c].net < 0.5) c++;
+            }
+
+            const resDiv = document.getElementById('settleResults');
+            resDiv.classList.remove('hidden');
+            resDiv.innerHTML = '<h3 style="color:var(--gold); margin-top:0;">העברות לביצוע:</h3>' + 
+                                   (transfers.length ? transfers.join('') : '<div style="text-align:center; padding:20px;">כולם מאוזנים!</div>');
+            
+                // Store results for saving
+                window.tempSettleResults = tempPlayers;
+            document.getElementById('btnSaveLeague').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error calculating results:', error);
+                alert('שגיאה בחישוב תוצאות');
+            }
+        }
+
+        // --- PAY WITH BIT ---
+        async function payWithBit(phoneNumber, creditorName) {
+            try {
+                // Copy phone number to clipboard
+                await navigator.clipboard.writeText(phoneNumber);
+                
+                // Show toast notification
+                showToast('מספר הועתק! פותח Bit...');
+                
+                // Try to open Bit app (deep link)
+                const bitUrl = `bit://pay?phone=${phoneNumber}`;
+                const bitWebUrl = `https://www.bitpay.co.il/app/`;
+                
+                // Try deep link first, fallback to web
+                window.location.href = bitUrl;
+                
+                // Fallback after short delay
+                setTimeout(() => {
+                    window.open(bitWebUrl, '_blank');
+                }, 500);
+            } catch (error) {
+                console.error('Error with Bit payment:', error);
+                // Fallback: just open Bit website
+                window.open('https://www.bitpay.co.il/app/', '_blank');
+                showToast('פתיחת Bit...');
+            }
+        }
+
+        async function saveToLeague() {
+            try {
+                if (!window.tempSettleResults) return;
+
+                // Save game results
+                const resultsToInsert = window.tempSettleResults.map(p => ({
+                    table_id: activeTableId,
+                    user_id: p.userId,
+                    net_profit: p.net,
+                    game_date: new Date().toISOString()
+                }));
+
+                const { error: resultsError } = await supabase
+                    .from('game_results')
+                    .insert(resultsToInsert);
+
+                if (resultsError) throw resultsError;
+
+            // Close Table
+                const { error: closeError } = await supabase
+                    .from('tables')
+                    .update({ is_active: false })
+                    .eq('id', activeTableId);
+            
+                if (closeError) throw closeError;
+            
+                window.tempSettleResults = null;
+                alert('הנתונים נשמרו! השולחן נסגר.');
+            showLobby();
+            } catch (error) {
+                alert('שגיאה בשמירה: ' + error.message);
+            }
+        }
+
+        // --- SHARE ---
+        async function openShareModal() {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const joinUrl = `${baseUrl}?joinTable=${activeTableId}`;
+            document.getElementById('shareLink').value = joinUrl;
+            document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(joinUrl)}`;
+            openModal('modal-share');
+        }
+
+        // --- HELPERS ---
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        // --- INIT ---
+        checkAuth();
+
+        // Listen for auth changes
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                currentUser = session.user;
+                loadProfile().then(() => {
+                    handleJoinFlow();
+        showLobby();
+                });
+            } else if (event === 'SIGNED_OUT') {
+                currentUser = null;
+                currentProfile = null;
+                showAuth();
+            }
+        });
+
+    </script>
+</body>
+</html>
