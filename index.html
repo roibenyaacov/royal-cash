@@ -27,6 +27,15 @@
             padding: 0;
             min-height: 100vh;
         }
+        
+        /* Ensure all text is visible */
+        h1, h2, h3, h4, h5, h6 {
+            color: #fff;
+        }
+        
+        .card {
+            color: #fff;
+        }
 
         /* --- Navigation & Header --- */
         .app-header {
@@ -211,6 +220,16 @@
             margin: 50px auto;
             padding: 20px;
         }
+        
+        /* Auth form text colors */
+        #auth-form-login, #auth-form-signup {
+            color: #fff;
+        }
+        
+        #auth-form-login h3, #auth-form-signup h3 {
+            color: #fff;
+            margin-bottom: 15px;
+        }
         .auth-tabs {
             display: flex;
             margin-bottom: 20px;
@@ -290,6 +309,82 @@
             background: #000; border: 1px solid #444; color: #fff;
             border-radius: 5px;
             box-sizing: border-box;
+            text-align: right;
+            direction: rtl;
+        }
+        
+        /* Fix for tel input in Hebrew - ensure RTL */
+        input[type="tel"] {
+            direction: rtl;
+            text-align: right;
+        }
+        
+        /* Placeholder text color - gray for all inputs */
+        input::placeholder,
+        input::-webkit-input-placeholder,
+        input::-moz-placeholder,
+        input:-ms-input-placeholder {
+            color: #888 !important;
+            opacity: 1 !important;
+        }
+        
+        /* Specific selectors for auth form inputs */
+        #loginEmail::placeholder,
+        #loginEmail::-webkit-input-placeholder,
+        #loginEmail::-moz-placeholder,
+        #loginEmail:-ms-input-placeholder,
+        #loginPassword::placeholder,
+        #loginPassword::-webkit-input-placeholder,
+        #loginPassword::-moz-placeholder,
+        #loginPassword:-ms-input-placeholder,
+        #signupEmail::placeholder,
+        #signupEmail::-webkit-input-placeholder,
+        #signupEmail::-moz-placeholder,
+        #signupEmail:-ms-input-placeholder,
+        #signupPassword::placeholder,
+        #signupPassword::-webkit-input-placeholder,
+        #signupPassword::-moz-placeholder,
+        #signupPassword:-ms-input-placeholder,
+        #signupUsername::placeholder,
+        #signupUsername::-webkit-input-placeholder,
+        #signupUsername::-moz-placeholder,
+        #signupUsername:-ms-input-placeholder,
+        #signupPhone::placeholder,
+        #signupPhone::-webkit-input-placeholder,
+        #signupPhone::-moz-placeholder,
+        #signupPhone:-ms-input-placeholder {
+            color: #aaa !important;
+            opacity: 1 !important;
+        }
+        
+        /* Specific classes for dynamic inputs */
+        .cashout-input::placeholder,
+        .cashout-input::-webkit-input-placeholder,
+        .cashout-input::-moz-placeholder,
+        .cashout-input:-ms-input-placeholder {
+            color: #888 !important;
+            opacity: 1 !important;
+        }
+        
+        .indiv-amount::placeholder,
+        .indiv-amount::-webkit-input-placeholder,
+        .indiv-amount::-moz-placeholder,
+        .indiv-amount:-ms-input-placeholder {
+            color: #888 !important;
+            opacity: 1 !important;
+        }
+        
+        /* Auth form container inputs */
+        #auth-form-login input::placeholder,
+        #auth-form-login input::-webkit-input-placeholder,
+        #auth-form-login input::-moz-placeholder,
+        #auth-form-login input:-ms-input-placeholder,
+        #auth-form-signup input::placeholder,
+        #auth-form-signup input::-webkit-input-placeholder,
+        #auth-form-signup input::-moz-placeholder,
+        #auth-form-signup input:-ms-input-placeholder {
+            color: #aaa !important;
+            opacity: 1 !important;
         }
 
         /* Toggle Switch for Food */
@@ -359,6 +454,13 @@
             <span class="user-name" id="userName"></span>
             <button class="logout-btn" id="btnLogout" onclick="handleLogout()">התנתק</button>
         </div>
+        <!-- Language Selector for Auth Screen - Shown only in auth view -->
+        <div id="authLanguageSelectorContainer" style="display: none; align-items: center;">
+            <select id="authLanguageSelector" onchange="changeLanguage(this.value)" style="background: var(--card-bg); color: var(--gold); border: 1px solid var(--gold); padding: 5px 10px; border-radius: 5px; cursor: pointer;">
+                <option value="he">עברית</option>
+                <option value="en">English</option>
+            </select>
+        </div>
     </header>
 
     <div class="container">
@@ -387,10 +489,10 @@
                     </div>
                     <div id="auth-form-signup" class="hidden">
                         <h3 id="signupTitle">הרשמה</h3>
-                        <input type="text" id="signupUsername" placeholder="" required>
-                        <input type="email" id="signupEmail" placeholder="" required>
-                        <input type="tel" id="signupPhone" placeholder="" pattern="[0-9]{10}" required>
-                        <input type="password" id="signupPassword" placeholder="" required>
+                        <input type="text" id="signupUsername" placeholder="">
+                        <input type="email" id="signupEmail" placeholder="">
+                        <input type="tel" id="signupPhone" placeholder="" pattern="[0-9]{10}">
+                        <input type="password" id="signupPassword" placeholder="">
                         <div id="signupError" class="error-message hidden"></div>
                         <button class="btn-gold" id="btnSignup" onclick="handleSignup()">הירשם</button>
                     </div>
@@ -454,7 +556,7 @@
             </div>
 
             <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                <span id="playersLabel">שחקנים</span>
+                <span id="playersLabel" style="color:#888;">שחקנים</span>
                 <button onclick="openModal('modal-add-player')" style="background:none; border:none; color:var(--gold);" id="btnAddPlayer">+ <span id="addPlayerText">הוסף</span></button>
             </div>
             
@@ -463,7 +565,7 @@
             <!-- Game Logs Section -->
             <div style="margin-top: 20px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <span id="gameActivityLabel">פעילות המשחק <span style="margin-right: 5px;">📝</span></span>
+                    <span id="gameActivityLabel" style="color:#888;">פעילות המשחק <span style="margin-right: 5px;">📝</span></span>
                     <button onclick="toggleGameLogs()" style="background:none; border:none; color:var(--gold); font-size:0.9rem;" id="btnToggleLogs">הצג/הסתר</button>
                 </div>
                 <div id="gameLogsContainer" class="card hidden" style="max-height:200px; overflow-y:auto; background:#1a1a1a;">
@@ -697,7 +799,7 @@
                 'emojiLoser': '🐑',
                 'emojiCreate': '+',
                 // Additional texts
-                'phoneRequired': 'מספר טלפון (חובה)',
+                'phoneRequired': 'מספר טלפון',
                 'tableNamePlaceholder': 'שם השולחן',
                 'pot': 'קופה',
                 'invested': 'השקיע',
@@ -833,7 +935,7 @@
                 'emojiLoser': '🐑',
                 'emojiCreate': '+',
                 // Additional texts
-                'phoneRequired': 'Phone Number (Required)',
+                'phoneRequired': 'Phone Number',
                 'tableNamePlaceholder': 'Table Name',
                 'pot': 'Pot',
                 'invested': 'Invested',
@@ -899,14 +1001,18 @@
             localStorage.setItem('language', lang);
             document.documentElement.lang = lang;
             document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
-            
-            // Update language selector
+
+            // Update language selectors
             const selector = document.getElementById('languageSelector');
             if (selector) {
                 selector.value = lang;
             }
-            
-            // Reload UI with new language
+            const authSelector = document.getElementById('authLanguageSelector');
+            if (authSelector) {
+                authSelector.value = lang;
+            }
+
+            // Update all UI elements including placeholders
             updateUI();
             
             // Re-render current view
@@ -1126,6 +1232,12 @@
             if (selector) {
                 selector.value = savedLang;
             }
+            const authSelector = document.getElementById('authLanguageSelector');
+            if (authSelector) {
+                authSelector.value = savedLang;
+            }
+            // Update UI with correct language (including placeholders)
+            updateUI();
         }
 
         // --- TOAST NOTIFICATION ---
@@ -1866,6 +1978,9 @@
             document.getElementById('view-auth').classList.remove('hidden');
             document.getElementById('backBtn').style.visibility = 'hidden';
             document.getElementById('userMenu').style.display = 'none';
+            // Show auth language selector in header
+            const authLangSelector = document.getElementById('authLanguageSelectorContainer');
+            if (authLangSelector) authLangSelector.style.display = 'flex';
             clearTableFromURL();
         }
 
@@ -1879,6 +1994,11 @@
             hideAllViews();
             document.getElementById('view-lobby').classList.remove('hidden');
             document.getElementById('backBtn').style.visibility = 'hidden';
+            // Hide auth language selector, show user menu
+            const authLangSelector = document.getElementById('authLanguageSelectorContainer');
+            if (authLangSelector) authLangSelector.style.display = 'none';
+            const userMenu = document.getElementById('userMenu');
+            if (userMenu) userMenu.style.display = 'flex';
             renderLobby();
         }
 
@@ -3226,7 +3346,7 @@
                 listInd.innerHTML += `
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
                             <label>${p.profiles?.username || 'שחקן'}</label>
-                        <input type="number" class="indiv-amount" data-id="${p.id}" placeholder="0" style="width:80px; margin:0;">
+                        <input type="number" class="indiv-amount" data-id="${p.id}" placeholder="סכום" style="width:80px; margin:0;">
                     </div>
                 `;
             });
