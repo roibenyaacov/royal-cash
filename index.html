@@ -459,8 +459,8 @@
                 <button id="languageToggleBtn" onclick="toggleAuthLanguageMenu()" style="background: transparent; border: none; font-size: 1.3rem; cursor: pointer; padding: 5px 8px; transition: transform 0.2s, filter 0.2s; display: flex; align-items: center; justify-content: center; filter: brightness(0) saturate(100%) invert(77%) sepia(50%) saturate(2000%) hue-rotate(5deg) brightness(0.9) contrast(1.1);" onmouseover="this.style.transform='scale(1.15)'; this.style.filter='brightness(0) saturate(100%) invert(77%) sepia(50%) saturate(2000%) hue-rotate(5deg) brightness(1.1) contrast(1.1)'" onmouseout="this.style.transform='scale(1)'; this.style.filter='brightness(0) saturate(100%) invert(77%) sepia(50%) saturate(2000%) hue-rotate(5deg) brightness(0.9) contrast(1.1)'" title="Change Language">
                     🌐
                 </button>
-                <!-- Language Menu Dropdown - Compact size -->
-                <div id="authLanguageMenu" class="language-menu" style="display: none; position: absolute; top: 40px; left: 0; background: var(--card-bg); border: 1px solid var(--gold); border-radius: 6px; overflow: hidden; z-index: 1000; min-width: 80px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <!-- Language Menu Dropdown - Compact size, centered under button -->
+                <div id="authLanguageMenu" class="language-menu" style="display: none; position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: var(--card-bg); border: 1px solid var(--gold); border-radius: 6px; overflow: hidden; z-index: 1000; min-width: 80px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                     <div onclick="selectAuthLanguage('he')" style="padding: 6px 12px; cursor: pointer; color: #fff; font-size: 0.85rem; transition: background 0.2s;" onmouseover="this.style.background='var(--gold)'; this.style.color='#000'" onmouseout="this.style.background=''; this.style.color='#fff'">עברית</div>
                     <div onclick="selectAuthLanguage('en')" style="padding: 6px 12px; cursor: pointer; color: #fff; font-size: 0.85rem; border-top: 1px solid #444; transition: background 0.2s;" onmouseover="this.style.background='var(--gold)'; this.style.color='#000'" onmouseout="this.style.background=''; this.style.color='#fff'">English</div>
                 </div>
@@ -471,11 +471,6 @@
         <!-- Right side: User menu -->
         <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;">
             <div class="user-menu" id="userMenu" style="display:none;">
-                <!-- Language Selector -->
-                <select id="languageSelector" onchange="changeLanguage(this.value)" style="background: var(--card-bg); color: var(--gold); border: 1px solid var(--gold); padding: 5px 10px; border-radius: 5px; margin-left: 10px; cursor: pointer;">
-                    <option value="he">עברית</option>
-                    <option value="en">English</option>
-                </select>
                 <span class="user-name" id="userName"></span>
                 <button class="logout-btn" id="btnLogout" onclick="handleLogout()">התנתק</button>
             </div>
@@ -3627,10 +3622,13 @@
                     
                     // Add Pay with Bit button if phone number exists
                     if (creditorPhone) {
+                        // Escape single quotes in names/phone for onclick
+                        const safePhone = creditorPhone.replace(/'/g, "\\'");
+                        const safeName = creditorName.replace(/'/g, "\\'");
                         transferHtml += `
-                            <button class="btn-bit" onclick="payWithBit('${creditorPhone}', '${creditorName}')">
+                            <button class="btn-bit" onclick="payWithBit('${safePhone}', '${safeName}', ${amount})">
                                 <img src="bit-logo.png" alt="Bit">
-                                שלם עם Bit
+                                ${t('payWithBit')}
                             </button>
                         `;
                     }
@@ -3671,29 +3669,75 @@
         }
 
         // --- PAY WITH BIT ---
-        async function payWithBit(phoneNumber, creditorName) {
+        /**
+         * Sanitizes a phone number by removing dashes, spaces, and international codes
+         * @param {string} phoneNumber - The phone number to sanitize
+         * @returns {string} - Clean phone number (e.g., "0501234567")
+         */
+        function sanitizePhoneNumber(phoneNumber) {
+            if (!phoneNumber) return null;
+            
+            // Remove all non-digit characters (dashes, spaces, parentheses, etc.)
+            let cleaned = phoneNumber.replace(/\D/g, '');
+            
+            // Remove international prefix if present (e.g., 972, +972)
+            if (cleaned.startsWith('972')) {
+                cleaned = '0' + cleaned.substring(3);
+            }
+            
+            // Ensure it starts with 0 and has 10 digits
+            if (cleaned.length === 9 && !cleaned.startsWith('0')) {
+                cleaned = '0' + cleaned;
+            }
+            
+            // Return only if it's a valid 10-digit Israeli phone number
+            if (cleaned.length === 10 && cleaned.startsWith('0')) {
+                return cleaned;
+            }
+            
+            return cleaned; // Return as-is if doesn't match expected format
+        }
+
+        /**
+         * Opens Bit payment app with the recipient's phone number and amount
+         * @param {string} phoneNumber - Recipient's phone number
+         * @param {string} creditorName - Recipient's name (for display)
+         * @param {number} amount - Amount to pay in NIS
+         */
+        async function payWithBit(phoneNumber, creditorName, amount) {
             try {
+                // Sanitize phone number
+                const cleanPhone = sanitizePhoneNumber(phoneNumber);
+                
+                if (!cleanPhone) {
+                    showToast('מספר טלפון לא תקין');
+                    return;
+                }
+                
                 // Copy phone number to clipboard
-                await navigator.clipboard.writeText(phoneNumber);
+                await navigator.clipboard.writeText(cleanPhone);
                 
                 // Show toast notification
-                showToast('מספר הועתק! פותח Bit...');
+                showToast(`מספר הועתק! פותח Bit...`);
+                
+                // Construct Bit deep link URL
+                // Format: https://bitpay.co.il/app/me/{PHONE}?amount={AMOUNT}
+                const bitUrl = `https://bitpay.co.il/app/me/${cleanPhone}?amount=${Math.round(amount)}`;
                 
                 // Try to open Bit app (deep link)
-                const bitUrl = `bit://pay?phone=${phoneNumber}`;
-                const bitWebUrl = `https://www.bitpay.co.il/app/`;
+                // First try the web URL (works on mobile and desktop)
+                window.open(bitUrl, '_blank');
                 
-                // Try deep link first, fallback to web
-                window.location.href = bitUrl;
-                
-                // Fallback after short delay
-                setTimeout(() => {
-                    window.open(bitWebUrl, '_blank');
-                }, 500);
             } catch (error) {
                 console.error('Error with Bit payment:', error);
-                // Fallback: just open Bit website
-                window.open('https://www.bitpay.co.il/app/', '_blank');
+                // Fallback: try to construct URL anyway
+                const cleanPhone = sanitizePhoneNumber(phoneNumber);
+                if (cleanPhone) {
+                    const bitUrl = `https://bitpay.co.il/app/me/${cleanPhone}?amount=${Math.round(amount)}`;
+                    window.open(bitUrl, '_blank');
+                } else {
+                    window.open('https://www.bitpay.co.il/app/', '_blank');
+                }
                 showToast('פתיחת Bit...');
             }
         }
