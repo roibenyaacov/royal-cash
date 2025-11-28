@@ -154,6 +154,8 @@
             border-radius: 8px;
             margin-bottom: 8px;
             border-left: 3px solid var(--gold);
+            transition: transform 0.5s ease-in-out, opacity 0.3s ease-in-out;
+            position: relative;
         }
         .rebuy-btn {
             width: 30px; height: 30px;
@@ -378,17 +380,17 @@
                 <div class="card">
                     <div id="auth-form-login">
                         <h3 id="loginTitle">התחברות</h3>
-                        <input type="email" id="loginEmail" placeholder="אימייל">
-                        <input type="password" id="loginPassword" placeholder="סיסמה">
+                        <input type="email" id="loginEmail" placeholder="">
+                        <input type="password" id="loginPassword" placeholder="">
                         <div id="loginError" class="error-message hidden"></div>
                         <button class="btn-gold" id="btnLogin" onclick="handleLogin()">התחבר</button>
                     </div>
                     <div id="auth-form-signup" class="hidden">
                         <h3 id="signupTitle">הרשמה</h3>
-                        <input type="text" id="signupUsername" placeholder="שם משתמש" required>
-                        <input type="email" id="signupEmail" placeholder="אימייל" required>
-                        <input type="tel" id="signupPhone" placeholder="מספר טלפון (חובה)" pattern="[0-9]{10}" required>
-                        <input type="password" id="signupPassword" placeholder="סיסמה" required>
+                        <input type="text" id="signupUsername" placeholder="" required>
+                        <input type="email" id="signupEmail" placeholder="" required>
+                        <input type="tel" id="signupPhone" placeholder="" pattern="[0-9]{10}" required>
+                        <input type="password" id="signupPassword" placeholder="" required>
                         <div id="signupError" class="error-message hidden"></div>
                         <button class="btn-gold" id="btnSignup" onclick="handleSignup()">הירשם</button>
                     </div>
@@ -409,7 +411,7 @@
                     <h3 style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; flex:1;" id="activeTablesTitle">שולחנות פעילים</h3>
                     <button class="btn-outline" onclick="showMyStats()" style="width:auto; margin:0 0 0 10px; padding:8px 15px;" id="btnMyStats">
                         <span id="myStatsBtnText">הנתונים שלי</span> <span style="margin-right: 5px;">📊</span>
-            </button>
+                    </button>
                 </div>
                 <div id="tablesListContainer" class="loading"><span id="loadingTablesText">טוען...</span></div>
             <button class="btn-gold" onclick="openModal('modal-create')" id="btnCreateTable">פתח שולחן חדש <span style="margin-right: 5px;">+</span></button>
@@ -521,11 +523,11 @@
             
             <div class="card">
                 <h3 style="color:var(--gray); margin-top:0;" id="howMuchCashTitle">כמה כסף יש לכל אחד ביד?</h3>
-            <div id="settleInputs"></div>
+                <div id="settleInputs"></div>
                 
                 <button class="btn-gold" onclick="calcResult()" style="margin-top:20px;" id="btnCalculate">חשב תוצאות</button>
             </div>
-
+            
             <div id="settleResults" class="card hidden" style="margin-top:20px;"></div>
             
             <div style="margin-top:20px; text-align:center;">
@@ -538,8 +540,8 @@
     <div id="modal-create" class="modal-overlay hidden">
         <div class="modal-box">
             <h3 id="newTableTitle">שולחן חדש</h3>
-            <input type="text" id="newTableName" placeholder="שם השולחן">
-            <input type="number" id="newTableBuyIn" placeholder="מחיר כניסה (₪)">
+            <input type="text" id="newTableName" placeholder="">
+            <input type="number" id="newTableBuyIn" placeholder="">
             <button class="btn-gold" onclick="createNewTable()" id="btnCreate">צור</button>
             <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-create')" id="btnCancelCreate">ביטול</button>
         </div>
@@ -548,7 +550,7 @@
     <div id="modal-add-player" class="modal-overlay hidden">
         <div class="modal-box">
             <h3 id="addPlayerTitle">הוסף שחקן</h3>
-            <input type="text" id="newPlayerName" placeholder="שם השחקן">
+            <input type="text" id="newPlayerName" placeholder="">
             <button class="btn-gold" onclick="addPlayer()" id="btnAddPlayerModal">הוסף</button>
             <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-add-player')" id="btnCancelAddPlayer">ביטול</button>
         </div>
@@ -561,24 +563,24 @@
             
             <div style="margin: 15px 0;">
                 <div class="toggle-container">
-                    <div class="toggle-btn active" id="btnSplitEqual" onclick="setFoodMode('equal')"><span id="splitEqualText">חלוקה שווה</span></div>
-                    <div class="toggle-btn" id="btnSplitIndiv" onclick="setFoodMode('indiv')"><span id="splitIndivText">לפי סועד</span></div>
+                    <div class="toggle-btn active" id="btnSplitEqual" onclick="setFoodMode('equal')">חלוקה שווה</div>
+                    <div class="toggle-btn" id="btnSplitIndiv" onclick="setFoodMode('indiv')">לפי סועד</div>
                 </div>
             </div>
 
             <div id="foodModeEqual">
-                <input type="number" id="foodTotalAmount" placeholder="">
-                <p style="font-size:0.8rem; color:#888;" id="selectParticipantsText">בחר מי השתתף בארוחה:</p>
+                <input type="number" id="foodTotalAmount" placeholder="סה״כ לתשלום">
+                <p style="font-size:0.8rem; color:#888;">בחר מי השתתף בארוחה:</p>
                 <div id="foodEatersListEqual" style="max-height:150px; overflow-y:auto;"></div>
             </div>
 
             <div id="foodModeIndiv" class="hidden">
-                <p style="font-size:0.8rem; color:#888;" id="enterAmountText">הזן סכום לכל מי שהזמין:</p>
+                <p style="font-size:0.8rem; color:#888;">הזן סכום לכל מי שהזמין:</p>
                 <div id="foodEatersListIndiv" style="max-height:200px; overflow-y:auto;"></div>
             </div>
 
-            <button class="btn-gold" onclick="submitFood()" id="btnSaveExpense">שמור הוצאה</button>
-            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-food')" id="btnCancelFood">ביטול</button>
+            <button class="btn-gold" onclick="submitFood()">שמור הוצאה</button>
+            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-food')">ביטול</button>
         </div>
     </div>
 
@@ -748,30 +750,7 @@
                 'missingDetails': 'חסרים פרטים',
                 'noAmountsEntered': 'לא הוזנו סכומים',
                 'buyInPrice': 'מחיר כניסה (₪)',
-                'allTimeText': 'לכל הזמן',
-                'splitEqual': 'חלוקה שווה',
-                'splitIndiv': 'לפי סועד',
-                'selectParticipants': 'בחר מי השתתף בארוחה:',
-                'enterAmount': 'הזן סכום לכל מי שהזמין:',
-                'saveExpense': 'שמור הוצאה',
-                'totalToPay': 'סה״כ לתשלום',
-                'host': 'המארח',
-                'added': 'הוסיף',
-                'removed': 'הוריד',
-                'firstBuyIn': 'הצטרף לשולחן (buy-in ראשון)',
-                'emailVerified': 'אימייל אומת בהצלחה!',
-                'openingBit': 'פתיחת Bit...',
-                'numberCopied': 'מספר הועתק! פותח Bit...',
-                'savedPayerCredited': 'נשמר! המשלם זוכה, הסועדים חויבו.',
-                'errorSavingExpense': 'שגיאה בשמירת הוצאה',
-                'errorLoadingTable': 'שגיאה בטעינת השולחן',
-                'emailVerificationError': 'שגיאה באימות אימייל. נסה להתחבר ידנית.',
-                'noPermissionAccess': ' או אין הרשאה לגשת אליו',
-                'unknownError': 'שגיאה לא ידועה',
-                'errorLoadingLogs': 'שגיאה בטעינת לוגים',
-                'noPlayersYet': 'אין שחקנים עדיין',
-                'noActivityYet': 'אין פעילות עדיין',
-                'noPlayersInTable': 'אין שחקנים בשולחן'
+                'allTimeText': 'לכל הזמן'
             },
             en: {
                 // Navigation
@@ -907,30 +886,7 @@
                 'missingDetails': 'Missing details',
                 'noAmountsEntered': 'No amounts entered',
                 'buyInPrice': 'Buy In (₪)',
-                'allTimeText': 'All Time',
-                'splitEqual': 'Equal Split',
-                'splitIndiv': 'Per Person',
-                'selectParticipants': 'Select who participated in the meal:',
-                'enterAmount': 'Enter amount for each person who ordered:',
-                'saveExpense': 'Save Expense',
-                'totalToPay': 'Total to Pay',
-                'host': 'Host',
-                'added': 'added',
-                'removed': 'removed',
-                'firstBuyIn': 'joined the table (first buy-in)',
-                'emailVerified': 'Email verified successfully!',
-                'openingBit': 'Opening Bit...',
-                'numberCopied': 'Number copied! Opening Bit...',
-                'savedPayerCredited': 'Saved! Payer credited, diners charged.',
-                'errorSavingExpense': 'Error saving expense',
-                'errorLoadingTable': 'Error loading table',
-                'emailVerificationError': 'Email verification error. Please try logging in manually.',
-                'noPermissionAccess': ' or no permission to access it',
-                'unknownError': 'Unknown error',
-                'errorLoadingLogs': 'Error loading logs',
-                'noPlayersYet': 'No players yet',
-                'noActivityYet': 'No activity yet',
-                'noPlayersInTable': 'No players in table'
+                'allTimeText': 'All Time'
             }
         };
 
@@ -1158,30 +1114,6 @@
             if (document.getElementById('btnCancelAddPlayer')) {
                 document.getElementById('btnCancelAddPlayer').textContent = t('cancel');
             }
-            if (document.getElementById('whoPaidTitle')) {
-                document.getElementById('whoPaidTitle').textContent = t('whoPaid');
-            }
-            if (document.getElementById('splitEqualText')) {
-                document.getElementById('splitEqualText').textContent = t('splitEqual');
-            }
-            if (document.getElementById('splitIndivText')) {
-                document.getElementById('splitIndivText').textContent = t('splitIndiv');
-            }
-            if (document.getElementById('selectParticipantsText')) {
-                document.getElementById('selectParticipantsText').textContent = t('selectParticipants');
-            }
-            if (document.getElementById('enterAmountText')) {
-                document.getElementById('enterAmountText').textContent = t('enterAmount');
-            }
-            if (document.getElementById('btnSaveExpense')) {
-                document.getElementById('btnSaveExpense').textContent = t('saveExpense');
-            }
-            if (document.getElementById('btnCancelFood')) {
-                document.getElementById('btnCancelFood').textContent = t('cancel');
-            }
-            if (document.getElementById('foodTotalAmount')) {
-                document.getElementById('foodTotalAmount').placeholder = t('totalToPay');
-            }
         }
 
         // Initialize language on page load
@@ -1243,13 +1175,13 @@
                         console.error('Email verification error:', error);
                         const errorDiv = document.getElementById('loginError') || document.getElementById('signupError');
                         if (errorDiv) {
-                            errorDiv.textContent = t('emailVerificationError');
+                            errorDiv.textContent = 'שגיאה באימות אימייל. נסה להתחבר ידנית.';
                             errorDiv.style.color = 'var(--red)';
                             errorDiv.classList.remove('hidden');
                         }
                     } else {
                         console.log('Email verified successfully');
-                        showToast(t('emailVerified'));
+                        showToast('אימייל אומת בהצלחה!');
                     }
                     
                     // Clean URL
@@ -1995,7 +1927,7 @@
                     clearTableFromURL();
                 }
                 showLobby();
-                alert(t('tableNotFound') + t('noPermissionAccess'));
+                alert(t('tableNotFound') + (currentLanguage === 'he' ? ' או אין הרשאה לגשת אליו' : ' or no permission to access it'));
             }
         }
 
@@ -2079,7 +2011,7 @@
                 });
 
                 const deletedTables = Array.from(tableMap.values());
-                
+
                 container.innerHTML = '';
 
                 if (!deletedTables || deletedTables.length === 0) {
@@ -2103,10 +2035,11 @@
                     div.style.opacity = '0.7'; // Dim deleted games more
                     div.style.marginBottom = '10px';
                     div.style.borderColor = 'var(--red)';
+                    const playersText = currentLanguage === 'he' ? 'שחקנים' : 'players';
                     div.innerHTML = `
                         <div style="flex: 1;">
                             <div class="card-title">${table.name} <span style="margin-right: 5px;">🗑️</span></div>
-                            <div style="color:#888;">${t('entry')}: ${table.buy_in}₪ | ${table.playerCount || 0} ${t('players')} | ${date}</div>
+                            <div style="color:#888;">${t('entry')}: ${table.buy_in}₪ | ${table.playerCount || 0} ${playersText} | ${date}</div>
                         </div>
                         <div style="display: flex; gap: 10px; margin-top: 10px;">
                             <button class="btn-outline" onclick="viewGameSummary('${table.id}')" style="flex: 1;">${t('summary')}</button>
@@ -2196,7 +2129,7 @@
 
                 console.log('✅ Table soft deleted successfully');
 
-                showToast(t('tableDeleted'));
+                showToast('השולחן נמחק ועבר לארכיון');
 
             } catch (error) {
                 console.error('Error in deleteTable:', error);
@@ -2244,7 +2177,7 @@
                     switchLobbyTab('active');
                 }
 
-                showToast(t('tableRestored'));
+                showToast('השולחן שוחזר בהצלחה');
 
             } catch (error) {
                 console.error('Error in restoreDeletedTable:', error);
@@ -2369,7 +2302,7 @@
                         .insert([{
                             table_id: tableId,
                             action: 'player_added',
-                            message: `${currentUser.user_metadata?.username || t('host')} ${t('firstBuyIn')}`,
+                            message: `${currentUser.user_metadata?.username || 'המארח'} הצטרף לשולחן (buy-in ראשון)`,
                             user_id: currentUser.id
                         }]);
                     console.log('✅ Step 3: Game log created');
@@ -2379,7 +2312,7 @@
                 }
 
                 // Close modal and clear form
-            closeModal('modal-create');
+                closeModal('modal-create');
                 document.getElementById('newTableName').value = '';
                 document.getElementById('newTableBuyIn').value = '';
                 
@@ -2389,7 +2322,7 @@
                 
             } catch (error) {
                 console.error('Error in createNewTable:', error);
-                alert(t('errorCreatingTable') + ': ' + (error.message || t('unknownError')));
+                alert(t('errorCreatingTable') + ': ' + (error.message || (currentLanguage === 'he' ? 'שגיאה לא ידועה' : 'Unknown error')));
             }
         }
 
@@ -2398,34 +2331,46 @@
             container.innerHTML = `<div class="loading">${t('loading')}</div>`;
 
             try {
-                // Get tables where user is owner or player
-                // Filter out deleted tables (is_deleted = false or null)
+                // Get all tables where user is owner (active tables only)
+                // Persistent Club Model: Tables remain visible after finishing games
                 const { data: ownedTables, error: ownedError } = await supabase
                     .from('tables')
                     .select('*')
                     .eq('owner_id', currentUser.id)
-                    .eq('is_active', true)
-                    .or('is_deleted.is.null,is_deleted.eq.false');
+                    .eq('is_active', true);
 
-                if (ownedError) throw ownedError;
+                if (ownedError) {
+                    console.error('Error loading owned tables:', ownedError);
+                    throw ownedError;
+                }
 
+                // Get tables where user is a player
                 const { data: playerTables, error: playerError } = await supabase
                     .from('table_players')
                     .select('table_id, tables(*)')
                     .eq('user_id', currentUser.id);
 
-                if (playerError) throw playerError;
+                if (playerError) {
+                    console.error('Error loading player tables:', playerError);
+                    throw playerError;
+                }
 
                 // Combine and deduplicate, filtering out deleted tables
                 const tableMap = new Map();
+                
+                // Add owned tables (only if not deleted)
                 ownedTables?.forEach(t => {
-                    // Only add if not deleted
-                    if (!t.is_deleted) {
+                    // Only add if not deleted (null or false means not deleted)
+                    if (t && (t.is_deleted === false || t.is_deleted === null || t.is_deleted === undefined)) {
                         tableMap.set(t.id, t);
                     }
                 });
+                
+                // Add tables where user is a player (only if active and not deleted)
                 playerTables?.forEach(tp => {
-                    if (tp.tables && tp.tables.is_active && !tp.tables.is_deleted) {
+                    if (tp.tables && 
+                        tp.tables.is_active && 
+                        (tp.tables.is_deleted === false || tp.tables.is_deleted === null || tp.tables.is_deleted === undefined)) {
                         tableMap.set(tp.tables.id, tp.tables);
                     }
                 });
@@ -2433,11 +2378,10 @@
                 const activeTables = Array.from(tableMap.values());
 
                 container.innerHTML = '';
-                
-                if (activeTables.length === 0) {
-                    container.innerHTML = `<div style="text-align:center; color:#666;">${t('noActiveTables')}</div>`;
-                    return;
-                }
+            if (activeTables.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:#666;">${t('noActiveTables')}</div>`;
+                return;
+            }
 
                 // Get player counts
                 for (const table of activeTables) {
@@ -2446,21 +2390,21 @@
                         .select('*', { count: 'exact', head: true })
                         .eq('table_id', table.id);
                     table.playerCount = count || 0;
-                }
+            }
 
-                activeTables.forEach(table => {
-                    const div = document.createElement('div');
-                    div.className = 'card';
-                    div.style.cursor = 'pointer';
-                    div.innerHTML = `
-                        <div class="card-title">${table.name}</div>
-                        <div style="color:#888;">${t('entry')}: ${table.buy_in}₪ | ${table.playerCount || 0} ${currentLanguage === 'he' ? 'שחקנים' : 'players'}</div>
-                    `;
-                    div.onclick = () => openTable(table.id);
-                    container.appendChild(div);
-                });
+            activeTables.forEach(table => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.style.cursor = 'pointer';
+                div.innerHTML = `
+                    <div class="card-title">${table.name}</div>
+                    <div style="color:#888;">${t('entry')}: ${table.buy_in}₪ | ${table.playerCount || 0} ${currentLanguage === 'he' ? 'שחקנים' : 'players'}</div>
+                `;
+                div.onclick = () => openTable(table.id);
+                container.appendChild(div);
+            });
             } catch (error) {
-                container.innerHTML = `<div style="text-align:center; color:var(--red);">${t('errorLoadingTables')}</div>`;
+                container.innerHTML = '<div style="text-align:center; color:var(--red);">שגיאה בטעינת שולחנות</div>';
                 console.error('Error loading tables:', error);
             }
         }
@@ -2636,12 +2580,21 @@
             list.innerHTML = '';
 
                 if (players && players.length > 0) {
-                    players.forEach(p => {
+                    // Sort players by rebuys (descending) - highest buy-ins first
+                    const sortedPlayers = [...players].sort((a, b) => {
+                        const rebuysA = a.rebuys || 1;
+                        const rebuysB = b.rebuys || 1;
+                        return rebuysB - rebuysA; // Descending order
+                    });
+                    
+                    sortedPlayers.forEach(p => {
                         const invested = (p.rebuys || 1) * table.buy_in;
                 pot += invested;
                 
                 const div = document.createElement('div');
                 div.className = 'player-row';
+                div.setAttribute('data-player-id', p.id);
+                div.setAttribute('data-rebuys', p.rebuys || 1);
                         const playerName = p.profiles?.username || t('player');
                 div.innerHTML = `
                     <div>
@@ -2650,14 +2603,14 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                                 <button class="rebuy-btn" onclick="removeRebuy('${p.id}')" ${(p.rebuys || 1) <= 1 ? 'disabled' : ''}>-</button>
-                                <span style="font-size:0.9rem;">${p.rebuys || 1}</span>
+                                <span class="rebuy-count" style="font-size:0.9rem;">${p.rebuys || 1}</span>
                                 <button class="rebuy-btn" onclick="addRebuy('${p.id}')">+</button>
                     </div>
                 `;
                 list.appendChild(div);
             });
                 } else {
-                    list.innerHTML = `<div style="text-align:center; color:#666; padding:10px;">${t('noPlayersYet')}</div>`;
+                    list.innerHTML = `<div style="text-align:center; color:#666; padding:10px;">${currentLanguage === 'he' ? 'אין שחקנים עדיין' : 'No players yet'}</div>`;
                 }
 
                 const potElement = document.getElementById('activePot');
@@ -2666,7 +2619,7 @@
                 }
             } catch (error) {
                 console.error('Error rendering table:', error);
-                const errorMsg = error.message || t('errorLoadingTable');
+                const errorMsg = error.message || 'שגיאה בטעינת השולחן';
                 alert(errorMsg);
                 // Go back to lobby on error
                 showLobby();
@@ -2718,7 +2671,7 @@
                 // Add game log
                 await addGameLog(
                     'player_added',
-                    `${name} ${t('playerAdded')}`
+                    `${name} הצטרף לשולחן`
                 );
 
             document.getElementById('newPlayerName').value = '';
@@ -2768,7 +2721,7 @@
                 if (error) throw error;
 
                 if (!logs || logs.length === 0) {
-                    logsList.innerHTML = `<div style="text-align:center; color:#666; padding:10px;">${t('noActivityYet')}</div>`;
+                    logsList.innerHTML = `<div style="text-align:center; color:#666; padding:10px;">${currentLanguage === 'he' ? 'אין פעילות עדיין' : 'No activity yet'}</div>`;
                     return;
                 }
 
@@ -2785,7 +2738,7 @@
                 });
             } catch (error) {
                 console.error('Error rendering game logs:', error);
-                    logsList.innerHTML = `<div style="text-align:center; color:var(--red); padding:10px;">${t('errorLoadingLogs')}</div>`;
+                logsList.innerHTML = '<div style="text-align:center; color:var(--red); padding:10px;">שגיאה בטעינת לוגים</div>';
             }
         }
 
@@ -2840,16 +2793,17 @@
                 // Add game log
                 await addGameLog(
                     'rebuy_add',
-                    `${playerName} ${t('added')} ${amountAdded}₪`,
+                    `${playerName} הוסיף ${amountAdded}₪`,
                     oldRebuys,
                     newRebuys
                 );
 
                 // Realtime will sync with other users
+                // Note: Debounced sort will trigger automatically via updateRebuyDisplay
             } catch (error) {
                 console.error('Error adding rebuy:', error);
-                // Re-render to get correct state
-            renderTable();
+                // Re-render to get correct state on error
+                renderTable();
             }
         }
 
@@ -2898,15 +2852,16 @@
                 // Add game log
                 await addGameLog(
                     'rebuy_remove',
-                    `${playerName} ${t('removed')} ${amountRemoved}₪`,
+                    `${playerName} הוריד ${amountRemoved}₪`,
                     oldRebuys,
                     newRebuys
                 );
 
                 // Realtime will sync with other users
+                // Note: Debounced sort will trigger automatically via updateRebuyDisplay
             } catch (error) {
                 console.error('Error removing rebuy:', error);
-                // Re-render to get correct state
+                // Re-render to get correct state on error
                 renderTable();
             }
         }
@@ -2924,16 +2879,16 @@
             
             playerRows.forEach(row => {
                 const buttons = row.querySelectorAll('button');
-                const span = row.querySelector('span');
+                const span = row.querySelector('span.rebuy-count');
                 
-                // Check if this is the right player (by checking onclick attribute)
-                const addBtn = Array.from(buttons).find(btn => 
-                    btn.onclick && btn.onclick.toString().includes(`'${playerId}'`)
-                );
-                
-                if (addBtn && span) {
+                // Check if this is the right player (by data attribute)
+                if (row.getAttribute('data-player-id') === playerId) {
                     foundPlayer = true;
-                    span.textContent = newRebuys;
+                    if (span) {
+                        span.textContent = newRebuys;
+                    }
+                    // Update data attribute for sorting
+                    row.setAttribute('data-rebuys', newRebuys);
                     
                     // Update disable state for minus button
                     const minusBtn = Array.from(buttons).find(btn => 
@@ -2949,7 +2904,7 @@
             if (foundPlayer && currentTableBuyIn > 0) {
                 let totalPot = 0;
                 playerRows.forEach(r => {
-                    const rebuySpan = r.querySelector('span');
+                    const rebuySpan = r.querySelector('span.rebuy-count');
                     if (rebuySpan) {
                         const rebuys = parseInt(rebuySpan.textContent) || 1;
                         totalPot += rebuys * currentTableBuyIn;
@@ -2961,6 +2916,129 @@
                     potElement.innerText = totalPot + '₪';
                 }
             }
+            
+            // Trigger debounced sort
+            triggerDebouncedSort();
+        }
+
+        // Debounced sort timer
+        let sortTimer = null;
+
+        // Debounced sort function - waits 3 seconds after last click
+        function triggerDebouncedSort() {
+            // Clear existing timer
+            if (sortTimer) {
+                clearTimeout(sortTimer);
+            }
+            
+            // Set new timer for 3 seconds
+            sortTimer = setTimeout(() => {
+                animateSortPlayers();
+            }, 3000);
+        }
+
+        // Animated sort function - smoothly reorders players by rebuys
+        function animateSortPlayers() {
+            const list = document.getElementById('activePlayersList');
+            if (!list) return;
+            
+            const playerRows = Array.from(list.querySelectorAll('.player-row'));
+            if (playerRows.length <= 1) return; // No need to sort if 0 or 1 player
+            
+            // Get current positions and rebuys
+            const players = playerRows.map(row => ({
+                element: row,
+                playerId: row.getAttribute('data-player-id'),
+                rebuys: parseInt(row.getAttribute('data-rebuys')) || 1
+            }));
+            
+            // Store original positions relative to list
+            const listRect = list.getBoundingClientRect();
+            const originalPositions = new Map();
+            players.forEach((player) => {
+                const rect = player.element.getBoundingClientRect();
+                originalPositions.set(player.playerId, {
+                    top: rect.top - listRect.top,
+                    element: player.element
+                });
+            });
+            
+            // Sort by rebuys descending
+            const sortedPlayers = [...players].sort((a, b) => b.rebuys - a.rebuys);
+            
+            // Check if order actually changed
+            let orderChanged = false;
+            for (let i = 0; i < players.length; i++) {
+                if (players[i].playerId !== sortedPlayers[i].playerId) {
+                    orderChanged = true;
+                    break;
+                }
+            }
+            
+            if (!orderChanged) {
+                return; // No need to animate if order is already correct
+            }
+            
+            // FLIP animation technique: First, Last, Invert, Play
+            // 1. FIRST: Record initial positions
+            const firstPositions = new Map();
+            players.forEach((player) => {
+                const rect = player.element.getBoundingClientRect();
+                firstPositions.set(player.playerId, {
+                    top: rect.top - listRect.top + list.scrollTop,
+                    left: rect.left - listRect.left,
+                    width: rect.width
+                });
+            });
+            
+            // 2. LAST: Reorder DOM and get final positions
+            sortedPlayers.forEach((player) => {
+                list.appendChild(player.element);
+            });
+            
+            // Force reflow
+            void list.offsetHeight;
+            
+            const lastPositions = new Map();
+            const newListRect = list.getBoundingClientRect();
+            sortedPlayers.forEach((player) => {
+                const rect = player.element.getBoundingClientRect();
+                lastPositions.set(player.playerId, {
+                    top: rect.top - newListRect.top + list.scrollTop,
+                    left: rect.left - newListRect.left
+                });
+            });
+            
+            // 3. INVERT: Set transform to create illusion of no movement
+            sortedPlayers.forEach((player) => {
+                const first = firstPositions.get(player.playerId);
+                const last = lastPositions.get(player.playerId);
+                
+                if (first && last) {
+                    const deltaY = first.top - last.top;
+                    player.element.style.transition = 'none';
+                    player.element.style.transform = `translateY(${deltaY}px)`;
+                    player.element.style.opacity = '0.8';
+                }
+            });
+            
+            // 4. PLAY: Animate to final positions
+            requestAnimationFrame(() => {
+                sortedPlayers.forEach((player) => {
+                    player.element.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out';
+                    player.element.style.transform = 'translateY(0)';
+                    player.element.style.opacity = '1';
+                });
+            });
+            
+            // Clean up after animation
+            setTimeout(() => {
+                sortedPlayers.forEach((player) => {
+                    player.element.style.transform = '';
+                    player.element.style.opacity = '';
+                    player.element.style.transition = '';
+                });
+            }, 500);
         }
 
         // --- HALL OF FAME (Table-specific stats) ---
@@ -3022,30 +3100,30 @@
                 if (results && results.length > 0) {
                     console.log(`Found ${results.length} game results`);
 
-                results.forEach(result => {
-                    const username = result.profiles?.username || 'שחקן';
-                    if (!tableStats[result.user_id]) {
-                        tableStats[result.user_id] = {
-                            username: username,
-                            gamesPlayed: 0,
-                            net: 0
-                        };
-                    }
-                    tableStats[result.user_id].gamesPlayed++;
-                    tableStats[result.user_id].net += result.net_profit || 0;
+                    results.forEach(result => {
+                        const username = result.profiles?.username || 'שחקן';
+                        if (!tableStats[result.user_id]) {
+                            tableStats[result.user_id] = {
+                                username: username,
+                                gamesPlayed: 0,
+                                net: 0
+                            };
+                        }
+                        tableStats[result.user_id].gamesPlayed++;
+                        tableStats[result.user_id].net += result.net_profit || 0;
 
-                    // Track single-game records
-                    if (result.net_profit > 0) {
-                        if (!maxWin || result.net_profit > maxWin.net_profit) {
-                            maxWin = { username: username, net_profit: result.net_profit };
+                        // Track single-game records
+                        if (result.net_profit > 0) {
+                            if (!maxWin || result.net_profit > maxWin.net_profit) {
+                                maxWin = { username: username, net_profit: result.net_profit };
+                            }
                         }
-                    }
-                    if (result.net_profit < 0) {
-                        if (!maxLoss || result.net_profit < maxLoss.net_profit) {
-                            maxLoss = { username: username, net_profit: result.net_profit };
+                        if (result.net_profit < 0) {
+                            if (!maxLoss || result.net_profit < maxLoss.net_profit) {
+                                maxLoss = { username: username, net_profit: result.net_profit };
+                            }
                         }
-                    }
-                });
+                    });
                 } else {
                     console.log('No game results found for this table');
                 }
@@ -3059,7 +3137,7 @@
                     document.getElementById('hofShark').innerHTML = 
                         `<span style="color:var(--green);">${maxWin.username}</span>: +${Math.round(maxWin.net_profit)}₪`;
                 } else {
-                    document.getElementById('hofShark').innerText = t('noData');
+                    document.getElementById('hofShark').innerText = 'אין נתונים';
                 }
 
                 // Display The Loser (🐑)
@@ -3067,7 +3145,7 @@
                     document.getElementById('hofLoser').innerHTML = 
                         `<span style="color:var(--red);">${maxLoss.username}</span>: ${Math.round(maxLoss.net_profit)}₪`;
                 } else {
-                    document.getElementById('hofLoser').innerText = t('noData');
+                    document.getElementById('hofLoser').innerText = 'אין נתונים';
                 }
 
                 // Display League Table
@@ -3077,19 +3155,19 @@
                 const sortedPlayers = Object.values(tableStats).sort((a,b) => b.net - a.net);
                 
                 if (sortedPlayers.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#666;">${t('noPlayersInTable')}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#666;">${currentLanguage === 'he' ? 'אין שחקנים בשולחן' : 'No players in table'}</td></tr>`;
                 } else {
-                sortedPlayers.forEach(p => {
-                    const colorClass = p.net >= 0 ? 'profit' : 'loss';
-                    const sign = p.net > 0 ? '+' : '';
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td><b>${p.username}</b></td>
-                        <td style="text-align:center;">${p.gamesPlayed}</td>
-                        <td class="${colorClass}" style="direction:ltr; text-align:right;">${sign}${Math.round(p.net)}₪</td>
-                    `;
-                    tbody.appendChild(row);
-                });
+                    sortedPlayers.forEach(p => {
+                        const colorClass = p.net >= 0 ? 'profit' : 'loss';
+                        const sign = p.net > 0 ? '+' : '';
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><b>${p.username}</b></td>
+                            <td style="text-align:center;">${p.gamesPlayed}</td>
+                            <td class="${colorClass}" style="direction:ltr; text-align:right;">${sign}${Math.round(p.net)}₪</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
                 }
                 
                 console.log('Hall of Fame rendered successfully');
@@ -3202,7 +3280,7 @@
                                 .eq('id', inp.dataset.id);
                         }
                     }
-                if(totalAmount === 0) return alert(t('noAmountsEntered'));
+                if(totalAmount === 0) return alert('לא הוזנו סכומים');
             }
 
             // Credit the payer
@@ -3218,9 +3296,9 @@
                     .eq('id', payerId);
                 
             closeModal('modal-food');
-            alert(t('savedPayerCredited'));
+            alert('נשמר! המשלם זוכה, הסועדים חויבו.');
             } catch (error) {
-                alert(t('errorSavingExpense') + ': ' + error.message);
+                alert('שגיאה בשמירת הוצאה: ' + error.message);
             }
         }
 
@@ -3262,7 +3340,7 @@
                     typeof activeTableId !== 'string' ||
                     !UUID_REGEX.test(activeTableId)) {
                     console.error('❌ Invalid active table ID in calcResult:', activeTableId);
-                    alert(t('invalidTable'));
+                    alert('שגיאה: שולחן לא תקין. נא לחזור ללובי ולפתוח שולחן מחדש.');
                     return;
                 }
 
@@ -3427,7 +3505,7 @@
             document.getElementById('btnFinishGame').classList.remove('hidden');
             } catch (error) {
                 console.error('Error calculating results:', error);
-                alert(t('errorCalculating'));
+                alert('שגיאה בחישוב תוצאות');
             }
         }
 
@@ -3438,7 +3516,7 @@
                 await navigator.clipboard.writeText(phoneNumber);
                 
                 // Show toast notification
-                showToast(t('numberCopied'));
+                showToast('מספר הועתק! פותח Bit...');
                 
                 // Try to open Bit app (deep link)
                 const bitUrl = `bit://pay?phone=${phoneNumber}`;
@@ -3455,7 +3533,7 @@
                 console.error('Error with Bit payment:', error);
                 // Fallback: just open Bit website
                 window.open('https://www.bitpay.co.il/app/', '_blank');
-                showToast(t('openingBit'));
+                showToast('פתיחת Bit...');
             }
         }
 
@@ -3474,7 +3552,7 @@
                     typeof activeTableId !== 'string' ||
                     !UUID_REGEX.test(activeTableId)) {
                     console.error('❌ Invalid active table ID in saveAndExit:', activeTableId);
-                    alert(t('invalidTable'));
+                    alert('שגיאה: שולחן לא תקין. נא לחזור ללובי ולפתוח שולחן מחדש.');
                     return;
                 }
 
@@ -3613,7 +3691,7 @@
 
                     if (finalValidResults.length === 0) {
                         console.error('❌ No valid results to insert after final check!');
-                        alert(t('noValidPlayers'));
+                        alert('שגיאה: אין שחקנים תקינים לשמירה. וודא שכל השחקנים רשומים במערכת.');
                         return;
                     }
 
@@ -3640,14 +3718,14 @@
 
                     if (resultsError) {
                         console.error('❌ Error inserting game results:', resultsError);
-                        alert(t('errorSavingHistory') + ': ' + resultsError.message + '\n' + t('dataSavedButStatsNotUpdated'));
+                        alert('שגיאה בשמירת היסטוריה: ' + resultsError.message + '\nהנתונים בשולחן נשמרו, אבל הסטטיסטיקות לא עודכנו.');
                     } else {
                         console.log('✅ Game results inserted successfully:', insertedData);
-                        alert(t('dataSavedSuccess'));
+                        alert('הנתונים נשמרו בהצלחה! הפרופילים עודכנו.');
                     }
                 } else {
                     console.warn('⚠️ No valid users to save to history');
-                    alert(t('dataSavedTable'));
+                    alert('הנתונים נשמרו בשולחן. (לא היו משתמשים רשומים תקינים לעדכון פרופיל)');
                 }
 
                 console.log('Step 2 complete');
@@ -3662,30 +3740,85 @@
                     delete realtimeChannels[activeTableId];
                 }
                 
-                // Mark table as inactive (closed) when saving game
-                console.log('Step 3: Marking table as inactive...');
-                const { error: updateTableError } = await supabase
-                    .from('tables')
-                    .update({ is_active: false })
-                    .eq('id', activeTableId);
+                // Step 3: Reset session data for next round (Persistent Club Model)
+                // Reset only session-specific data, preserve Hall of Fame (game_results)
+                console.log('Step 3: Resetting session data for next round...');
+                const { data: allPlayers, error: fetchPlayersError } = await supabase
+                    .from('table_players')
+                    .select('id')
+                    .eq('table_id', activeTableId);
                 
-                if (updateTableError) {
-                    console.error('❌ Error marking table as inactive:', updateTableError);
-                    // Non-critical, continue anyway
+                if (fetchPlayersError) {
+                    console.error('❌ Error fetching players for reset:', fetchPlayersError);
+                } else if (allPlayers && allPlayers.length > 0) {
+                    // Reset all session-specific fields to defaults for next session
+                    const resetUpdates = allPlayers.map(p => ({
+                        id: p.id,
+                        cash_out: 0,
+                        net_profit: 0,
+                        rebuys: 1,
+                        food_credit: 0,
+                        food_debt: 0
+                    }));
+                    
+                    console.log(`Resetting ${resetUpdates.length} players for next session...`);
+                    
+                    // Perform resets in parallel
+                    const resetResults = await Promise.all(resetUpdates.map(u => 
+                        supabase.from('table_players')
+                            .update({ 
+                                cash_out: u.cash_out, 
+                                net_profit: u.net_profit,
+                                rebuys: u.rebuys,
+                                food_credit: u.food_credit,
+                                food_debt: u.food_debt
+                            })
+                            .eq('id', u.id)
+                    ));
+                    
+                    const resetErrors = resetResults.filter(r => r.error);
+                    if (resetErrors.length > 0) {
+                        console.error('⚠️ Some errors resetting session data:', resetErrors);
+                        // Non-critical, continue anyway
+                    } else {
+                        console.log('✅ Session data reset successfully - table ready for next round');
+                    }
                 } else {
-                    console.log('✅ Table marked as inactive');
+                    console.log('ℹ️ No players to reset');
                 }
                 
+                // IMPORTANT: Keep table active (is_active: true) so it remains visible in lobby
+                // This implements the "Persistent Club" model - table stays accessible
+                // Hall of Fame data is preserved in game_results table
+                console.log('Step 4: Ensuring table remains active (Persistent Club Model)...');
+                const { data: tableUpdateData, error: ensureActiveError } = await supabase
+                    .from('tables')
+                    .update({ is_active: true })
+                    .eq('id', activeTableId)
+                    .select();
+                
+                if (ensureActiveError) {
+                    console.error('❌ CRITICAL: Could not ensure table is active:', ensureActiveError);
+                    alert('שגיאה: לא ניתן לשמור את השולחן פעיל. השולחן עלול להיעלם מהלובי.');
+                } else {
+                    console.log('✅ Table confirmed active - will remain visible in lobby with all Hall of Fame stats');
+                    console.log('Updated table data:', tableUpdateData);
+                }
+
                 // Exit to Lobby
                 console.log('Exiting to lobby...');
                 clearTableFromURL();
                 activeTableId = null;
-            showLobby();
+                
+                // Small delay to ensure database update is complete before showing lobby
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                showLobby();
                 
             } catch (error) {
                 console.error('=== ERROR IN SAVE AND EXIT ===');
                 console.error(error);
-                alert(t('errorCriticalSaving') + ': ' + error.message);
+                alert('שגיאה קריטית בשמירה: ' + error.message);
             }
         }
 

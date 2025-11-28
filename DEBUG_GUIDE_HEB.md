@@ -299,3 +299,5 @@ SELECT * FROM pg_trigger WHERE tgname = 'on_game_result_insert';
 אם אתה נתקל בבעיה שלא מופיעה כאן, שמור את כל הלוגים והמידע וצור issue חדש.
 
 
+
+

@@ -21,3 +21,5 @@ WHERE table_name = 'tables' AND column_name = 'is_deleted';
 SELECT '✅ is_deleted column added successfully!' as status;
 
 
+
+

@@ -4,8 +4,8 @@
   "description": "Royal Cash - Poker Management App",
   "main": "index.html",
   "scripts": {
-    "dev": "npx serve . -p 3000",
-    "start": "npx serve . -p 3000",
+    "dev": "npx serve .",
+    "start": "npx serve .",
     "build": "echo 'No build step needed - static HTML'"
   },
   "keywords": [
