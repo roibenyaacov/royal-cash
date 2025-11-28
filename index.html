@@ -49,6 +49,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+        }
+        
+        /* Center logo in header */
+        .app-logo {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
         .app-logo {
@@ -443,23 +451,34 @@
 <body>
 
     <header class="app-header">
-        <button id="backBtn" class="back-btn" onclick="goBack()">➔</button>
-        <img src="logo.png" class="app-logo" alt="Royal Cash">
-        <div class="user-menu" id="userMenu" style="display:none;">
-            <!-- Language Selector -->
-            <select id="languageSelector" onchange="changeLanguage(this.value)" style="background: var(--card-bg); color: var(--gold); border: 1px solid var(--gold); padding: 5px 10px; border-radius: 5px; margin-left: 10px; cursor: pointer;">
-                <option value="he">עברית</option>
-                <option value="en">English</option>
-            </select>
-            <span class="user-name" id="userName"></span>
-            <button class="logout-btn" id="btnLogout" onclick="handleLogout()">התנתק</button>
+        <!-- Left side: Back button and Language toggle -->
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+            <button id="backBtn" class="back-btn" onclick="goBack()">➔</button>
+            <!-- Language Toggle Button - Left side -->
+            <div style="position: relative; margin-left: 5px;">
+                <button id="languageToggleBtn" onclick="toggleAuthLanguageMenu()" style="background: transparent; border: none; font-size: 1.3rem; cursor: pointer; padding: 5px 8px; transition: transform 0.2s, filter 0.2s; display: flex; align-items: center; justify-content: center; filter: brightness(0) saturate(100%) invert(77%) sepia(50%) saturate(2000%) hue-rotate(5deg) brightness(0.9) contrast(1.1);" onmouseover="this.style.transform='scale(1.15)'; this.style.filter='brightness(0) saturate(100%) invert(77%) sepia(50%) saturate(2000%) hue-rotate(5deg) brightness(1.1) contrast(1.1)'" onmouseout="this.style.transform='scale(1)'; this.style.filter='brightness(0) saturate(100%) invert(77%) sepia(50%) saturate(2000%) hue-rotate(5deg) brightness(0.9) contrast(1.1)'" title="Change Language">
+                    🌐
+                </button>
+                <!-- Language Menu Dropdown - Compact size -->
+                <div id="authLanguageMenu" class="language-menu" style="display: none; position: absolute; top: 40px; left: 0; background: var(--card-bg); border: 1px solid var(--gold); border-radius: 6px; overflow: hidden; z-index: 1000; min-width: 80px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    <div onclick="selectAuthLanguage('he')" style="padding: 6px 12px; cursor: pointer; color: #fff; font-size: 0.85rem; transition: background 0.2s;" onmouseover="this.style.background='var(--gold)'; this.style.color='#000'" onmouseout="this.style.background=''; this.style.color='#fff'">עברית</div>
+                    <div onclick="selectAuthLanguage('en')" style="padding: 6px 12px; cursor: pointer; color: #fff; font-size: 0.85rem; border-top: 1px solid #444; transition: background 0.2s;" onmouseover="this.style.background='var(--gold)'; this.style.color='#000'" onmouseout="this.style.background=''; this.style.color='#fff'">English</div>
+                </div>
+            </div>
         </div>
-        <!-- Language Selector for Auth Screen - Shown only in auth view -->
-        <div id="authLanguageSelectorContainer" style="display: none; align-items: center;">
-            <select id="authLanguageSelector" onchange="changeLanguage(this.value)" style="background: var(--card-bg); color: var(--gold); border: 1px solid var(--gold); padding: 5px 10px; border-radius: 5px; cursor: pointer;">
-                <option value="he">עברית</option>
-                <option value="en">English</option>
-            </select>
+        <!-- Center: Logo -->
+        <img src="logo.png" class="app-logo" alt="Royal Cash">
+        <!-- Right side: User menu -->
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;">
+            <div class="user-menu" id="userMenu" style="display:none;">
+                <!-- Language Selector -->
+                <select id="languageSelector" onchange="changeLanguage(this.value)" style="background: var(--card-bg); color: var(--gold); border: 1px solid var(--gold); padding: 5px 10px; border-radius: 5px; margin-left: 10px; cursor: pointer;">
+                    <option value="he">עברית</option>
+                    <option value="en">English</option>
+                </select>
+                <span class="user-name" id="userName"></span>
+                <button class="logout-btn" id="btnLogout" onclick="handleLogout()">התנתק</button>
+            </div>
         </div>
     </header>
 
@@ -1738,6 +1757,32 @@
             document.getElementById('signupError').classList.add('hidden');
         }
 
+        // Language menu functions
+        function toggleAuthLanguageMenu() {
+            const menu = document.getElementById('authLanguageMenu');
+            if (menu) {
+                menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        function selectAuthLanguage(lang) {
+            changeLanguage(lang);
+            const menu = document.getElementById('authLanguageMenu');
+            if (menu) {
+                menu.style.display = 'none';
+            }
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('authLanguageMenu');
+            const button = event.target.closest('#languageToggleBtn');
+            const menuItem = event.target.closest('#authLanguageMenu');
+            if (menu && menu.style.display === 'block' && !button && !menuItem) {
+                menu.style.display = 'none';
+            }
+        });
+
         // --- JOIN FLOW ---
         function handleJoinFlow() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -1978,9 +2023,7 @@
             document.getElementById('view-auth').classList.remove('hidden');
             document.getElementById('backBtn').style.visibility = 'hidden';
             document.getElementById('userMenu').style.display = 'none';
-            // Show auth language selector in header
-            const authLangSelector = document.getElementById('authLanguageSelectorContainer');
-            if (authLangSelector) authLangSelector.style.display = 'flex';
+            // Language toggle button is always visible in header
             clearTableFromURL();
         }
 
@@ -1994,9 +2037,7 @@
             hideAllViews();
             document.getElementById('view-lobby').classList.remove('hidden');
             document.getElementById('backBtn').style.visibility = 'hidden';
-            // Hide auth language selector, show user menu
-            const authLangSelector = document.getElementById('authLanguageSelectorContainer');
-            if (authLangSelector) authLangSelector.style.display = 'none';
+            // Show user menu, language toggle button is always visible in header
             const userMenu = document.getElementById('userMenu');
             if (userMenu) userMenu.style.display = 'flex';
             renderLobby();
