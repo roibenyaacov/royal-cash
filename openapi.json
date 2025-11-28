@@ -1,0 +1,4283 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Bit Developer Portal",
+    "version": "1.0",
+    "contact": {
+      "name": "Salt Edge"
+    },
+    "description": "# Get Started\n\n## Definitions\n\nTerm | Condition\n---------|----------\n**API** | Application Programming interface. A set of definitions, protocols, and tools that can be used to create applications, interact with other applications, and exchange data.\n**ASPSP** | Account Servicing Payment Service Provider. Payment service provider providing and maintaining a payment account for a payer.\n**AISP** | Account Information Service Provider. Provides account information services as an online service with consolidated information on one or more payment accounts held by a payment service user with one or more payment service provider(s).\n**eIDAS** | Electronic Identification, Authentication and trust Services. A set of standards for electronic identification and trust services for electronic transactions in the European Single Market.\n**Provider** | Represents the ASPSP. A bank or financial institution that offer payment accounts with online access.\n**PSD2** | The Second Revised Payment Services Directive. The directive of the European Parliament and of the Council of the European Union which requires ﬁnancial institutions within the European Economic Area to provide access to their customers' accounts (XS2A), to Third Party Providers to provide account information and payment initiation services.\n**PSU** | Payment Service User. Natural or legal person making use of a payment service as a payee, payer or both.\n**PISP** | Payment Initiation Service Provider. Provides an online service to initiate a payment order at the request of the payment service user with respect to a payment account held at another payment service provider.\n**PIISP** | Payment Issuer Instrument Service Provider. Provides information about the funds availability of payment transactions based on the payment cards. The related services supplied can be identified as CAF/FCS (Confirmation on the Availability of Funds Service).\n**QSEAL** | Qualified Electronic Seal Certificate is a qualified digital certificate under the trust services defined in the eIDAS Regulation.\n**QWAC** | Qualified Certificate for Website Authentication - Used for two purposes: the verification of the parties, and their secure communications using Transport Layer Security Encryption.\n**SCA** | Strong Customer Authentication. Authentication based on the use of two or more elements designed in such a way as to protect the confidentiality of the authentication data.\n**TPP** | An entity authorised to access accounts on behalf of customers but that does not operate those accounts themselves. TPPs include PISPs, AISPs, and PIISPs.\n**XS2A** | Access to Account. The provision of secure access to accounts operated by ASPSPs using APIs.\n\n### Scopes Definition\n\nType | Description\n---------|----------\n**accounts** | grants TPP access to Customer's accounts data\n**transactions** | grants TPP access to transactions which belong to Customer's account\n**balances** | grants TPP access to Customer's balances data\n\n## Registration Endpoint\n\nEndpoint | Verb | Purpose\n---------|----------|----------\n/api/v1/tpps | **POST** | Used for registration in Salt Edge PSD2 Compliance Dashboard. After registration, you will receive a letter of confirmation on your representative email.\n\n## API Endpoints\n\nEndpoint | Verb | Purpose\n---------|----------|----------\n/api/v1/oauth/tokens | **POST** | Generate access and refresh tokens.\n/api/v1/consents | **POST** | This method creates a consent resource, defining access rights to dedicated accounts of a given `PSU-ID`. These accounts are addressed explicitly in the method as parameters as a core function.\n/api/v1/consents/{consent_id} | **GET** | Returns the content of an account information consent object. This returns the data for the TPP especially in cases, where the consent was directly managed between ASPSP and PSU e.g. in a redirect SCA Approach.\n/api/v1/consents/{consent_id}/status\t| **GET** | Read the status of an account information consent resource.\n/api/v1/consents/{consent_id} | **DELETE** | This method deletes a consent.\n/api/v1/accounts | **GET** | \tRead the identifiers of the available payment account together with booking balance information, depending on the consent granted. It is assumed that a consent of the PSU to this access is already given and stored on the ASPSP system. The addressed list of accounts depends on the PSU ID and the stored consent addressed by consentId. Returns all identifiers of the accounts, to which an account access has been granted to through the `/consents` endpoint by the PSU. In addition, relevant information about the accounts and hyperlinks to corresponding account information resources are provided if a related consent has been already granted. **Remark**: Note that the `/consents` endpoint optionally offers to grant an access on all available payment accounts of a PSU. In this case, this endpoint will deliver the information about all available payment accounts of the PSU at this ASPSP.\n/api/v1/refresh/consents/{consent_id} | **PUT** | This endpoint is responsible for starting the process of refreshing account information data on Bit PSD2 side. Due to asynchronous nature of this action, TPP has to poll the status of this process untill receive the status failed or finished\n/api/v1/refresh/consents/{consent_id} | **GET** | This endpoint is responsible for returning the current status of fetching account information process.\n/api/v1/accounts/{account_id} | **GET** | Reads details about an account, with balances where required. It is assumed that a consent of the PSU to this access is already given and stored on the ASPSP system. The addressed details of this account depends on the stored consent addressed by `consentId`.\n/api/v1/accounts/{account_id}/transactions\t| **GET** | Read transaction reports or transaction lists of a given account addressed by `account_id`, depending on the steering parameter `bookingStatus` together with balances.\n/api/v1/accounts/{account_id}/transactions/{transaction_id}\t| **GET** | Reads transaction data from a given account and transaction addressed by `account_id` and `transaction_id`.\n/api/v1/accounts/{account_id}/balances\t| **GET** | Reads account data from a given account addressed by `account_id`.\n\n## All Errors\n\nDuring any request or flow originating either on TPP or Salt Edge PSD2 Compliance side, a number of errors may appear. In order to standardize errors while still giving some degree of freedom in explaining an error callback, parameters should include both `error_text` and `error_code`. Error message serves the purpose of communicating the issue to the Customer, whereas error class should be used by TPPs in order to be able to handle various scenarios.\n\nContents of the error_code are entirely up to the Provider, they may even be localized. However, values sent within `error_text` parameter should be from the standardized list. This list may and will be extended over time.\n\nClass | Code | Description\n---------|----------|----------\n**FormatError** | 400 | Invalid input. More info in `error_message`.\n**DigestInvalid** | 400 | Header 'Digest' invalid.\n**SignatureInvalid** | 400 | Given signature is invalid.\n**SignatureMissing** | 400 | This request cannot be performed without Signature header.\n**SignatureMalformed** | 400 | Given signature is malformed.\n**CertificateInvalid** | 401 | Given certificate is invalid.\n**ConsentStatusForbidden** | 403 | Consent is not valid.\n**AccessDenied** | 403 | The resource owner or authorization server denied the request.\n**TppNotFound** | 404 | Requested TPP cannot be found.\n**ConsentNotFound** | 404 | Requested consent cannot be found.\n**AccountNotFound** | 404 | Requested account cannot be found.\n**TransactionNotFound** | 404 | Requested transaction cannot be found.\n**RouteNotFound** | 404 | Requested url does not exist.\n\n## Useful Links and Contact Information\n\nYou can find below the following useful links and assistance channel:\n\n1. You can find the full documentation for the [BOI NextGenPSD2 Implementation Guidelines](https://www.boi.org.il/roles/supervisionregulation/bank-sup/open-banking/) on the official BOI website.\n\n2. In case you have any questions on integration with this dedicated interface please contact us at:\ncompliance@saltedge.com or use the Help Desk from TPP Dashboard.\n\n## Account Information Flow\n\n1. Request consent from the Bank BIT account's owner to share with you information on one or more of their accounts.\n2. **Customer Authentication and Customer consent approval**: Consent is created once the bank's customer authenticates himself on the Bank BIT login page and explicitly approves the consent sent by you to a dedicated screen.\nChanging the user's password during the customer consent process, is not applicable.\n**When the customer is authenticated and the consent is approved, you will receive an authorisation code, which must be immediately replaced with an Access Token.**\n3. **Retrieve account information**: You can retrieve the bank customer's account data as long as the consent is valid and has not expired, and by providing the valid Access Token.\n4. **Consent Renewal**. If the consent has expired or been revoked for any reason, your customer can give you a new consent.\n\n## Consent statuses\n\n|Description|Berlingroup Status|\n|---|---|\n|The consent data have been received and are technically correct.<br>The data is not authorised yet.|received|\n|The consent data have been rejected e.g. since no successful<br>authorisation has taken place.|rejected|\n|The consent is accepted and valid for GET account data calls<br>and others as specified in the consent object.|valid|\n|The consent expired.| expired |\n|The consent has been revoked by the PSU towards the ASPSP.| revokedByPsu |\n|The corresponding TPP has terminated the consent by<br>applying the DELETE method to the consent resource.| terminatedByTpp|\n|The consent has been suspended by the ASPSP, according<br>to requirements that are detailed in BoI's directive.| suspendedByASPSP |\n\n\n## Payment statuses\n\n|Description|Berlingroup Status|\n|---|---|\n|Payment initiation or individual transaction included in the payment<br>initiationis pending. Further checks and status update will be performed.|PDNG|\n|All preceding checks such as technical validation andcustomer profile<br>were successful and therefore the payment initiation has been accepted<br>for execution.|ACSP|\n|Settlement on the debtor’s account has been completed.|ACSC|\n|Payment initiation has been received by the receiving agent.|RCVD|\n|Payment initiation or individual transaction included in the payment initiation has been rejected.| RJCT |\n|Beneficiary did not respond. Ordered expired within 3 days payment<br>initiation hasbeen rejected.| EXPD |\n|Payment initiation has been cancelled before execution.| CANC |\n\n\n# Authorization Security\n\n## OAuth2 URLs\n\n\nURL | Description\n---------|----------\n `https://www.bitpay.co.il/app/open-banking` | Authorization URL\n `https://open-banking.bitpay.co.il/api/v1/oauth/token` | Token URL\n `https://open-banking.bitpay.co.il/api/v1/oauth/token` | Token Refresh URL\n\n> In accordance with the relevant RFCs, the token and token revocation URLs will only accept a content type of `application/x-www-form-urlencoded`. JSON content is not permitted and will return an error.\n\n## OAuth2 Scopes\n\nName | Description\n---------|----------\n `AIS:{consentId}` | Allows to consume the resources referenced to Consent with specified `Id`\n  `PIS:{paymentId}` | Allows to consume the resources referenced to Payment with specified `Id`\n\n## State and Security\n\nBefore we dive into the semantics of the different OAuth2 grants, we should stop and discuss security, specifically the use of the state parameter. Cross-site request forgery, or CSRF, and Clickjacking are security vulnerabilities that must be addressed by individuals implementing OAuth. This is typically accomplished using the state parameter. state is sent in the authorization request and returned back in the response and should be a value that binds the user's request to their authenticated state. For example, state could be a hash of the user's session cookie, or some other nonce that can be linked to the user's session.\n\nWhen a user begins an authorization flow on the client, a state is generated that is unique to that user's request. This value is stored somewhere only accessible to the client and the user, i.e. protected by the same-origin policy. When the user is redirected, the state parameter is returned. The client validates the request by checking that the state returned matches the stored value. If they match, it is a valid authorization request. If they do not match, it's possible that someone intercepted the request or otherwise falsely authorized themselves to another user's resources, and the request should be denied.\n\n## Authorization Code Grant\n\nThe authorization code grant is what most developers will recognize as \"standard OAuth2\" and involves retrieving an access code and exchanging it for a user's access token. It allows the authorization server to act as an intermediary between the client and the resource owner, so the resource owner's credentials are never shared directly with the client.\n\n## PKCE\n\nPKCE modifies the standard authorization code grant. Before starting the authorization code grant, a random string called `code_verifier` is generated using the characters: `[A-Z], [a-z], [0-9], \"-\", \".\", \"_\"` and `\"~\"`, with a minimum length of 43 characters and a maximum length of 128 characters. Additionally to the `code_verifier` a `code_challenge` is created. We supports `code_challenge_method` `S256` the code_challenge is the SHA256 Hash value of the code_verifier url safe base64 encoded (without trailing \"=\" compare to: [https://tools.ietf.org/html/rfc7636#appendix-A](https://tools.ietf.org/html/rfc7636#appendix-A))\n\n\n## Authorization URL Example\n\n```\nhttps://www.bitpay.co.il/app/open-banking?response_type=code&client_id=org-identifier-123456&scope=AIS:2345&state=15773059ghq9183habn&redirect_uri=https%3A%2F%2Ftpp.website&code_challenge=XEuwH6eFPlLDoVB7vL3KpC6T3WYaEGDyXGb7tpNJCZA&code_challenge_method=S256\n\n```\n\n`client_id` is TPP's organization identifier.`scope` is a scope specified in [OAuth2 Scopes](#section/Authorization-Security/OAuth2-Scopes). `redirect_uri` is whatever URL you registered when creating your application, url-encoded. `state` is the unique string mentioned in [State and Security](#section/Authorization-Security/State-and-Security). `code_challenge` and `code_challenge_method` described in [PKCE](#section/Authorization-Security/PKCE)\n\n## Redirect URL Example\n\n```\nhttps://tpp.website/?code=NhhvTDYsFcdgNLnnLijcl7Ku7bEEeee&state=15773059ghq9183habn\n```\n\n`code` is now exchanged for the user's access token by making a POST request to the [Token URL](#tag/OAuth2/operation/post-api-oauth-tokens)\n\n## Signature Headers\n\n#### Instruction to create BerlinGroup Signature\n\nTo register as a TPP, the first thing you must do is get a valid EIDAS certificate.<br>\nThe required headers for this call are:\n\n- `X-Request-ID`: [A Universally Unique IDentifier (UUID) URN Namespace](https://datatracker.ietf.org/doc/html/rfc4122)\n  - example: `79c851ce-f543-4c27-a8e4-f9aad20724ba`\n- `Digest`: Base64 request body encoded SHA256\n  - Example:\n\n  ```bash\n  > export BODY=\"{}\"\n  > echo -n $BODY | openssl sha256 -binary | base64\n  RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o=\n  # Digest value: \"SHA-256=RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o=\"\n  ```\n- `Date`: [Date/Time Format](https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.1.1)\n  - Example: `Fri, 04 Feb 2022 17:16:59 GMT`\n- `TPP-Signature-Certificate`: Base64 strict encoded certificate in PEM format.\n  - Example:\n\n  ```bash\n  > export PEM=\"-----BEGIN CERTIFICATE-----\\nMB0wFgIBADAAMAAwBB8AHwAwADAFMAADAQAwAAMBAA==\\n-----END CERTIFICATE-----\\n\"\n  > echo -n $PEM | base64\n  LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1CMHdGZ0lCQURBQU1BQXdCQjhBSHdBd0FEQUZNQUFEQVFBd0FBTUJBQT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K\n  ```\n\n- `Signature`: Is the signed value of the message, and has the following regexp structure:\n\n  ```bash\n  /keyId=\\\"SN=(?<serial>.+),CA=(?<ca>.+)\\\",algorithm=\\\"(?<algorithm>.+)\\\",headers=\\\"(?<headers>.+)\\\",signature=\\\"(?<signature>.+)\\\"/\n  ```\n\n  - `keyId` that must be formatted as `SN={serial},CA={issuer}`\n  - `algorithm` could be (`\"rsa-sha-256\"` or `\"rsa-sha-512\"`)\n  - `headers`.<br>Create a string to be using a set of request headers: `digest`, `x-request-id`, `psu-id`, `psu-corporate-id` and `tpp-redirect-uri` in this example, we will just use the mandatory ones: `x-request-id` and `digest`, the final result will be: `\"x-request-id digest\"`\n  - `signature`<br>Create a string to be signed built using a set of request headers: `digest`, `x-request-id`, `psu-id`, `psu-corporate-id` and `tpp-redirect-uri` in this example, we will just use the mandatory ones: `x-request-id` and`digest`, the final result will be: `\"digest x-request-id\"`.<br>Here the order of these fields in the signing string matters and they need to be on separate lines. The order has to be exactly as in `headers`.<br>You should generate a signature value that must be base-64 encoded:\n    ```bash\n    # // order as in 'headers' (\"x-request-id digest\")\n    > export SIGNING_STRING=\"x-request-id: 79c851ce-f543-4c27-a8e4-f9aad20724ba\\ndigest: SHA-256=RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o=\\n\"\n    > printf $SIGNING_STRING | openssl dgst -sha256 -sign certificate_private_key.pem | openssl base64 -A\n    XWyngnV7vT9ALgfBdTP5JYJumS3m5hxZa8ryx96XdJ3h6xGrrKMQg2u86qf8+YtVCZj/XpTq+POKOGFkdNQpxTrMeicP0pQKQ2S2ny/0DpFokC6QcXzyj25nazicIYmTqMBQKoNL9DvMtcWG4xTdxVsFLU51xhrqD0Bi4l4NmX73fq4J7VLjYDfiYCldaoSlu3K/p5QOOxzORGWDidRoOvpsELFleppu4Btt8CjPff6QM9oDRFmaOoxbnwBkFu0om7pLEmk5OUD711d9LGnFp65MaljEitpZfYbkNjSCJMsbyfRiYuSpwN34O7sZwzSiRYV9j72BN2C66tXxL0UZAg==\n    ```\n  - As result the signature value should be as:\n    ```json\n    \"Signature\": keyId=\"SN=B83852160,CA=FIRMA PROFESIONAL\",algorithm=\"rsa-sha-256\",headers=\"x-request-id digest\",signature=\"XWyngnV7vT9ALgfBdTP5JYJumS3m5hxZa8ryx96XdJ3h6xGrrKMQg2u86qf8+YtVCZj/XpTq+POKOGFkdNQpxTrMeicP0pQKQ2S2ny/0DpFokC6QcXzyj25nazicIYmTqMBQKoNL9DvMtcWG4xTdxVsFLU51xhrqD0Bi4l4NmX73fq4J7VLjYDfiYCldaoSlu3K/p5QOOxzORGWDidRoOvpsELFleppu4Btt8CjPff6QM9oDRFmaOoxbnwBkFu0om7pLEmk5OUD711d9LGnFp65MaljEitpZfYbkNjSCJMsbyfRiYuSpwN34O7sZwzSiRYV9j72BN2C66tXxL0UZAg==\"\n    ```\n\n**The signed request should be as:**\n\n```http\nPOST /api/berlingroup/v1/tpp/certificates HTTP/1.1\nHost: priora.saltedge.com\nContent-Type: application/json\nDate: Fri, 04 Feb 2022 17:16:59 GMT\nDigest: SHA-256=RBNvo1WzZ4oRRq0W9+hknpT7T8If536DEMBg9hyq/4o=\nX-Request-ID: 79c851ce-f543-4c27-a8e4-f9aad20724ba\nSignature: keyId=\"SN=B83852160,CA=FIRMA PROFESIONAL\",algorithm=\"rsa-sha-256\",headers=\"x-request-id digest\",signature=\"XWyngnV7vT9ALgfBdTP5JYJumS3m5hxZa8ryx96XdJ3h6xGrrKMQg2u86qf8+YtVCZj/XpTq+POKOGFkdNQpxTrMeicP0pQKQ2S2ny/0DpFokC6QcXzyj25nazicIYmTqMBQKoNL9DvMtcWG4xTdxVsFLU51xhrqD0Bi4l4NmX73fq4J7VLjYDfiYCldaoSlu3K/p5QOOxzORGWDidRoOvpsELFleppu4Btt8CjPff6QM9oDRFmaOoxbnwBkFu0om7pLEmk5OUD711d9LGnFp65MaljEitpZfYbkNjSCJMsbyfRiYuSpwN34O7sZwzSiRYV9j72BN2C66tXxL0UZAg==\"\nTPP-Signature-Certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1CMHdGZ0lCQURBQU1BQXdCQjhBSHdBd0FEQUZNQUFEQVFBd0FBTUJBQT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K\n\n{}\n```\n\n# Legal information\n\n## Term of use\n\nWelcome to Bit Developers Portal by Bank Hapoalim (together with its subdomains, Content, Marks, Documentation and services, the **“Site”**). Please read the following Terms of Use carefully before using this Site so that you are aware of your legal rights and obligations with respect to Bit (**\"Bit\"**, **\"we\"**, **\"our\"** or **\"us\"**). By accessing or using the Site, you expressly acknowledge and agree that you are entering into a legal agreement with us and have understood and agreed to comply with, and be legally bound by, these Terms of Use, together with the Privacy Policy (the \"Terms\"). You hereby waive any applicable rights to require an original (non-electronic) signature or delivery or retention of non-electronic records, to the extent not prohibited under applicable law. If you do not agree to be bound by these Terms, please do not access or use the Site.\n\n1. **The Site**. The Site is intended to allow its registered users access to BIT's Developers Portal (the \"Portal\") and to the documentation and materials with respect to BIT's various products, as may be provided from time to time (the \"Documentation\" and \"Bank Products\") as well as enabling registered users that are authorized representatives of an established company, to perform certain activities in the Portal, as may be applicable from time to time and subject to the terms set forth in these Terms.\n\n2. **Additional Agreements and Approval**. For clarification, access and use of certain parts and/or services provided by the Bank with respect to Company's use of the Portal and the API Market, shall be subject to additional approvals and agreements to be provided by the Bank. The Bank retains sole and exclusive discretion to determine whether to approve an application submitted by a user, or to engage in an agreement with a company pursuant to these Terms. Without derogating from the generality of the above, Company's use of the API shall be subject to the terms of the License and Services Agreement to be executed between the Company and the Bank in this respect (**\"License Agreement\"**).\n\n3. **Modification**. We reserve the right, at our discretion, to change these Terms at any time. Such change will be effective ten (10) days following\nposting of the revised Terms on the Site, and your continued use of the Site thereafter means that you accept those changes.\n\n4. **Site Access**. For such time as these Terms are in effect, we hereby grant you permission to visit and use the Site provided that you comply with these Terms and applicable law.\n\n5. **The Services**\n\n    a. <u>Documentation</u>. The Site allows its registered users to view the Documentation on the Site and to experience the mockup provided on the Site. In order to use these services, you are required to create an account (**\"Account\"**). You agree not to create an Account for anyone else or use the account of another without their permission. When creating your Account, you must provide accurate and complete information. You are solely responsible for the activity that occurs in your Account, and you must keep your Account password secure. You must notify BIT immediately of any breach of security or unauthorized use of your Account. If you wish to delete your Account, you may send an email request at compliance@saltedge.com\n\n    b. <u>API Market Services</u>. The Site also allows its users, representing a legal established entity (\"Corporation\"), to perform certain activities in the API Market on behalf of such Corporation. The scope and ability to perform such activities are conditioned on receiving our initial approval to the identity of the Corporation, as well as to additional requirements set forth in the License Agreement, as well as additional legal restrictions that may apply with respect to certain services from time to time.\n\n    c. <u>Availability</u>. We strive to maintain the Portal's availability and performance in accordance with the service levels detailed in our Service Level Agreement (SLA) available at Appendix A. While we employ commercially reasonable efforts to meet these service levels, you acknowledge that the Portal's performance may vary, and occasional disruptions or downtime may occur. The service levels specified in the SLA represent our operational targets, and any deviation from these targets shall be handled as set forth in the SLA. Your continued use of the Portal constitutes acceptance of these service level terms. We reserve the right to modify the SLA from time to time, with any such modifications becoming effective upon posting to the Portal.\n\n6. **Restrictions**. You shall not: (i) copy, distribute or modify any part of the Site without our prior written authorization; (ii) use, modify, create derivative works of, transfer (by sale, resale, license, sublicense, download or otherwise), reproduce, distribute, display or disclose Content (defined below), except as expressly authorized herein; (iii) disrupt servers or networks connected to the Site; (iv) use or launch any automated system (including without limitation, \"robots\" and \"spiders\") to access the Site; and/or (v) circumvent, disable or otherwise interfere with security-related features of the Site or features that prevent or restrict use or copying of any Content or that enforce limitations on use of the Site.\n\n7. **Payments to BIT**. Except as expressly set forth in the Terms, your general right to access and use the Site is currently for free, but BIT may in the future charge a fee for certain access or usage. You will not be charged for any such access or use of the Site unless you first agree to such charges, but please be aware that any failure to pay applicable charges may result in you not having access to some or all of the Site.\n\n8. **Intellectual Property Rights**.\n\n    a. <u>Content and Marks</u>. The (i) content on the Site, including without limitation, the Documentation, text, articles, brochures, descriptions, products, software, graphics, photos, sounds, videos, interactive features, and services (collectively, \"Content\"), and (ii) the trademarks, service marks and logos contained therein (\"Marks\"), are the property of BIT and/or its licensors and may be protected by applicable copyright or other intellectual property laws and treaties. We reserve all rights not expressly granted in and to the Site and the Content.\n\n    b. <u>Use of Content</u>. The Content on the Site is provided to you for your internal use only and may not be used, modified, copied, distributed, transmitted, broadcast, displayed, sold, licensed, de-compiled, or otherwise exploited for any other purposes whatsoever without our prior written consent. If you download or print a copy of the Content, you must retain all copyright and other proprietary notices contained therein.\n\n9. **Information Description**. We attempt to be as accurate as possible. However, we cannot and do not warrant that the Content available on the Site is accurate, complete, reliable, current, or error-free. We reserve the right to make changes in or to the Content, or any part thereof, in our sole judgment, without the requirement of giving any notice prior to or after making such changes to the Content. Your use of the Content, or any part thereof, is made solely at your own risk and responsibility.\n\n10. **Privacy**. We will use any personal information that we may collect or obtain in connection with your use of the Site in accordance with our privacy policy. The Privacy Policy attached hereto as Appendix B constitutes an integral part of these Terms of Use. Your use of the Website and Services constitutes acceptance of the Privacy Policy and all of its terms. You agree that we may use personal information that you provide or make available to us in accordance with the Privacy Policy.\n\n11. **Copyright Policy**. It is our policy to respect the legitimate rights of copyright and other intellectual property owners. If you have encountered an alleged copyright infringement, please contact us by sending an email to: poalimdevelopersportal@poalim.co.il (**\"Copyright Notice\"**).\n\n12. **Warranty Disclaimers.**\n\n    a. HE SITE AND ANY CONTENT PROVIDED THEREUNDER ARE PROVIDED ON AN \"AS IS\" AND \"AS AVAILABLE\" BASIS, AND WITHOUT WARRANTIES OF ANY KIND EITHER EXPRESS OR IMPLIED. BIT HEREBY DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, TITLE, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND THOSE ARISING BY STATUTE OR FROM A COURSE OF DEALING OR USAGE OF TRADE. BIT DOES NOT GUARANTEE THAT THE SITE WILL BE FREE OF BUGS, SECURITY BREACHES, OR VIRUS ATTACKS. THE SITE MAY OCCASIONALLY BE UNAVAILABLE FOR ROUTINE MAINTENANCE, UPGRADING, OR OTHER REASONS. YOU AGREE THAT BIT WILL NOT BE HELD RESPONSIBLE FOR ANY CONSEQUENCES TO YOU OR ANY THIRD PARTY THAT MAY RESULT FROM TECHNICAL PROBLEMS OF THE INTERNET, SLOW CONNECTIONS, TRAFFIC CONGESTION OR OVERLOAD OF OUR OR OTHER SERVERS.\n\n    b. EXCEPT AS EXPRESSLY STATED IN OUR PRIVACY POLICY, BIT DOES NOT MAKE ANY REPRESENTATIONS, WARRANTIES OR CONDITIONS OF ANY KIND, EXPRESS OR IMPLIED, AS TO THE SECURITY OF ANY INFORMATION YOU MAY PROVIDE OR ACTIVITIES YOU ENGAGE IN DURING THE COURSE OF YOUR USE OF THE SITE.\n\n13. **Limitation of Liability**. TO THE FULLEST EXTENT PERMISSIBLE BY LAW, BIT SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, EXEMPLARY, SPECIAL, CONSEQUENTIAL, OR INCIDENTAL DAMAGES OF ANY KIND, OR FOR ANY LOSS OF DATA, REVENUE, PROFITS OR REPUTATION, ARISING UNDER THESE TERMS OR OUT OF YOUR USE OF, OR INABILITY TO USE, THE SITE AND ANY CONTENT PROVIDED THEREUNDER, EVEN IF BIT HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES OR LOSSES AND IN ANY EVENT SHALL BE LIMITED TO $100.\n\n14. **Term and Termination**. These Terms are effective until terminated by BIT or you. BIT, in its sole discretion, has the right to terminate these Terms and/or your access to the Site, or any part thereof, immediately at any time and with or without cause (including, without any limitation, for a breach of these Terms). BIT shall not be liable to you or any third party for termination of the Site, or any part thereof. If you object to any term or condition of these Terms, or any subsequent modifications thereto, or become dissatisfied with the Site in any way, your only recourse is to immediately discontinue use of the Site. Upon termination of these Terms, you shall cease all use of the Site. This Section ‎14 and Sections ‎8 (Intellectual Property Rights), ‎10 (Privacy), ‎12 (Warranty Disclaimers), ‎13 (Limitation of Liability) and ‎15 (Independent Contractors) to ‎17 (General) shall survive termination of these Terms.\n\n15. **Independent Contractors**. You and BIT are independent contractors. Nothing in these Terms creates a partnership, joint venture, agency, or employment relationship between you and BIT. You must not under any circumstances make, or undertake, any warranties, representations, commitments or obligations on behalf of BIT.\n\n16. **Assignment**. These Terms, and any rights and licenses granted hereunder, may not be transferred or assigned by you but may be assigned by BIT without restriction or notification to you. Any prohibited assignment shall be null and void.\n\n17. **Governing Law**. These Terms and the relationship between you and BIT shall be governed by and construed in accordance with the laws of the State of Israel, without regard to its principles of conflict of laws. Any dispute with respect to these Terms shall be resolved exclusively by the courts of Tel Aviv-Yafo, Israel.\n\n18. **General**. These Terms shall constitute the entire agreement between you and BIT concerning the Site. If any provision of these Terms is deemed invalid by a court of competent jurisdiction, the invalidity of such provision shall not affect the validity of the remaining provisions of these Terms, which shall remain in full force and effect. No waiver of any term of these Terms shall be deemed a further or continuing waiver of such term or any other term, and a party's failure to assert any right or provision under these Terms shall not constitute a waiver of such right or provision.\n\n**Last updated: December 2024**\n\n## Service Level Policy\n\n1. **Support services and inquiry handling**\n\n    a. The support center for BIT's third-party providers (TPPs) operates from Monday to Friday between 09:00 to 18:00 (‘business hours'), in the support channels detailed in this section.\n    Support is provided during the business hours detailed in this section.\n    Inquiries outside the support channels detailed in this section will not be answered in accordance with the policy detailed in section 5.\n\n    b. The email address to open a request to the support center is compliance@saltedge.com, or you submit the request directly via TPP Dashboard > Support Center.\n\n    c. Support services will be provided to third party providers who are active in the Sandbox or Production environment.\n\n2. **Handling of new inquiries from third party providers**\n\n    a. To make an inquiry, the applicant must provide the following two identifiers: (1) the serial number of the certificate they received from the regulator, and (2) the company number (ח.פ) of the third-party provider.\n    After proper identification, the support center will ask for the contact's name and phone number to record who contacted on behalf of the third-party provider (by phone or email, as the case may be).\n\n    b. The initial response to an inquiry via email as described in section 4 'Classification of inquiries and their treatment' period following the inquiry as defined in the section 'Support services and inquiry handling'.\n\n    c. Support services and the handling of inquiries received by email outside of 'business hours' will be handled at the beginning of the next business day, as described in section 'Support services and inquiry handling'.\n\n    d. The initial response to an inquiry will be sent to the applicant via email and will include the ticket number opened for this inquiry.\n\n3. **Contacting Third Party Providers: Financial Information Service Providers (\"Service Providers\") or Payment Originators to Report a Serious Security Incident**\n\n    As defined in section 55a of the “NABAT 368\" instruction section 55a.\n    Contact us by email incident@saltedge.com\n\n4. **Classification of inquiries and their treatment**\n\n    | Inquiry Classification | Definition | Update of Inquiry's Status|\n    |-------------------------|-----------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|\n    | 1                       | Any malfunction in the system, which, in the bank's opinion, disables or substantially interferes with the open banking activity. | Immediately and once every few hours depending on progress in treating the problem.                       |\n    | 2                       | Any error, defect, disruption including a decrease and/or change in system performance.             | Once every two days until an end date is defined for handling the inquiry.                                |\n    | 3                       | A point fault with a limited effect on system users. For example, some system users are unable to log in to establish access authorization. | Once a week until an end date is defined for handling the inquiry.                                       |\n    | 4                       | A fault, which has no significant consequences for users of the system.                            | Once every two weeks until an end date is defined for handling the inquiry.                               |\n    | 5                       | Request for information on how to use the financial information system interface, for basic support, support for the development/integration process, or an inquiry that does not affect production systems. | Up to two weeks.                                                                                          |\n\n5. **System availability, up-to-date of information, and response times**\n\n    a. **Availability of the system as described below**.\n\n      - We strive to achieve ninety-nine percent (99%) Uptime per calendar month. We are dedicated to maintaining high service availability and minimizing any disruptions to ensure a reliable experience.\n\n      - Maintenance and Downtime will be subject to the following conditions:\n\n        i. Onboarded TPPs will be notified at least seven (7) days prior to any Scheduled Maintenance, stating the expected Downtime.\n\n        ii. Scheduled Maintenance, generally, will not exceed one (1) consecutive Downtime hour and two (2) cumulative Downtime hours in any given month; and\n\n        iii. Scheduled Maintenance sessions will be scheduled to be performed only within the Scheduled Maintenance Window(s)\n\n      - The daily average API response time with respect to AIS APIs will be less than 500 ms, applicable for the asynchronous data flow which is currently implemented.\n\n    b. **Response times**\n\n      - Financial information interface response time will be the as describes in section 4 'Classification of inquiries and their treatment'.\n\n    c. **Up-to-date of information**\n\n      - The information shared with service providers will be in accordance with what is displayed on the bank's digital channels and as required by the standard.\n\n      - The information shared in the financial information system interface (as defined in the Financial Information Service Law, 2021) will be at the same level of up-to-date as the bank's digital channels, with at most with a delay of up to 30 seconds compared to the digital channels. In areas where the level of up-to-date is not the same, or there is a delay of more than 30 seconds from digital channel, the relevant time windows will be detailed in the DATA AVAILABILITY area on the developer portal, under each information product.\n\n6. **Shutdowns**\n\n    a. Notifications regarding planned shutdowns in the financial information system interface or malfunctions in the SANDBOX or production environments, if any, will be published on the main page of the API MARKETPLACE on the developer portal under AVAILABILITY.\n\n    b. The bank will update the developer portal regarding planned shutdowns in the financial information system interface about four hours before the shutdown.\n\n7. **The bank supports a maximum number of inquiries per second, in a way that will allow optimal service for all service providers, in accordance with the bank's needs in protecting its systems.**\n\n    BIT reserves the right to update the principles of the policy presented in this document subject to the provisions of the law. It is recommended to check this from time to time.\n\n8. **New releases**\n\n    For every new major or minor release, all relevant details will be made available to TPPs through the Changelog on the TPP Developer Portal. This will ensure that all updates are clearly communicated and easily accessible by TPPs. In addition, the TPPs who are already integrating the APIs will receive timely email notifications regarding any upcoming changes, giving them ample time to prepare for new features or updates.\n\n    We remain committed to maintaining transparency and open communication, and our support team is always available to assist with any questions or concerns. We encourage all TPPs to stay engaged and take full advantage of the resources provided to ensure a smooth integration experience and continued success.\n\n**Last updated: December 2024**\n\n## Privacy\n\nThis privacy policy (**“Privacy Policy”**) governs how we, BIT. (**“BIT”**, **“we”**, **“our”** or **“us”**) use Personal Information (defined below) that we collect, receive and store pertaining to you (**“User”**, **“you”**), in connection with the following use cases:\n\n  1. When you browse or visit our Developers Portal (\"Website\")\n  2. When you make use of, or interact with, our Website and its applicable services (\"Services\")\n\n      a. When you sign up for an Account\n\n      b. When you apply to \"create a company\" on a behalf of a Corporation\n\n      c. When you contact us (e.g. customer support, etc.)\n\nWe greatly respect your privacy, which is why we make every effort to provide a platform that would live up to the highest of user privacy standards. Please read this Privacy Policy carefully, so you can fully understand our practices in relation to Personal Information.\n\nThis Privacy Policy may be updated from time to time and therefore we ask you to check back periodically for the latest version of the Privacy Policy, as indicated below. If there will be any significant changes made to the use of your Personal Information in a manner different from that stated at the time of collection, we will notify you by posting a notice on our Website or by other means.\n\n1. **INTRODUCTION**\n\nWe have implemented this Privacy Policy because your privacy, and the privacy of other users, is important to us. This Privacy Policy explains our online information practices and the choices you can make about the way your Personal Information is collected and used in connection with the Services. **“Personal Information”** means any information that may be used, either alone or in combination with other information, to personally identify a living individual, including, but not limited to, a first and last name, a personal profile, an email address, a home or other physical address, or other contact information.\n\n2. **TERMS OF USE**\n\nThis Privacy Policy forms part of our Terms of Use which is available at [Term and Use](/docs#section/Legal-information/Term-of-use) (**“Terms”**) and the License Agreement. Any capitalized but undefined term in this Privacy Policy shall have the meaning given to it in the Terms or in the License Agreement, as applicable.\n\n3. **CONSENT AND MODIFICATION**\n\nBy using the Services, you agree to the terms of this Privacy Policy and to our collection, processing and sharing of Personal Information as described herein. If you do not agree to this Privacy Policy, please do not access or otherwise use the Services. We reserve the right, at our sole discretion, to modify this Privacy Policy at any time. Such change will be effective ten (10) days following posting of the revised Privacy Policy on the Website, and such modifications will be effective immediately upon posting on the Website Your continued use of the Services following the posting of any modifications to this Privacy Policy constitutes your acceptance of such modifications and of all terms set forth herein.\n\n4. **WHAT INFORMATION WE COLLECT, WHY WE COLLECT IT, AND HOW IT IS USED**\n\n    *When you make use of, or interact with our Website*\n\n    4.1 *When you sign up for an Account*\n\n    **Information we collect**\n\n      - Last name and First Name\n      - Password\n      - Email\n      - Cell Phone Number\n\n    **Why is the Information collected and for what purposes?**\n\n      - Creating an Account\n      - Using the Documentation services provided on the Website\n\n    **Third parties with whom we share your Information NONE**\n\n    4.2 *When you apply to \"create a company\" on a behalf of a Corporation*\n\n    **Information we collect**\n\n      - Corporation name\n      - Additional information establishing you are an authorized representative of the Corporation\n\n    **Why is the Information collected and for what purposes?**\n\n      - In order to process your request\n      - Creating a company to use the API Services\n\n    **Third parties with whom we share your Information NONE**\n\n    4.3 *When you send us a \"Contact us\" request*\n\n    **Information we collect**\n\n      - First name\n      - Last name\n      - Email\n      - Phone Number\n\n    **Why is the Information collected and for what purposes?**\n\n      - Reply to your \"contact us\" request\n\n    **Third parties with whom we share your Information NONE**\n\n    Finally, please note that some of the abovementioned Personal Information will be used for fraud detection and prevention, and for security purposes.\n\n5. **HOW WE PROTECT AND STORE YOUR INFORMATION**\n\n    a. <u>Security</u>. We have implemented appropriate technical, organizational and security measures designed to reduce the risk of accidental destruction or loss, or unauthorized disclosure or access to such information appropriate to the nature of the information concerned. While we strive to use commercially reasonable security measures, please note that we cannot guarantee that the information will not be exposed as a result of unauthorized penetration to our servers, and we make no warranties or representations regarding absolute security of any information. We make commercially reasonable efforts to ensure the collection and security of such information is consistent with this Privacy Policy and all applicable laws and regulations. The security of your information depends in part on the security of the computer, device or network you use to communicate with us and the security you use to protect your user IDs and passwords, please make sure to take appropriate measures to protect your devices, access credentials and this information.\n\n    b. <u>Retention of your Personal Information</u>. We retain Personal Information for as long as needed to fulfill the purposes outlined in this Privacy Policy, including but not limited to our legitimate business interests, legal and regulatory obligations, tax or accounting requirements, maintaining accurate records of your dealings with us, addressing potential complaints or challenges, resolving disputes, and/or  where we reasonably believe or anticipate the possibility of litigation relating to your Personal Information or dealings. The specific retention period may vary depending on the type of Personal Information, applicable legal requirements, and our ongoing business needs.\n\n\n6. **ADDITIONAL INFORMATION ON HOW WE SHARE YOUR PERSONAL INFORMATION AND HOW WE USE IT**\n\nWe may share and use your information as follows:\n\n- To the extent necessary, with regulators, to comply with all applicable laws, regulations and rules, and requests of law enforcement, regulatory and other governmental agencies or if required to do so by court order;\n\n- If, in the future, we sell or transfer some or all of our business or assets to a third party, we will (to the minimum extent required) disclose information to a potential or actual third party purchaser of our business or assets. In the event that we are acquired by or merged with a third party entity, or in the event of bankruptcy or a comparable event, we reserve the right to transfer or assign Personal Information in connection with the foregoing events;\n\n- Where you have provided your consent to us sharing the Personal Information (e.g., where you opt-in to optional additional Services or functionality);\n\n- Where we receive requests for information from law enforcement or regulators, we carefully validate these requests before any Personal Information is disclosed;\n\n- We will use your Personal Information to provide and improve our Website and Services, to send you marketing/advertisement communications that we believe may be of interest to you, to contact you in connection with the Website and Services, and to identify and authenticate your access to the parts of the Website that you are authorized to access;\n\n- We may use your designated email address to send you updates or news regarding the Website, Services and products;\n\n- We may share your Personal Information with our third party service providers partners, and other trusted entities to facilitate and improve our business operations, provide and enhance our Website and Services to you and other users. Such information may be transferred to and processed in other countries where these third parties operate. By using our Services, you acknowledge and consent to such international transfers.; and\n\n- We may disclose your Personal Information or any information you submitted via the Website if we have a good faith belief that disclosure of such information is helpful or reasonably necessary to: (i) comply with any applicable law, regulation, legal process or governmental request; (ii) enforce our Terms, including investigations of potential violations thereof; (iii) detect, prevent, or otherwise address fraud or security issues; or (iv) protect against harm to the rights, property or safety of BIT, our users, yourself or the public.\n\n7. **USE BY CHILDREN**\n\nWe do not offer the Services for use by children. If you are under 18, you may not use the Website, or provide any information to the Website. We do not knowingly collect information from, and/or about children.\n\n8. **HOW CAN I DELETE MY ACCOUNT?**\n\nShould you ever decide to delete your Account, you may do so by emailing compliance@saltedge.com  or poalimdevelopersportal@poalim.co.il . If you terminate your Account, any association between your Account and information we store will no longer be accessible through your Account.\n\nIf you request deletion of your Account, we may retain certain information as necessary for our legitimate business interests, to comply with legal obligations, prevent fraud, or enforce our agreements.\n\n9. **ACCESS/ACCURACY**\n\nTo the extent that you do provide us with Personal Information, we wish to maintain accurate Personal Information. If you would like to delete or correct any of your other Personal Information that we may be storing, you may submit an access request by sending an email to poalimdevelopersportal@poalim.co.il Your email should include adequate details of your request.\n\n10. **CONTACT US**\n\nIf you have any questions, concerns or complaints regarding our compliance with this notice and the Information protection laws, or if you wish to exercise your rights, we encourage you to first contact us via this email address compliance@saltedge.com.\n\n**Last updated: December 2024**\n",
+    "license": {
+      "name": "MIT",
+      "url": "https://"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://open-banking.bitpay.co.il"
+    }
+  ],
+  "paths": {
+    "/api/v1/oauth/tokens": {
+      "post": {
+        "summary": "Generate access and refresh tokens",
+        "operationId": "post-api-oauth-tokens",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": {
+                      "type": "string",
+                      "description": "The requested access token. The app can use this token to authenticate to the secured resource."
+                    },
+                    "token_type": {
+                      "type": "string",
+                      "description": "Indicates the token type value. The only type that the Microsoft identity platform supports is bearer.",
+                      "enum": [
+                        "Bearer"
+                      ]
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "description": "The amount of time that an access token is valid (in seconds)."
+                    },
+                    "refresh_token": {
+                      "type": "string",
+                      "description": "The token used to request a new access token."
+                    },
+                    "scope": {
+                      "type": "string",
+                      "description": "List of scopes separated by spaces."
+                    },
+                    "created_at": {
+                      "type": "integer",
+                      "description": "Epoch Unix Timestamp of access token create."
+                    }
+                  },
+                  "required": [
+                    "access_token",
+                    "token_type",
+                    "expires_in",
+                    "refresh_token",
+                    "scope"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "description": "Token Create",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "application/x-www-form-urlencoded"
+              ]
+            },
+            "in": "header",
+            "name": "Content-type",
+            "description": "Content Type",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/accessToken"
+              }
+            }
+          },
+          "description": ""
+        },
+        "tags": [
+          "OAuth2"
+        ]
+      },
+      "parameters": []
+    },
+    "/api/v1/tpps": {
+      "post": {
+        "summary": "Create",
+        "operationId": "post-api-v1-tpps",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/post-api-v1-tpps"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "description": "Used for registration in Salt Edge PSD2 Compliance Dashboard. After registration, you will receive a letter of confirmation on your representative email.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Content-Type"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/post-api-v1-tpps"
+        },
+        "tags": [
+          "TPP Register"
+        ]
+      },
+      "parameters": []
+    },
+    "/api/v1/consents": {
+      "post": {
+        "summary": "Create",
+        "operationId": "post-api-v1-consents",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/post-api-v1-consents"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "description": "This method creates a consent resource, defining access rights to dedicated accounts of a given PSU-ID. These accounts are addressed explicitly in the method as parameters as a core function.\n\n**Consent access details**\n\nConsent can be one of the following models:\n\n- **Bank offered** - with bank driven account selection and possible restriction to account types \n- **Detailed** - with pre-selected accounts on TPP side\n\n*Bank offered consent*\n\nThe bank offered consent model would allow for PSU to select accounts to be shared with TPP on ASPSP side after authentication, while TPP shall pre-define only the permissions (accounts, balances, transactions) required to provide service. In this case, access remains empty until the SCA process is finalized and the consent status changes to ‘valid’. Both structures exhibit similar behavior. Both structures exhibit similar behavior.\n\nStructure example 1:\n\n```json\n { // Access to accounts, balances, transactions data  \n  \"access\": {\n    \"accounts\": [],\n    \"transactions\": [],\n    \"balances\": []\n  }\n}\n```\nStructure example 2:\n\n```json\n { // Access to accounts and balances data (accounts access automatically included)\n  \"access\":  {\n    \"balances\": []\n  }\n}\n```\n\n*Bank offered consent with restrictions*\n\nIn case the TPP wants PSU to select accounts on the ASPSP side, but for this specific TPP service the consent shall be restricted to the specific account type.\n\nStructure example:\n\n```json\n{ // Consent restricted to savings account(s) selected by PSU \n  \"access\": {\n    \"accounts\": [],\n    \"transactions\": [],\n    \"balances\": [],\n    \"restrictedTo\": [\"SVGS\"] \n  }\n}\n```\n\n**NOTE**: The `restrictedTo` attribute appears only in the **POST** `/consents` request body. According to the Berlin Group standard, this attribute should not appear in the response of **POST** `/consents` or **GET** `/consents`\n\n\n*Detailed consent (pre-selected accounts)*\n\nThe detailed consent model presumes for PSU to grant access to the specific accounts allowed the TPP to fetch. For this, the PSU selects accounts from a pre-saved list in TPP application or provides account(s) details directly in the TPP application before redirection for authentication. In this case, the ASPSP should validate and allow access only to the requested information in the consent details, with a set of applicable data permissions (accounts, balances, transactions).\n\nStructure example:\n\n```json\n {\n  \"access\": { \n    \"accounts\": [\n      { // Account information of the following payment account only in USD currency\n        \"bban\": \"5411241\",\n        \"currency\": \"USD\",\n        \"cashAccountType\": \"CACC\"\n      }\n    ],\n    \"transactions\": [\n      { // Transactions and account info of the following savings account\n        \"bban\": \"5411241\",\n        \"cashAccountType\": \"SVGS\"\n      }\n    ],\n    \"balances\": [\n      { // ILS balance and account info of the following payment account \n        \"bban\": \"123123\",\n        \"currency\": \"ILS\",\n      }\n    ]\n  }\n}\n```\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Content-Type"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Device-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Geo-Location"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Corporate-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-User-Agent"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Psu-ID"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Notification-URI"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Notification-Content-Preferred"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Corporate-ID-Type"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-ID-Type"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-required"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/post-api-v1-consents"
+        },
+        "tags": [
+          "Consents"
+        ]
+      }
+    },
+    "/api/v1/consents/{consent_id}/status": {
+      "get": {
+        "summary": "Status",
+        "tags": [
+          "Consents"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-consents-status"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-consents-status",
+        "description": "Read the status of an account information consent resource.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-User-Agent"
+          },
+          {
+            "$ref": "#/components/parameters/Psu-IP-Address"
+          }
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/consent_id"
+        }
+      ]
+    },
+    "/api/v1/consents/{consent_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/consent_id"
+        }
+      ],
+      "get": {
+        "summary": "Show",
+        "tags": [
+          "Consents"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-consents-consent_id"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-consents-consent_id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-User-Agent"
+          },
+          {
+            "$ref": "#/components/parameters/Psu-IP-Address"
+          }
+        ],
+        "description": "Returns the content of an account information consent object. This returns the data for the TPP especially in cases, where the consent was directly managed between ASPSP and PSU e.g. in a redirect SCA Approach.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete",
+        "operationId": "delete-api-v1-consents-consent_id",
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "ID of the request, unique to the call, as determined by the initiating party."
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "description": "This method deletes a consent.",
+        "tags": [
+          "Consents"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Content-Type"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          }
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/api/v1/accounts": {
+      "get": {
+        "summary": "Index",
+        "tags": [
+          "Accounts"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-accounts"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-accounts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/withBalance"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          }
+        ],
+        "description": "Account's list.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/api/v1/savings": {
+      "get": {
+        "summary": "Index",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-savings"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-savings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/withBalance"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          }
+        ],
+        "description": "Savings account list.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "tags": [
+          "Savings"
+        ]
+      },
+      "parameters": []
+    },
+    "/api/v1/accounts/{account_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/account_id"
+        }
+      ],
+      "get": {
+        "summary": "Show",
+        "tags": [
+          "Accounts"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-accounts-account_id"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-accounts-account_id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/withBalance"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          }
+        ],
+        "description": "Account details.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/api/v1/savings/{saving_account_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/saving_account_id"
+        }
+      ],
+      "get": {
+        "summary": "Show",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-savings-saving_account_id"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-savings-savings_account_id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/withBalance"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          }
+        ],
+        "description": "Savings account details.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "tags": [
+          "Savings"
+        ]
+      }
+    },
+    "/api/v1/savings/{saving_account_id}/balances": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/saving_account_id"
+        }
+      ],
+      "get": {
+        "summary": "Balances",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-savings-saving_account_id-balances"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-savings_account_id-balances",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          }
+        ],
+        "description": "List of savings balances.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "tags": [
+          "Savings"
+        ]
+      }
+    },
+    "/api/v1/accounts/{account_id}/balances": {
+      "parameters": [
+        {
+          "name": "account_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "This identification is denoting the addressed account. The account-id is retrieved by using a \"Read Account List\" call. The account-id is the \"resourceId\" attribute of the account structure. Its value is constant at least throughout the lifecycle of a given consent."
+        }
+      ],
+      "get": {
+        "summary": "Balances",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-accounts-account_id-balances"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-accounts-account_id-balances",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          }
+        ],
+        "description": "List of balances.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/api/v1/accounts/{account_id}/transactions": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/account_id"
+        }
+      ],
+      "get": {
+        "summary": "Transactions",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-accounts-account_id-transactions"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-accounts-account_id-transactions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/withBalance"
+          },
+          {
+            "$ref": "#/components/parameters/dateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/dateTo"
+          },
+          {
+            "$ref": "#/components/parameters/entryReferenceFrom"
+          },
+          {
+            "$ref": "#/components/parameters/bookingStatus"
+          },
+          {
+            "$ref": "#/components/parameters/deltaList"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/Accept"
+          }
+        ],
+        "description": "List of transactions.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/api/v1/savings/{saving_account_id}/transactions": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/saving_account_id"
+        }
+      ],
+      "get": {
+        "summary": "Transactions",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-savings-saving_account_id-transactions"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-savings-savings_account_id-transactions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/withBalance"
+          },
+          {
+            "$ref": "#/components/parameters/dateFrom"
+          },
+          {
+            "$ref": "#/components/parameters/dateTo"
+          },
+          {
+            "$ref": "#/components/parameters/entryReferenceFrom"
+          },
+          {
+            "$ref": "#/components/parameters/bookingStatus"
+          },
+          {
+            "$ref": "#/components/parameters/deltaList"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/Accept"
+          }
+        ],
+        "description": "List of savings transactions.",
+        "tags": [
+          "Savings"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/api/v1/accounts/{account_id}/transactions/{transaction_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/account_id"
+        },
+        {
+          "$ref": "#/components/parameters/transaction_id"
+        }
+      ],
+      "get": {
+        "summary": "Transaction",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-accounts-account-id-transactions-transaction-Id"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-accounts-account-id-transactions-transaction-Id",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Consent-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          }
+        ],
+        "description": "Transaction details.",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ]
+      }
+    },
+    "/api/v1/refresh/consents/{consent_id}": {
+      "parameters": [
+        {
+          "name": "consent_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "The consent identifier assigned to the created resource."
+        }
+      ],
+      "put": {
+        "summary": "Refresh",
+        "operationId": "put-api-v1-refresh-consents-consent_id",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/put-api-v1-refresh-consents-consent_id"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "description": "This endpoint is responsible for starting the process of refreshing account information data on Bit PSD2 side. Due to asynchronous nature of this action, TPP has to poll the status of this process untill receive the status `failed` or `finished`",
+        "tags": [
+          "Refresh Data"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/Content-Type"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          }
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/initiatedByCustomer"
+              },
+              "examples": {
+                "Example": {
+                  "value": {
+                    "initiatedByCustomer": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Fetching Status",
+        "operationId": "get-api-v1-refresh-consents-consent_id",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-refresh-consents-consent_id"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "description": "This endpoint is responsible for returning the current status of fetching account information process.",
+        "tags": [
+          "Refresh Data"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Authorization"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-OnlyPsu"
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/{payment_product}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/payment_product"
+        }
+      ],
+      "post": {
+        "summary": "Create",
+        "operationId": "post-api-v1-payments-payment_product",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/post-api-v1-payments-payment_product"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "description": "Creates a payment initiation request at the ASPSP.\n",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/post-api-v1-payments-payment_product"
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Content-Type"
+          },
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Psu-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-ID-Type"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Corporate-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Corporate-ID-Type"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-IP-Address-required"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Notification-URI"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Notification-Content-Preferred"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-User-Agent"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Geo-Location"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Device-ID"
+          }
+        ],
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/{payment_product}/{payment_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/payment_product"
+        },
+        {
+          "$ref": "#/components/parameters/payment_id"
+        }
+      ],
+      "get": {
+        "summary": "Show",
+        "tags": [
+          "Payments"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-payments-payment_product-payment_id"
+          },
+          "400": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/errorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/errorResponse"
+          }
+        },
+        "operationId": "get-api-v1-payments-payment_product-payment_id",
+        "description": "Returns the content of an payment information object.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Accept"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Device-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Geo-Location"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-User-Agent"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          }
+        ]
+      }
+    },
+    "/api/v1/payments/{payment_product}/{payment_id}/status": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/payment_product"
+        },
+        {
+          "$ref": "#/components/parameters/payment_id"
+        }
+      ],
+      "get": {
+        "summary": "Status",
+        "tags": [
+          "Payments"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/get-api-v1-payments-payment_product-payment_id-status"
+          }
+        },
+        "operationId": "get-api-v1-payments-payment_product-payment_id-status",
+        "description": "Can check the status of a payment initiation.",
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Request-ID"
+          },
+          {
+            "$ref": "#/components/parameters/Accept"
+          },
+          {
+            "$ref": "#/components/parameters/Date"
+          },
+          {
+            "$ref": "#/components/parameters/Digest"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Device-ID"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-Geo-Location"
+          },
+          {
+            "$ref": "#/components/parameters/PSU-User-Agent"
+          },
+          {
+            "$ref": "#/components/parameters/Signature"
+          },
+          {
+            "$ref": "#/components/parameters/TPP-Signature-Certificate"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "X-Request-ID": {
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "example": "cc5a8022-5e71-460e-82fa-ab0be1997a54"
+        },
+        "description": "ID of the request, unique to the call, as determined by the initiating party."
+      },
+      "Location": {
+        "schema": {
+          "type": "string"
+        },
+        "description": "Location of the created resource (if created)"
+      }
+    },
+    "schemas": {
+      "accessToken": {
+        "title": "accessToken",
+        "type": "object",
+        "discriminator": {
+          "propertyName": "grant_type",
+          "mapping": {
+            "authorization_code": "#/components/schemas/accessTokenCreate",
+            "refresh_token": "#/components/schemas/accessTokenRefresh"
+          }
+        },
+        "properties": {
+          "grant_type": {
+            "type": "string",
+            "description": "The grant_type parameter must be set to “authorization_code”.",
+            "enum": [
+              "authorization_code",
+              "refresh_token"
+            ]
+          }
+        }
+      },
+      "accessTokenCreate": {
+        "title": "accessTokenCreate",
+        "type": "object",
+        "description": "Once a client has received an authorization code, it may then request an access token and a refresh token. The access token's purpose is to authenticate the client and user to the API. The purpose of the refresh token is to retrieve a new access token without the need to request a new authorization code.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "This parameter is the authorization code that the client previously received from the authorization server."
+          },
+          "grant_type": {
+            "type": "string",
+            "description": "The grant_type parameter must be set to “authorization_code”.",
+            "enum": [
+              "authorization_code"
+            ]
+          },
+          "client_id": {
+            "type": "string",
+            "description": "Tpp's organization identifier specified in EIDAS certificate"
+          },
+          "redirect_uri": {
+            "type": "string",
+            "description": "The redirect URI in the token request must be an exact match of the redirect URI that was used when generating the authorization code. The service must reject the request otherwise."
+          },
+          "code_verifier": {
+            "type": "string",
+            "description": "a random string is generated using the characters: [A-Z], [a-z], [0-9], \"-\", \".\", \"_\" and \"~\", with a minimum length of 43 characters and a maximum length of 128 characters",
+            "minLength": 43,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "code",
+          "grant_type",
+          "client_id",
+          "redirect_uri",
+          "code_verifier"
+        ]
+      },
+      "accessTokenRefresh": {
+        "title": "accessTokenRefresh",
+        "type": "object",
+        "properties": {
+          "grant_type": {
+            "type": "string",
+            "description": "The grant_type parameter must be set to “refresh_token”.",
+            "enum": [
+              "refresh_token"
+            ]
+          },
+          "client_id": {
+            "type": "string",
+            "description": "Tpp's organization identifier specified in EIDAS certificate"
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Token received on access token create."
+          }
+        },
+        "required": [
+          "grant_type",
+          "client_id",
+          "refresh_token"
+        ],
+        "description": "Access tokens are generated with an expiration date, after which point they will no longer grant access to the API. When an access token expires, it can be refreshed using the refresh_token provided through the OAuth2 refresh_token grant."
+      },
+      "_linksAccount": {
+        "title": "_linksAccount",
+        "type": "object",
+        "properties": {
+          "account": {
+            "type": "object",
+            "description": "The link to retrieve the account information.",
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            },
+            "required": [
+              "href"
+            ]
+          }
+        }
+      },
+      "_linksSavings": {
+        "title": "_linksSavings",
+        "type": "object",
+        "properties": {
+          "savingsAccount": {
+            "type": "object",
+            "description": "The link to retrieve the account information.",
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            },
+            "required": [
+              "href"
+            ]
+          }
+        }
+      },
+      "_linksBalances": {
+        "title": "_linksBalances",
+        "type": "object",
+        "properties": {
+          "balances": {
+            "type": "object",
+            "description": "Attached links to balance information.",
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            },
+            "required": [
+              "href"
+            ]
+          }
+        }
+      },
+      "_linksTransactions": {
+        "title": "_linksTransactions",
+        "type": "object",
+        "properties": {
+          "transactions": {
+            "type": "object",
+            "description": "Attached links to transaction information.",
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            },
+            "required": [
+              "href"
+            ]
+          }
+        }
+      },
+      "_linksStatus": {
+        "title": "_linksStatus",
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "object",
+            "description": "The link to retrieve the transaction status of the payment initiation.",
+            "required": [
+              "href"
+            ],
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            }
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "access": {
+        "$ref": "#/components/schemas/bankOfferedAccess"
+      },
+      "bankOfferedAccess": {
+        "title": "Bank Offered Access",
+        "type": "object",
+        "description": "Bank Offered Access",
+        "properties": {
+          "accounts": {
+            "type": "array",
+            "description": "Is asking for detailed account information.\nIf the array is empty in a request, the TPP is\nasking for an accessible account list. This\nmay be restricted in a PSU/ASPSP\nauthorization dialogue. If the array is empty,\nalso the arrays for balances,\nadditionalInformation sub attributes or\ntransactions shall be empty, if used.",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "bban": {
+                  "type": "string"
+                },
+                "cashAccountType": {
+                  "type": "string",
+                  "enum": [
+                    "CACC",
+                    "SVGS"
+                  ],
+                  "description": "ExternalCashAccountType1Code from ISO 20022."
+                }
+              }
+            }
+          },
+          "balances": {
+            "type": "array",
+            "uniqueItems": true,
+            "description": "Is asking for balances of the addressed accounts. If the array is empty, the TPP is asking for the balances of all accessible account lists. This may be restricted in a PSU/ASPSP authorization dialogue. If the array is empty, also the array for transactions shall be empty, if used.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "bban": {
+                  "type": "string"
+                },
+                "cashAccountType": {
+                  "type": "string",
+                  "description": "ExternalCashAccountType1Code from ISO 20022.",
+                  "enum": [
+                    "CACC",
+                    "SVGS"
+                  ]
+                }
+              }
+            }
+          },
+          "transactions": {
+            "type": "array",
+            "uniqueItems": true,
+            "description": "Is asking for transactions of the addressed\naccounts.\nIf the array is empty in the request, the TPP\nis asking for the transactions of all\naccessible account lists. This may be\nrestricted in a PSU/ASPSP authorization dialogue. If the array is empty, also the\narrays for accounts, additionalInformation\nsub attributes or balances shall be empty, if\nused.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "bban": {
+                  "type": "string"
+                },
+                "cashAccountType": {
+                  "type": "string",
+                  "description": "ExternalCashAccountType1Code from ISO 20022.",
+                  "enum": [
+                    "CACC",
+                    "SVGS"
+                  ]
+                }
+              }
+            }
+          },
+          "restrictedTo": {
+            "type": "array",
+            "description": "If the TPP requests access to accounts via\navailableAccounts (List of available\naccounts) or bank driven consents,\nthe TPP may include this element to restrict\naccess to the referred account types.\n\nAbsence of the element is interpreted as \"no\nrestriction\" (therefore access to accounts of\nall types is requested). The element may\nonly occur, if each of the elements\n- accounts\n- balances\n- transactions\nis either not present or contains an empty\narray.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "CACC",
+                "SVGS"
+              ]
+            }
+          }
+        },
+        "x-examples": {
+          "Example": {
+            "accounts": [
+              {
+                "bban": "string",
+                "cashAccountType": "CACC"
+              }
+            ],
+            "balances": [
+              {
+                "bban": "string",
+                "cashAccountType": "CACC"
+              }
+            ],
+            "transactions": [
+              {
+                "bban": "string",
+                "cashAccountType": "CACC"
+              }
+            ]
+          }
+        }
+      },
+      "consentId": {
+        "title": "consentId",
+        "type": "object",
+        "description": "The consent identifier assigned to the created resource.",
+        "properties": {
+          "consentId": {
+            "type": "string",
+            "description": "The consent identifier assigned to the created resource."
+          }
+        },
+        "required": [
+          "consentId"
+        ]
+      },
+      "consentStatus": {
+        "title": "consentStatus",
+        "type": "object",
+        "description": "This is the overall lifecycle status of the consent.",
+        "properties": {
+          "consentStatus": {
+            "type": "string",
+            "description": "This is the overall lifecycle status of the consent.",
+            "enum": [
+              "received",
+              "rejected",
+              "valid",
+              "revokedByPsu",
+              "expired",
+              "terminatedByTpp",
+              "suspendedByASPSP",
+              "partiallyAuthorised"
+            ]
+          }
+        },
+        "required": [
+          "consentStatus"
+        ]
+      },
+      "frequencyPerDay": {
+        "title": "frequencyPerDay",
+        "type": "object",
+        "description": "This field indicates the requested maximum frequency for access per day.",
+        "properties": {
+          "frequencyPerDay": {
+            "type": "integer",
+            "description": "This field indicates the requested maximum frequency for an access without PSU involvement per day. For a one-off access, this attribute is set to \"1\". The frequency needs to be greater equal to one. \n\nIf not otherwise agreed bilaterally between TPP and ASPSP, the frequency is less equal to 100.",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "frequencyPerDay"
+        ]
+      },
+      "recurringIndicator": {
+        "title": "recurringIndicator",
+        "type": "object",
+        "description": "Should be true, if the consent is for recurring access to the account data and false, if the consent is for one time access to the account data.",
+        "properties": {
+          "recurringIndicator": {
+            "type": "boolean",
+            "description": "Should be true, if the consent is for recurring access to the account data and false, if the consent is for one time access to the account data.",
+            "default": false
+          }
+        },
+        "required": [
+          "recurringIndicator"
+        ]
+      },
+      "validUntil": {
+        "title": "validUntil",
+        "type": "object",
+        "description": "This parameter is requesting a valid until date for the requested consent. The content is the ASPSP date in ISODate Format.",
+        "properties": {
+          "validUntil": {
+            "type": "string",
+            "description": "This parameter is requesting a valid until date for the requested consent. The content is the ASPSP date in ISODate Format.",
+            "format": "date"
+          }
+        },
+        "required": [
+          "validUntil"
+        ]
+      },
+      "resourceId": {
+        "title": "resourceId",
+        "type": "object",
+        "required": [
+          "resourceId"
+        ],
+        "properties": {
+          "resourceId": {
+            "type": "string",
+            "description": "\nThis is the data element to be used in the path when retrieving data from a dedicated account."
+          }
+        },
+        "description": "This is the data element to be used in the path when retrieving data from a dedicated account."
+      },
+      "msisdn": {
+        "title": "msisdn",
+        "type": "object",
+        "description": "An alias to access a payment account via a registered mobile phone number.",
+        "properties": {
+          "msisdn": {
+            "type": "string",
+            "description": "An alias to access a payment account via a registered mobile phone number."
+          }
+        },
+        "required": [
+          "msisdn"
+        ]
+      },
+      "currency": {
+        "title": "currency",
+        "type": "object",
+        "required": [
+          "currency"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string",
+            "description": "Account currency code from ISO 4217."
+          }
+        },
+        "description": "Account currency code from ISO 4217."
+      },
+      "product": {
+        "title": "product",
+        "type": "object",
+        "required": [
+          "product"
+        ],
+        "properties": {
+          "product": {
+            "type": "string",
+            "description": "Product Name of the Bank for this account, proprietary definition."
+          }
+        },
+        "description": "Product Name of the Bank for this account, proprietary definition."
+      },
+      "cashAccountType": {
+        "title": "cashAccountType",
+        "type": "object",
+        "description": "External cashAccountType code from ISO 20022.",
+        "properties": {
+          "cashAccountType": {
+            "type": "string",
+            "description": "External cashAccountType code from ISO 20022.",
+            "enum": [
+              "CACC",
+              "SVGS"
+            ]
+          }
+        },
+        "required": [
+          "cashAccountType"
+        ]
+      },
+      "ownerName": {
+        "title": "ownerName",
+        "type": "object",
+        "description": "Name of the legal account owner. If there is more than one owner, then e.g. two names might be noted here. For a corporate account, the corporate name is used for this attribute.",
+        "required": [
+          "ownerName"
+        ],
+        "properties": {
+          "ownerName": {
+            "type": "string",
+            "description": "Name of the legal account owner. If there is more than one owner, then e.g. two names might be noted here. For a corporate account, the corporate name is used for this attribute."
+          }
+        }
+      },
+      "balanceAmount": {
+        "type": "object",
+        "description": "\nAccount balance and amount information.",
+        "properties": {
+          "balanceAmount": {
+            "description": "\nAccount balance and amount information.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/currency"
+              },
+              {
+                "$ref": "#/components/schemas/amount"
+              }
+            ]
+          }
+        },
+        "required": [
+          "balanceAmount"
+        ]
+      },
+      "balanceType": {
+        "title": "balanceType",
+        "type": "object",
+        "required": [
+          "balanceType"
+        ],
+        "properties": {
+          "balanceType": {
+            "type": "string",
+            "description": "External balanceType code from ISO 20022."
+          }
+        },
+        "description": "External balanceType code from ISO 20022."
+      },
+      "referenceDate": {
+        "title": "referenceDate",
+        "type": "object",
+        "description": "Reference date of the balance.\n",
+        "properties": {
+          "referenceDate": {
+            "type": "string",
+            "description": "\nReference date of the balance.",
+            "format": "date"
+          }
+        },
+        "required": [
+          "referenceDate"
+        ]
+      },
+      "lastChangeDateTime": {
+        "title": "lastChangeDateTime",
+        "type": "object",
+        "description": "This data element might be used to indicate e.g. with the expected or booked balance that no action is known on the account, which is not yet booked.",
+        "properties": {
+          "lastChangeDateTime": {
+            "type": "string",
+            "description": "This data element might be used to indicate e.g. with the expected or booked balance that no action is known on the account, which is not yet booked.",
+            "format": "date-time"
+          }
+        }
+      },
+      "transactionsId": {
+        "title": "transactionId",
+        "type": "object",
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "description": "Can be used as access-ID in the API, where more details on an transaction is offered. If this data attribute is provided this shows that the AIS can get access on more details about this transaction using the GET Transaction Details Request as defined in."
+          }
+        },
+        "required": [
+          "transactionId"
+        ]
+      },
+      "creditorName": {
+        "title": "creditorName",
+        "type": "object",
+        "description": "Name of the creditor for a \"Debited\" transaction.",
+        "properties": {
+          "creditorName": {
+            "type": "string",
+            "description": "Name of the creditor for a \"Debited\" transaction."
+          }
+        },
+        "required": [
+          "creditorName"
+        ]
+      },
+      "creditorAccount": {
+        "title": "creditorAccount",
+        "type": "object",
+        "description": "Creditor account identifier.",
+        "properties": {
+          "creditorAccount": {
+            "$ref": "#/components/schemas/msisdn"
+          }
+        },
+        "required": [
+          "creditorAccount"
+        ]
+      },
+      "transactionAmount": {
+        "title": "transactionAmount",
+        "type": "object",
+        "description": "The amount of the transaction as billed to the account.",
+        "properties": {
+          "transactionAmount": {
+            "description": "The amount of the transaction as billed to the account.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/currency"
+              },
+              {
+                "$ref": "#/components/schemas/amount"
+              }
+            ]
+          }
+        },
+        "required": [
+          "transactionAmount"
+        ]
+      },
+      "bookingDate": {
+        "title": "bookingDate",
+        "type": "object",
+        "required": [
+          "bookingDate"
+        ],
+        "properties": {
+          "bookingDate": {
+            "type": "string",
+            "format": "date",
+            "description": "The Date when an entry is posted to an account on the ASPSPs books."
+          }
+        },
+        "description": "The Date when an entry is posted to an account on the ASPSPs books."
+      },
+      "remittanceInformationUnstructured": {
+        "title": "remittanceInformationUnstructured",
+        "type": "object",
+        "required": [
+          "remittanceInformationUnstructured"
+        ],
+        "properties": {
+          "remittanceInformationUnstructured": {
+            "type": "string",
+            "description": "Unstructured reference issued by the seller used to establish a link between the payment of an invoice and the invoice instance."
+          }
+        },
+        "description": "Unstructured reference issued by the seller used to establish a link between the payment of an invoice and the invoice instance."
+      },
+      "_linksRefreshStatus": {
+        "title": "_linksRefreshStatus",
+        "type": "object",
+        "description": "A list of hyperlinks to be recognized by the TPP.",
+        "properties": {
+          "refreshStatus": {
+            "type": "object",
+            "description": "The link to retrieve the refresh status information.",
+            "required": [
+              "href"
+            ],
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            }
+          }
+        },
+        "required": [
+          "refreshStatus"
+        ]
+      },
+      "refreshStatus": {
+        "title": "refreshStatus",
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "finished",
+              "failed",
+              "processing"
+            ],
+            "description": "Conveys current status of the operation."
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "refreshStartedAt": {
+        "title": "refreshStartedAt",
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp of last started fetching process."
+          }
+        },
+        "required": [
+          "startedAt"
+        ]
+      },
+      "refreshFinishedAt": {
+        "title": "refreshFinishedAt",
+        "type": "object",
+        "properties": {
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp when the last fetching process was finished. Can be null if the fetching process is processing.",
+            "nullable": true
+          }
+        },
+        "required": [
+          "finishedAt"
+        ]
+      },
+      "refreshUid": {
+        "title": "refreshUid",
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The unique identificator of last fetching process."
+          }
+        },
+        "required": [
+          "uuid"
+        ]
+      },
+      "_linksScaOAuth": {
+        "title": "_linksScaOAuth",
+        "type": "object",
+        "properties": {
+          "scaOAuth": {
+            "type": "object",
+            "description": "The link refers to a JSON document\nspecifying the OAuth details of the ASPSP’s\nauthorisation server. JSON document\nfollows the definition given in [RFC 8414].",
+            "required": [
+              "href"
+            ],
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            }
+          }
+        },
+        "required": [
+          "scaOAuth"
+        ],
+        "description": "Sca Oauth Links"
+      },
+      "bban": {
+        "title": "bban",
+        "type": "object",
+        "properties": {
+          "bban": {
+            "type": "string",
+            "description": "Basic Bank Account\nNumber."
+          }
+        },
+        "required": [
+          "bban"
+        ]
+      },
+      "accountStatus": {
+        "title": "accountStatus",
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Account status. The value is one of the following:\n- \"enabled\": account is available\n- \"deleted\": account is terminated\n- \"blocked\": account is blocked e.g. for legal reasons \nIf this field is not used, than the\naccount is available in the\nsense of this specification.",
+            "enum": [
+              "enabled",
+              "deleted",
+              "blocked"
+            ]
+          }
+        }
+      },
+      "displayName": {
+        "title": "displayName",
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "Name of the account as defined by the PSU \n(nickname) within online channels."
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
+      "AccountDetails": {
+        "title": "AccountDetails",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/resourceId"
+          },
+          {
+            "$ref": "#/components/schemas/currency"
+          },
+          {
+            "$ref": "#/components/schemas/bban"
+          },
+          {
+            "$ref": "#/components/schemas/ownerName"
+          },
+          {
+            "$ref": "#/components/schemas/displayName"
+          },
+          {
+            "$ref": "#/components/schemas/product"
+          },
+          {
+            "$ref": "#/components/schemas/cashAccountType"
+          },
+          {
+            "$ref": "#/components/schemas/accountStatus"
+          },
+          {
+            "$ref": "#/components/schemas/usage"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "balances": {
+                "type": "array",
+                "description": "Only present if `withBalance` parameter is sent with a value `true`.",
+                "items": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/balanceAmount"
+                    },
+                    {
+                      "$ref": "#/components/schemas/balanceType"
+                    },
+                    {
+                      "$ref": "#/components/schemas/referenceDate"
+                    },
+                    {
+                      "$ref": "#/components/schemas/lastChangeDateTime"
+                    },
+                    {
+                      "$ref": "#/components/schemas/creditLimitIncluded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "_links": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/_linksBalances"
+                  },
+                  {
+                    "$ref": "#/components/schemas/_linksTransactions"
+                  }
+                ],
+                "description": "A list of hyperlinks to be recognized by the TPP."
+              }
+            },
+            "required": [
+              "_links"
+            ]
+          }
+        ]
+      },
+      "SavingsAccountDetails": {
+        "title": "SavingsAccountDetails",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AccountDetails"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "interest": {
+                "type": "array",
+                "description": "A set of interest rates associated to this account, e.g. interests for savings or credits.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "FIXD",
+                        "INDE"
+                      ],
+                      "description": "FIXD and INDE are the only permitted code for now."
+                    },
+                    "rate": {
+                      "type": "array",
+                      "description": "An array of interest rates, which might apply to different amount ranges.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "percentage": {
+                            "type": "string",
+                            "description": "The (signed) rate of the interest."
+                          }
+                        },
+                        "required": [
+                          "percentage"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "rate"
+                  ]
+                }
+              },
+              "relatedDates": {
+                "type": "object",
+                "description": "Dates related to this account, e.g.\nstart Date.",
+                "properties": {
+                  "contractStartDate": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start of the account contract."
+                  },
+                  "contractEndDate": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End of the account contract."
+                  },
+                  "contractAvailabilityDate": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Next Date where money can be taken off a saving account without loss of interest, if initiated now (in case of a saving account). Next Date where a loan can be fully repaid without any extra fee."
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "usage": {
+        "title": "usage",
+        "type": "object",
+        "properties": {
+          "usage": {
+            "type": "string",
+            "description": "Specifies account the usage of the \n- PRIV: private personal account\n- ORGA: professional account\"",
+            "enum": [
+              "PRIV",
+              "ORGA"
+            ]
+          }
+        },
+        "required": [
+          "usage"
+        ]
+      },
+      "creditLimitIncluded": {
+        "title": "creditLimitIncluded",
+        "type": "object",
+        "properties": {
+          "creditLimitIncluded": {
+            "type": "boolean",
+            "description": "A flag indicating if the credit limit of the corresponding account is included in the calculation of the balance, where applicable."
+          }
+        },
+        "required": [
+          "creditLimitIncluded"
+        ]
+      },
+      "TransactionDetails": {
+        "title": "TransactionDetails",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/transactionsId"
+          },
+          {
+            "$ref": "#/components/schemas/endToEndId"
+          },
+          {
+            "$ref": "#/components/schemas/bookingDate"
+          },
+          {
+            "$ref": "#/components/schemas/transactionAmount"
+          },
+          {
+            "$ref": "#/components/schemas/creditorName"
+          },
+          {
+            "$ref": "#/components/schemas/creditorAccount"
+          },
+          {
+            "$ref": "#/components/schemas/remittanceInformationUnstructured"
+          },
+          {
+            "$ref": "#/components/schemas/balanceAfterTransaction"
+          }
+        ]
+      },
+      "endToEndId": {
+        "title": "endToEndId",
+        "type": "object",
+        "properties": {
+          "endToEndId": {
+            "type": "string",
+            "description": "Unique end to end identity."
+          }
+        }
+      },
+      "balanceAfterTransaction": {
+        "title": "balanceAfterTransaction",
+        "type": "object",
+        "properties": {
+          "balanceAfterTransaction": {
+            "description": "This is the balance after this transaction. Recommended balance type is interimBooked.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/balanceAmount"
+              },
+              {
+                "$ref": "#/components/schemas/balanceType"
+              },
+              {
+                "$ref": "#/components/schemas/creditLimitIncluded"
+              },
+              {
+                "$ref": "#/components/schemas/lastChangeDateTime"
+              },
+              {
+                "$ref": "#/components/schemas/referenceDate"
+              }
+            ]
+          }
+        }
+      },
+      "initiatedByCustomer": {
+        "title": "initiatedByCustomer",
+        "type": "object",
+        "properties": {
+          "initiatedByCustomer": {
+            "type": "boolean",
+            "description": "Defines whether request was initiated by customer or automatically.",
+            "default": false
+          }
+        }
+      },
+      "lastActionDate": {
+        "title": "lastActionDate",
+        "type": "object",
+        "properties": {
+          "lastActionDate": {
+            "type": "string",
+            "format": "date",
+            "description": "This date is containing the date of the\nlast action on the consent object\neither through the XS2A interface or the PSU/ASPSP interface having an\nimpact on the status."
+          }
+        },
+        "required": [
+          "lastActionDate"
+        ]
+      },
+      "transactionStatus": {
+        "title": "transactionStatus",
+        "type": "object",
+        "properties": {
+          "transactionStatus": {
+            "type": "string",
+            "description": "The transaction status is filled with codes of the ISO 20022",
+            "enum": [
+              "PDNG",
+              "RCVD",
+              "ACSP",
+              "ACSC",
+              "RJCT",
+              "EXPD",
+              "CANC"
+            ]
+          }
+        },
+        "required": [
+          "transactionStatus"
+        ]
+      },
+      "paymentId": {
+        "title": "paymentId",
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "description": "Resource identification of the generated payment\ninitiation resource."
+          }
+        },
+        "required": [
+          "paymentId"
+        ]
+      },
+      "_linksSelf": {
+        "title": "_linksSelf",
+        "type": "object",
+        "properties": {
+          "self": {
+            "type": "object",
+            "description": "The link to the initiation resource\ncreated by this request. This link can be used to retrieve\nthe resource data. ",
+            "required": [
+              "href"
+            ],
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            }
+          }
+        },
+        "required": [
+          "self"
+        ],
+        "description": "Self Links"
+      },
+      "_linksNext": {
+        "title": "_linksNext",
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "object",
+            "description": "Navigation link for paginated resource. Present when the next page persist.<br>**Per page:** `50` items.",
+            "required": [
+              "href"
+            ],
+            "properties": {
+              "href": {
+                "type": "string",
+                "description": "The link to specified by wrapper resource."
+              }
+            }
+          }
+        },
+        "description": "Next Links"
+      },
+      "BasePayment": {
+        "title": "BasePayment",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/instructedAmount"
+          },
+          {
+            "$ref": "#/components/schemas/remittanceInformationUnstructured"
+          },
+          {
+            "$ref": "#/components/schemas/creditorName"
+          },
+          {
+            "$ref": "#/components/schemas/endToEndIdentification"
+          },
+          {
+            "$ref": "#/components/schemas/currencyOfTransfer"
+          }
+        ]
+      },
+      "instructedAmount": {
+        "title": "instructedAmount",
+        "type": "object",
+        "properties": {
+          "instructedAmount": {
+            "description": "Wrapper for payment amount and currency.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/currencyILS"
+              },
+              {
+                "$ref": "#/components/schemas/amount"
+              }
+            ]
+          }
+        },
+        "required": [
+          "instructedAmount"
+        ]
+      },
+      "PisDebtorAccount": {
+        "title": "PisDebtorAccount",
+        "type": "object",
+        "properties": {
+          "debtorAccount": {
+            "description": "\nDebtor account identifiers.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/bban"
+              },
+              {
+                "$ref": "#/components/schemas/optionalMsisdn"
+              }
+            ]
+          }
+        },
+        "required": [
+          "debtorAccount"
+        ]
+      },
+      "PisCreditorAccount": {
+        "title": "PisCreditorAccount",
+        "type": "object",
+        "properties": {
+          "creditorAccount": {
+            "description": "Creditor account identifiers.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/optionalBban"
+              },
+              {
+                "$ref": "#/components/schemas/msisdn"
+              }
+            ]
+          }
+        },
+        "required": [
+          "creditorAccount"
+        ]
+      },
+      "Payment_fp": {
+        "title": "Faster Payment",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BasePayment"
+          },
+          {
+            "$ref": "#/components/schemas/PisCreditorAccount"
+          },
+          {
+            "$ref": "#/components/schemas/PisDebtorAccount"
+          }
+        ],
+        "description": "Faster Payment"
+      },
+      "endToEndIdentification": {
+        "title": "endToEndIdentification",
+        "type": "object",
+        "properties": {
+          "endToEndIdentification": {
+            "type": "string",
+            "description": "\nUnique identifier generated on TPP side.",
+            "maxLength": 35
+          }
+        },
+        "required": [
+          "endToEndIdentification"
+        ]
+      },
+      "currencyILS": {
+        "title": "currencyILS",
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string",
+            "enum": [
+              "ILS"
+            ],
+            "description": "Account currency code from ISO 4217."
+          }
+        },
+        "required": [
+          "currency"
+        ]
+      },
+      "amount": {
+        "title": "amount",
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "amount"
+        ]
+      },
+      "currencyOfTransfer": {
+        "title": "currencyOfTransfer",
+        "type": "object",
+        "properties": {
+          "currencyOfTransfer": {
+            "type": "string",
+            "description": "Account currency code from ISO 4217."
+          }
+        }
+      },
+      "optionalBban": {
+        "title": "optionalBban",
+        "type": "object",
+        "properties": {
+          "bban": {
+            "type": "string",
+            "description": "Basic Bank Account Number."
+          }
+        }
+      },
+      "optionalMsisdn": {
+        "title": "optionalMsisdn",
+        "type": "object",
+        "properties": {
+          "msisdn": {
+            "type": "string",
+            "description": "An alias to access a payment account via a registered mobile phone number."
+          }
+        }
+      }
+    },
+    "parameters": {
+      "Date": {
+        "name": "Date",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Endpoint request execution date."
+      },
+      "Content-Type": {
+        "name": "Content-Type",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "application/json"
+          ]
+        },
+        "description": "The media type of the body of the request."
+      },
+      "Digest": {
+        "name": "Digest",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Contains a Hash of the message body, if the message does not contain a body, the \"Digest\" header must contain the hash of an empty string - \"\"."
+      },
+      "PSU-Device-ID": {
+        "name": "PSU-Device-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "UUID (Universally Unique Identifier) for a device, which is used by the PSU, if available. UUID identifies either a device or a device dependant application installation. In case of an installation identification this ID need to be unaltered until removal from device."
+      },
+      "PSU-Geo-Location": {
+        "name": "PSU-Geo-Location",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The forwarded Geo Location of the corresponding HTTP request between PSU and TPP if available."
+      },
+      "PSU-User-Agent": {
+        "name": "PSU-User-Agent",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The forwarded Agent header field of the HTTP request between PSU and TPP, if available."
+      },
+      "Signature": {
+        "name": "Signature",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "A signature of the request by the TPP on application level. This might be mandated by ASPSP."
+      },
+      "TPP-Signature-Certificate": {
+        "name": "TPP-Signature-Certificate",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The certificate used for signing the request, in base64 encoding that should comply with RFC 4648 (No line feeds)."
+      },
+      "X-Request-ID": {
+        "name": "X-Request-ID",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "example": "cc5a8022-5e71-460e-82fa-ab0be1997a54"
+        },
+        "description": "ID of the request, unique to the call, as determined by the initiating party."
+      },
+      "TPP-Notification-URI": {
+        "name": "TPP-Notification-URI",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "url",
+          "example": "https://example.com"
+        },
+        "description": "URI for the Endpoint of the Client API to which the status of the resource should be sent."
+      },
+      "TPP-Notification-Content-Preferred": {
+        "name": "TPP-Notification-Content-Preferred",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "PROCESS",
+            "LAST"
+          ]
+        },
+        "description": "The usage of the constants supports the following semantics: \n\nPROCESS: A notification on all changes of consentStatus or transactionStatus attributes is preferred by the TPP. \n\nLAST: Only a notification on the last consentStatus or transactionStatus as available in the XS2A interface is preferred by the TPP."
+      },
+      "consent_id": {
+        "name": "consent_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The consent identifier assigned to the created resource."
+      },
+      "PSU-Corporate-ID": {
+        "name": "PSU-Corporate-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Only used in a corporate context. If provided, specific corporate accounts will be returned."
+      },
+      "Psu-IP-Address": {
+        "name": "PSU-IP-Address",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The forwarded IP Address header field consists of the corresponding http request IP Address field between PSU and TPP. If not available, the TPP shall use the IP Address used by the TPP when submitting this request."
+      },
+      "Psu-ID": {
+        "name": "PSU-ID",
+        "in": "header",
+        "schema": {
+          "type": "string"
+        },
+        "description": "The PSU id number or passport number. This attribute is not the client ID in the ASPSP client interface! Possible values are: \n\n ID:\n\n - only digits\n\nPASSPORT:\n\n - 2 character ISO 3166 country code\n\n - hyphen-minus '-'\n\n - Passport number",
+        "required": true
+      },
+      "withBalance": {
+        "name": "withBalance",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ]
+        },
+        "description": "If contained, this function reads the list of accessible payment accounts including the booking balance, if granted by the PSU in the related consent and available by the ASPSP. This parameter might be ignored by the ASPSP."
+      },
+      "Consent-ID": {
+        "name": "Consent-ID",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Shall be contained since \"Establish Consent Transaction\" was performed via this API before."
+      },
+      "Authorization": {
+        "name": "Authorization",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Bearer authorization access token."
+      },
+      "account_id": {
+        "name": "account_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "This identification is denoting the addressed account. The account-id is retrieved by using a \"Read Account List\" call. The account-id is the \"resourceId\" attribute of the account structure. Its value is constant at least throughout the lifecycle of a given consent."
+      },
+      "dateFrom": {
+        "name": "dateFrom",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Starting date (inclusive the date dateFrom) of the transaction list, mandated if no delta access is required and if bookingStatus does not equal \"information\". Might be ignored if a delta function is used or if bookingStatus equals \"information\". For booked transactions, the relevant date is the booking date. For pending transactions, the relevant date is the entry date, which may not be transparent neither in this API nor other channels of the ASPSP. If the bookingStatus equals \"all\", this date might be ignored for all transactions referred to by bookingStatus \"information\"."
+      },
+      "dateTo": {
+        "name": "dateTo",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "End date (inclusive the data dateTo) of the transaction list, default is \"now\" if not given. Might be ignored if a delta function is used. For booked transactions, the relevant date is the booking date. For pending transactions, the relevant date is the entry date, which may not be transparent neither in this API nor other channels of the ASPSP. If the bookingStatus equals \"all\", this date might be ignored for all transactions referred to by bookingStatus \"information\"."
+      },
+      "entryReferenceFrom": {
+        "name": "entryReferenceFrom",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "This data attribute is indicating that the AISP is in favour to get all transactions after the transaction with identification entryReferenceFrom alternatively to the above defined period. This is a implementation of a delta access. If this data element is contained, the entries \"dateFrom\" and \"dateTo\" might be ignored by the ASPSP if a delta report is supported."
+      },
+      "bookingStatus": {
+        "name": "bookingStatus",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Permitted codes are \"booked\", \"pending\",  \"both\", \"information\" and \"all\". \"booked\" shall be supported by the ASPSP. To support the \"pending\" and \"both\" feature is optional for the ASPSP, Error code if not supported in the online banking frontend. If supported, \"both\" means to request transaction reports of transaction of bookingStatus either \"pending\" or \"booked\". To support the \"information\" feature is optional for the ASPSP. Currently the booking status “information” only covers standing orders. Error code if not supported. To support the \"all\" feature is optional for the ASPSP, Error code if not supported. If supported, \"all\" means to request transaction reports of transaction of any bookingStatus (\"pending\", \"booked\" or \"information\")."
+      },
+      "deltaList": {
+        "name": "deltaList",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ]
+        },
+        "description": "This data attribute is indicating that the AISP is in favour to get all transactions after the last report access for this PSU on the addressed account. This is another implementation of a delta access-report. This delta indicator might be rejected by the ASPSP if this function is not supported. If this data element is contained, the entries \"dateFrom\" and \"dateTo\" might be ignored by the ASPSP if a delta report is supported."
+      },
+      "transaction_id": {
+        "name": "transaction_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "This identification is given by the attribute transactionId of the  corresponding entry of a transaction list."
+      },
+      "PSU-ID-Type": {
+        "name": "PSU-ID-Type",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Type of the PSU-ID, needed in scenarios where PSUs have several PSU-IDs as access possibility."
+      },
+      "PSU-Corporate-ID-Type": {
+        "name": "PSU-Corporate-ID-Type",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Only used in a corporate context."
+      },
+      "PSU-IP-Address-required": {
+        "name": "PSU-IP-Address",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The forwarded IP Address header field consists of the corresponding HTTP request IP Address field between PSU and TPP. If not available, the TPP shall use the IP Address used by the TPP when submitting this request."
+      },
+      "Accept": {
+        "name": "Accept",
+        "in": "header",
+        "schema": {
+          "type": "string"
+        },
+        "description": "The TPP can indicate the formats of account reports supported together with a priorisation following the HTTP header definition. Only JSON value is supported"
+      },
+      "PSU-IP-Address-OnlyPsu": {
+        "name": "PSU-IP-Address",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The forwarded IP Address header field consists of the corresponding HTTP request IP Address field between PSU and TPP. It shall be contained if and only if this request was actively initiated by the PSU.<br><i style='color: #BC204B;'>Conditional</i>"
+      },
+      "payment_product": {
+        "name": "payment_product",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "fp"
+          ]
+        },
+        "description": "The addressed payment product endpoint."
+      },
+      "payment_id": {
+        "name": "payment_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "ID of the corresponding payment initiation object as returned by an Payment Initiation Request"
+      },
+      "saving_account_id": {
+        "name": "saving_account_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "This identification is denoting the addressed savings account. The savings-account-id is retrieved by using a \"Read Savings Account List\" call. The savings-account-id is the \"resourceId\" attribute of the account structure. Its value is constant at least throughout the lifecycle of a given consent. "
+      }
+    },
+    "requestBodies": {
+      "post-api-v1-tpps": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "company": {
+                  "type": "object",
+                  "description": "Wrapper for company params.",
+                  "properties": {
+                    "email": {
+                      "type": "string",
+                      "description": "Company email."
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Company name.\n"
+                    }
+                  },
+                  "required": [
+                    "email",
+                    "name"
+                  ]
+                },
+                "redirect_uris": {
+                  "type": "array",
+                  "description": "Tpp redirect URIs",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "representative": {
+                  "type": "object",
+                  "description": "Wrapper for representative params.",
+                  "properties": {
+                    "email": {
+                      "type": "string",
+                      "description": "Representative email."
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Representative name."
+                    }
+                  },
+                  "required": [
+                    "email",
+                    "name"
+                  ]
+                }
+              },
+              "required": [
+                "company",
+                "redirect_uris",
+                "representative"
+              ]
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "company": {
+                    "email": "string",
+                    "name": "string"
+                  },
+                  "redirect_uris": [
+                    "https://example.com/callback",
+                    "https://example.org/redirect"
+                  ],
+                  "representative": {
+                    "email": "string",
+                    "name": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post-api-v1-consents": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "access": {
+                      "$ref": "#/components/schemas/access"
+                    }
+                  },
+                  "required": [
+                    "access"
+                  ]
+                },
+                {
+                  "$ref": "#/components/schemas/frequencyPerDay"
+                },
+                {
+                  "$ref": "#/components/schemas/recurringIndicator"
+                },
+                {
+                  "$ref": "#/components/schemas/validUntil"
+                }
+              ]
+            },
+            "examples": {
+              "example-1": {
+                "value": {
+                  "access": {
+                    "accounts": [
+                      {
+                        "bban": "string",
+                        "cashAccountType": "CACC"
+                      }
+                    ],
+                    "balances": [
+                      {
+                        "bban": "string",
+                        "cashAccountType": "CACC"
+                      }
+                    ],
+                    "transactions": [
+                      {
+                        "bban": "string",
+                        "cashAccountType": "CACC"
+                      }
+                    ]
+                  },
+                  "frequencyPerDay": 1,
+                  "recurringIndicator": false,
+                  "validUntil": "2019-08-24"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post-api-v1-payments-payment_product": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Payment_fp"
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "instructedAmount": {
+                    "currency": "ILS",
+                    "amount": 0
+                  },
+                  "remittanceInformationUnstructured": "string",
+                  "creditorName": "string",
+                  "endToEndIdentification": "string",
+                  "creditorAccount": {
+                    "bban": "string",
+                    "msisdn": "string"
+                  },
+                  "debtorAccount": {
+                    "bban": "string",
+                    "msisdn": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "post-api-v1-tpps": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "client_id": {
+                  "type": "string",
+                  "description": "Client ID."
+                },
+                "client_id_issued_at": {
+                  "type": "integer",
+                  "description": "Client created_at UNIX timestamp."
+                },
+                "redirect_uris": {
+                  "type": "array",
+                  "description": "Tpp redirect URIs",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "token_endpoint_auth_method": {
+                  "type": "string",
+                  "description": "Token authorization method."
+                },
+                "grant_types": {
+                  "type": "array",
+                  "description": "Token grant types.",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "response_types": {
+                  "type": "array",
+                  "description": "Token response types.",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "client_name": {
+                  "type": "string",
+                  "description": "Client name."
+                }
+              },
+              "required": [
+                "client_id",
+                "client_id_issued_at",
+                "redirect_uris",
+                "token_endpoint_auth_method",
+                "grant_types",
+                "response_types",
+                "client_name"
+              ]
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "client_id": "string",
+                  "client_id_issued_at": 1,
+                  "redirect_uris": [
+                    "string"
+                  ],
+                  "token_endpoint_auth_method": "string",
+                  "grant_types": [
+                    "string"
+                  ],
+                  "response_types": [
+                    "string"
+                  ],
+                  "client_name": "string"
+                }
+              }
+            }
+          }
+        },
+        "headers": {}
+      },
+      "errorResponse": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "tppMessages": {
+                  "type": "array",
+                  "description": "A list of parameters to help with identifying the error.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "category": {
+                        "type": "string",
+                        "description": "Only \"ERROR\" or \"WARNING\" permitted.",
+                        "enum": [
+                          "ERROR",
+                          "WARNING"
+                        ]
+                      },
+                      "code": {
+                        "type": "string",
+                        "description": "Error code with which the request failed."
+                      },
+                      "text": {
+                        "type": "string",
+                        "description": "Error description."
+                      }
+                    },
+                    "required": [
+                      "category",
+                      "code",
+                      "text"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "tppMessages"
+              ]
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "tppMessages": [
+                    {
+                      "category": "ERROR",
+                      "code": "string",
+                      "text": "string"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "post-api-v1-consents": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/consentId"
+                },
+                {
+                  "$ref": "#/components/schemas/consentStatus"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "_links": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/_linksStatus"
+                        },
+                        {
+                          "$ref": "#/components/schemas/_linksScaOAuth"
+                        },
+                        {
+                          "$ref": "#/components/schemas/_linksSelf"
+                        }
+                      ],
+                      "description": "A list of hyperlinks to be recognized by the TPP."
+                    }
+                  },
+                  "required": [
+                    "_links"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          },
+          "Location": {
+            "$ref": "#/components/headers/Location"
+          }
+        }
+      },
+      "get-api-v1-consents-consent_id": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/consentStatus"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "access": {
+                      "$ref": "#/components/schemas/access"
+                    }
+                  },
+                  "required": [
+                    "access"
+                  ]
+                },
+                {
+                  "$ref": "#/components/schemas/frequencyPerDay"
+                },
+                {
+                  "$ref": "#/components/schemas/recurringIndicator"
+                },
+                {
+                  "$ref": "#/components/schemas/validUntil"
+                },
+                {
+                  "$ref": "#/components/schemas/lastActionDate"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "_links": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/_linksAccount"
+                        }
+                      ],
+                      "description": "Type of links recommended for this\nresponse."
+                    }
+                  }
+                }
+              ]
+            },
+            "examples": {
+              "example-1": {
+                "value": {
+                  "consentStatus": "received",
+                  "access": {
+                    "accounts": [
+                      {
+                        "bban": "string",
+                        "cashAccountType": "CACC"
+                      }
+                    ],
+                    "balances": [
+                      {
+                        "bban": "string",
+                        "cashAccountType": "CACC"
+                      }
+                    ],
+                    "transactions": [
+                      {
+                        "bban": "string",
+                        "cashAccountType": "CACC"
+                      }
+                    ]
+                  },
+                  "frequencyPerDay": 1,
+                  "recurringIndicator": false,
+                  "validUntil": "2019-08-24",
+                  "lastActionDate": "2019-08-24",
+                  "_links": {
+                    "account": {
+                      "href": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-consents-status": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/consentStatus"
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-accounts": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "x-examples": {
+                "Example 1": {
+                  "accounts": [
+                    {
+                      "resourceId": "3dc3d5b3-7023-4848-9853-f5400a64e80f",
+                      "iban": "DE2310010010123456789",
+                      "currency": "EUR",
+                      "product": "Girokonto",
+                      "cashAccountType": "CACC",
+                      "name": "Main Account",
+                      "_links": {
+                        "balances": {
+                          "href": "/api/v1/accounts/3dc3d5b3-7023-4848-9853-f5400a64e80f/balances"
+                        },
+                        "transactions": {
+                          "href": "/api/v1/accounts/3dc3d5b3-7023-4848-9853-f5400a64e80f/transactions"
+                        }
+                      }
+                    },
+                    {
+                      "resourceId": "3dc3d5b3-7023-4848-9853-f5400a64e81e",
+                      "iban": "DE2310010010123456788",
+                      "currency": "USD",
+                      "product": "Fremdwährungskonto",
+                      "cashAccountType": "CACC",
+                      "name": "US Dollar Account",
+                      "_links": {
+                        "balances": {
+                          "href": "/api/v1/accounts/3dc3d5b3-7023-4848-9853-f5400a64e81e/balances"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "properties": {
+                    "accounts": {
+                      "type": "array",
+                      "description": "In case, no account is accessible, the ASPSP\nshall return an empty array.",
+                      "items": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/AccountDetails"
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "_links": {
+                                "allOf": [
+                                  {
+                                    "$ref": "#/components/schemas/_linksBalances"
+                                  },
+                                  {
+                                    "$ref": "#/components/schemas/_linksTransactions"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "accounts"
+                  ]
+                }
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-accounts-account_id": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "properties": {
+                    "account": {
+                      "$ref": "#/components/schemas/AccountDetails"
+                    }
+                  },
+                  "required": [
+                    "account"
+                  ]
+                }
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-accounts-account_id-balances": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "properties": {
+                    "account": {
+                      "description": "Wrapper for account identificator.",
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/bban"
+                        },
+                        {
+                          "$ref": "#/components/schemas/currency"
+                        },
+                        {
+                          "$ref": "#/components/schemas/cashAccountType"
+                        }
+                      ]
+                    },
+                    "balances": {
+                      "type": "array",
+                      "description": "Wrapper for balances.",
+                      "items": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/balanceAmount"
+                          },
+                          {
+                            "$ref": "#/components/schemas/balanceType"
+                          },
+                          {
+                            "$ref": "#/components/schemas/referenceDate"
+                          },
+                          {
+                            "$ref": "#/components/schemas/lastChangeDateTime"
+                          },
+                          {
+                            "$ref": "#/components/schemas/creditLimitIncluded"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "account",
+                    "balances"
+                  ]
+                }
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-accounts-account_id-transactions": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "properties": {
+                    "account": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/bban"
+                        },
+                        {
+                          "$ref": "#/components/schemas/currency"
+                        },
+                        {
+                          "$ref": "#/components/schemas/cashAccountType"
+                        }
+                      ],
+                      "description": "Identifier of the addressed account."
+                    },
+                    "transactions": {
+                      "description": "List of transactions.",
+                      "type": "object",
+                      "required": [
+                        "booked",
+                        "pending"
+                      ],
+                      "properties": {
+                        "booked": {
+                          "type": "array",
+                          "description": "List of booked transactions.",
+                          "items": {
+                            "$ref": "#/components/schemas/TransactionDetails"
+                          }
+                        },
+                        "pending": {
+                          "type": "array",
+                          "description": "List of pending transactions.",
+                          "items": {
+                            "$ref": "#/components/schemas/TransactionDetails"
+                          }
+                        }
+                      }
+                    },
+                    "_links": {
+                      "type": "array",
+                      "description": "A list of hyperlinks to be recognized by the TPP.",
+                      "items": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/_linksAccount"
+                          },
+                          {
+                            "$ref": "#/components/schemas/_linksNext"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "account",
+                    "transactions"
+                  ]
+                }
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-accounts-account-id-transactions-transaction-Id": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "properties": {
+                    "transactionsDetails": {
+                      "$ref": "#/components/schemas/TransactionDetails"
+                    }
+                  }
+                }
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "put-api-v1-refresh-consents-consent_id": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/refreshStatus"
+                },
+                {
+                  "$ref": "#/components/schemas/refreshStartedAt"
+                },
+                {
+                  "$ref": "#/components/schemas/refreshUid"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "_links": {
+                      "$ref": "#/components/schemas/_linksRefreshStatus"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-refresh-consents-consent_id": {
+        "description": "",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/refreshStatus"
+                },
+                {
+                  "$ref": "#/components/schemas/refreshStartedAt"
+                },
+                {
+                  "$ref": "#/components/schemas/refreshFinishedAt"
+                },
+                {
+                  "$ref": "#/components/schemas/refreshUid"
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "post-api-v1-payments-payment_product": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/transactionStatus"
+                },
+                {
+                  "$ref": "#/components/schemas/paymentId"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "_links": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/_linksScaOAuth"
+                        },
+                        {
+                          "$ref": "#/components/schemas/_linksStatus"
+                        },
+                        {
+                          "$ref": "#/components/schemas/_linksSelf"
+                        }
+                      ],
+                      "description": "Links"
+                    }
+                  }
+                }
+              ]
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "transactionStatus": "PDNG",
+                  "paymentId": "string",
+                  "_links": {
+                    "scaOAuth": {
+                      "href": "string"
+                    },
+                    "status": {
+                      "href": "string"
+                    },
+                    "self": {
+                      "href": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          },
+          "Location": {
+            "$ref": "#/components/headers/Location"
+          }
+        }
+      },
+      "get-api-v1-payments-payment_product-payment_id": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Payment_fp"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-payments-payment_product-payment_id-status": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/transactionStatus"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "psuMessage": {
+                      "type": "string",
+                      "description": "`endToEndIdentification` Unique identifier generated on TPP side on Payment create or `N/A` value."
+                    },
+                    "_links": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/_linksSelf"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/X-Request-ID"
+          }
+        }
+      },
+      "get-api-v1-savings": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "properties": {
+                    "savingsAccounts": {
+                      "type": "array",
+                      "description": "In case, no savings accounts is accessible, the ASPSP\nshall return an empty array.",
+                      "items": {
+                        "$ref": "#/components/schemas/SavingsAccountDetails"
+                      }
+                    }
+                  },
+                  "required": [
+                    "savingsAccounts"
+                  ]
+                }
+              ],
+              "type": "object"
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "savingsAccounts": [
+                    {
+                      "resourceId": "string",
+                      "currency": "string",
+                      "bban": "string",
+                      "ownerName": "string",
+                      "displayName": "string",
+                      "product": "string",
+                      "cashAccountType": "SVGS",
+                      "status": "enabled",
+                      "usage": "PRIV",
+                      "interest": [
+                        {
+                          "type": "FIXD",
+                          "rate": [
+                            {
+                              "percentage": "1.5"
+                            }
+                          ]
+                        }
+                      ],
+                      "relatedDates": {
+                        "contractStartDate": "2025-01-01",
+                        "contractEndDate": "2025-01-01",
+                        "contractAvailabilityDate": "2025-01-01"
+                      },
+                      "balances": [
+                        {
+                          "balanceAmount": {
+                            "currency": "string",
+                            "amount": 0
+                          },
+                          "balanceType": "string",
+                          "referenceDate": "2019-08-24",
+                          "lastChangeDateTime": "2019-08-24T14:15:22Z",
+                          "creditLimitIncluded": true
+                        }
+                      ],
+                      "_links": {
+                        "balances": {
+                          "href": "string"
+                        },
+                        "transactions": {
+                          "href": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get-api-v1-savings-saving_account_id": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "properties": {
+                    "savingsAccount": {
+                      "$ref": "#/components/schemas/SavingsAccountDetails"
+                    }
+                  },
+                  "required": [
+                    "savingsAccount"
+                  ]
+                }
+              ],
+              "type": "object"
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "savingsAccount": {
+                    "resourceId": "string",
+                    "currency": "string",
+                    "bban": "string",
+                    "ownerName": "string",
+                    "displayName": "string",
+                    "product": "string",
+                    "cashAccountType": "SVGS",
+                    "status": "enabled",
+                    "usage": "PRIV",
+                    "interest": [
+                      {
+                        "type": "FIXD",
+                        "rate": [
+                          {
+                            "percentage": "1.5"
+                          }
+                        ]
+                      }
+                    ],
+                    "relatedDates": {
+                      "contractStartDate": "2025-01-01",
+                      "contractEndDate": "2025-01-01",
+                      "contractAvailabilityDate": "2025-01-01"
+                    },
+                    "balances": [
+                      {
+                        "balanceAmount": {
+                          "currency": "string",
+                          "amount": 0
+                        },
+                        "balanceType": "string",
+                        "referenceDate": "2019-08-24",
+                        "lastChangeDateTime": "2019-08-24T14:15:22Z",
+                        "creditLimitIncluded": true
+                      }
+                    ],
+                    "_links": {
+                      "balances": {
+                        "href": "string"
+                      },
+                      "transactions": {
+                        "href": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get-api-v1-savings-saving_account_id-balances": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "properties": {
+                    "savingsAccount": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/bban"
+                        },
+                        {
+                          "$ref": "#/components/schemas/currency"
+                        },
+                        {
+                          "$ref": "#/components/schemas/cashAccountType"
+                        }
+                      ],
+                      "description": "Identifier of the addressed savings account."
+                    },
+                    "balances": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/balanceAmount"
+                        },
+                        {
+                          "$ref": "#/components/schemas/balanceType"
+                        },
+                        {
+                          "$ref": "#/components/schemas/referenceDate"
+                        },
+                        {
+                          "$ref": "#/components/schemas/lastChangeDateTime"
+                        },
+                        {
+                          "$ref": "#/components/schemas/creditLimitIncluded"
+                        }
+                      ],
+                      "description": "Wrapper for balances."
+                    }
+                  },
+                  "required": [
+                    "savingsAccount",
+                    "balances"
+                  ]
+                }
+              ],
+              "type": "object"
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "savingsAccount": {
+                    "bban": "string",
+                    "currency": "string",
+                    "cashAccountType": "SVGS"
+                  },
+                  "balances": {
+                    "balanceAmount": {
+                      "currency": "string",
+                      "amount": 0
+                    },
+                    "balanceType": "string",
+                    "referenceDate": "2019-08-24",
+                    "lastChangeDateTime": "2019-08-24T14:15:22Z",
+                    "creditLimitIncluded": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get-api-v1-savings-saving_account_id-transactions": {
+        "description": "Example response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "properties": {
+                    "savingsAccount": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/bban"
+                        },
+                        {
+                          "$ref": "#/components/schemas/currency"
+                        },
+                        {
+                          "$ref": "#/components/schemas/cashAccountType"
+                        }
+                      ],
+                      "description": "Identifier of the addressed savings account."
+                    },
+                    "transactions": {
+                      "type": "object",
+                      "description": "List of transactions.",
+                      "required": [
+                        "booked",
+                        "pending"
+                      ],
+                      "properties": {
+                        "booked": {
+                          "type": "array",
+                          "description": "List of booked transactions.",
+                          "items": {
+                            "$ref": "#/components/schemas/TransactionDetails"
+                          }
+                        },
+                        "pending": {
+                          "type": "array",
+                          "description": "List of pending transactions.",
+                          "items": {
+                            "$ref": "#/components/schemas/TransactionDetails"
+                          }
+                        }
+                      }
+                    },
+                    "_links": {
+                      "description": "A list of hyperlinks to be recognized by the TPP.",
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/_linksSavings"
+                        },
+                        {
+                          "$ref": "#/components/schemas/_linksNext"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "savingsAccount",
+                    "transactions",
+                    "_links"
+                  ]
+                }
+              ],
+              "type": "object"
+            },
+            "examples": {
+              "Example": {
+                "value": {
+                  "savingsAccount": {
+                    "bban": "string",
+                    "currency": "string",
+                    "cashAccountType": "SVGS"
+                  },
+                  "transactions": {
+                    "booked": [
+                      {
+                        "transactionId": "string",
+                        "endToEndId": "string",
+                        "bookingDate": "2019-08-24",
+                        "transactionAmount": {
+                          "currency": "string",
+                          "amount": 0
+                        },
+                        "creditorName": "string",
+                        "creditorAccount": {
+                          "msisdn": "string"
+                        },
+                        "remittanceInformationUnstructured": "string",
+                        "balanceAfterTransaction": {
+                          "balanceAmount": {
+                            "currency": "string",
+                            "amount": 0
+                          },
+                          "balanceType": "string",
+                          "creditLimitIncluded": true,
+                          "lastChangeDateTime": "2019-08-24T14:15:22Z",
+                          "referenceDate": "2019-08-24"
+                        }
+                      }
+                    ],
+                    "pending": [
+                      {
+                        "transactionId": "string",
+                        "endToEndId": "string",
+                        "bookingDate": "2019-08-24",
+                        "transactionAmount": {
+                          "currency": "string",
+                          "amount": 0
+                        },
+                        "creditorName": "string",
+                        "creditorAccount": {
+                          "msisdn": "string"
+                        },
+                        "remittanceInformationUnstructured": "string",
+                        "balanceAfterTransaction": {
+                          "balanceAmount": {
+                            "currency": "string",
+                            "amount": 0
+                          },
+                          "balanceType": "string",
+                          "creditLimitIncluded": true,
+                          "lastChangeDateTime": "2019-08-24T14:15:22Z",
+                          "referenceDate": "2019-08-24"
+                        }
+                      }
+                    ]
+                  },
+                  "_links": {
+                    "savingsAccount": {
+                      "href": "string"
+                    },
+                    "next": {
+                      "href": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Authorization": {
+        "type": "oauth2",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://www.bitpay.co.il/app/open-banking",
+            "tokenUrl": "https://open-banking.bitpay.co.il/api/v1/oauth/token",
+            "refreshUrl": "https://open-banking.bitpay.co.il/api/v1/oauth/token",
+            "scopes": {
+              "AIS Consent": "`AIS:{consentId}`"
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Accounts"
+    },
+    {
+      "name": "Consents"
+    },
+    {
+      "name": "OAuth2"
+    },
+    {
+      "name": "Payments"
+    },
+    {
+      "name": "Refresh Data"
+    },
+    {
+      "name": "Savings"
+    },
+    {
+      "name": "TPP Register"
+    },
+    {
+      "name": "Transactions"
+    }
+  ],
+  "security": [],
+  "x-tagGroups": [
+    {
+      "name": "AIS",
+      "tags": [
+        "Consents",
+        "Accounts",
+        "Savings",
+        "Refresh Data"
+      ]
+    },
+    {
+      "name": "PIS",
+      "tags": [
+        "Payments"
+      ]
+    },
+    {
+      "name": "OAuth",
+      "tags": [
+        "OAuth2",
+        "TPP Register"
+      ]
+    }
+  ]
+}

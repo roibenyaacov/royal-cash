@@ -138,16 +138,12 @@
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 8px;
             margin-top: 8px;
             font-size: 0.9rem;
+            transition: background 0.2s;
         }
-        .btn-bit img {
-            width: 20px;
-            height: 20px;
-            object-fit: contain;
+        .btn-bit:hover {
+            background: #0052a3;
         }
 
         /* --- Cards --- */
@@ -3627,8 +3623,7 @@
                         const safeName = creditorName.replace(/'/g, "\\'");
                         transferHtml += `
                             <button class="btn-bit" onclick="payWithBit('${safePhone}', '${safeName}', ${amount})">
-                                <img src="bit-logo.png" alt="Bit">
-                                ${t('payWithBit')}
+                                💳 ${t('payWithBit')}
                             </button>
                         `;
                     }
@@ -3708,37 +3703,55 @@
             try {
                 // Sanitize phone number
                 const cleanPhone = sanitizePhoneNumber(phoneNumber);
-                
+
                 if (!cleanPhone) {
                     showToast('מספר טלפון לא תקין');
                     return;
                 }
-                
-                // Copy phone number to clipboard
-                await navigator.clipboard.writeText(cleanPhone);
-                
-                // Show toast notification
-                showToast(`מספר הועתק! פותח Bit...`);
-                
-                // Construct Bit deep link URL
-                // Format: https://bitpay.co.il/app/me/{PHONE}?amount={AMOUNT}
-                const bitUrl = `https://bitpay.co.il/app/me/${cleanPhone}?amount=${Math.round(amount)}`;
-                
-                // Try to open Bit app (deep link)
-                // First try the web URL (works on mobile and desktop)
-                window.open(bitUrl, '_blank');
-                
+
+                const roundedAmount = Math.round(amount);
+
+                // Copy payment details to clipboard
+                const paymentInfo = `${creditorName}: ${cleanPhone} - ${roundedAmount}₪`;
+                try {
+                    await navigator.clipboard.writeText(paymentInfo);
+                } catch (e) {
+                    console.log('Clipboard not available');
+                }
+
+                // Detect if mobile
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+                // Try different Bit deep link formats
+                if (isMobile) {
+                    // On mobile, try app scheme first
+                    const appLink = `bit://pay?phone=${cleanPhone}&amount=${roundedAmount}`;
+                    window.location.href = appLink;
+
+                    // Fallback to web if app doesn't open
+                    setTimeout(() => {
+                        window.open(`https://www.bitpay.co.il/app/`, '_blank');
+                    }, 1500);
+
+                    showToast(`פותח Bit... ${creditorName}: ${roundedAmount}₪`);
+                } else {
+                    // On desktop, open web version and show manual entry instructions
+                    window.open('https://www.bitpay.co.il/app/', '_blank');
+
+                    // Show payment details in a user-friendly way
+                    setTimeout(() => {
+                        const message = currentLanguage === 'he'
+                            ? `פרטי התשלום:\n\n👤 ${creditorName}\n📱 ${cleanPhone}\n💰 ${roundedAmount}₪\n\n(הפרטים הועתקו ללוח)`
+                            : `Payment details:\n\n👤 ${creditorName}\n📱 ${cleanPhone}\n💰 ${roundedAmount}₪\n\n(Details copied to clipboard)`;
+                        alert(message);
+                    }, 500);
+                }
+
             } catch (error) {
                 console.error('Error with Bit payment:', error);
-                // Fallback: try to construct URL anyway
-                const cleanPhone = sanitizePhoneNumber(phoneNumber);
-                if (cleanPhone) {
-                    const bitUrl = `https://bitpay.co.il/app/me/${cleanPhone}?amount=${Math.round(amount)}`;
-                    window.open(bitUrl, '_blank');
-                } else {
-                    window.open('https://www.bitpay.co.il/app/', '_blank');
-                }
-                showToast('פתיחת Bit...');
+                // Ultimate fallback
+                window.open('https://www.bitpay.co.il/app/', '_blank');
+                showToast('פותח Bit - הזן פרטים ידנית');
             }
         }
 
