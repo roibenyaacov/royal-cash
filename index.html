@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Royal Cash - League Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <style>
         :root {
             --bg-color: #121212;
@@ -324,6 +325,22 @@
             padding: 20px;
         }
 
+        /* --- Game Logs --- */
+        .game-log-item {
+            padding: 8px;
+            border-bottom: 1px solid #333;
+            font-size: 0.9rem;
+            color: var(--text-main);
+        }
+        .game-log-item:last-child {
+            border-bottom: none;
+        }
+        .game-log-time {
+            color: var(--gray);
+            font-size: 0.75rem;
+            margin-right: 8px;
+        }
+
     </style>
 </head>
 <body>
@@ -332,36 +349,48 @@
         <button id="backBtn" class="back-btn" onclick="goBack()">➔</button>
         <img src="logo.png" class="app-logo" alt="Royal Cash">
         <div class="user-menu" id="userMenu" style="display:none;">
+            <!-- Language Selector -->
+            <select id="languageSelector" onchange="changeLanguage(this.value)" style="background: var(--card-bg); color: var(--gold); border: 1px solid var(--gold); padding: 5px 10px; border-radius: 5px; margin-left: 10px; cursor: pointer;">
+                <option value="he">עברית</option>
+                <option value="en">English</option>
+            </select>
             <span class="user-name" id="userName"></span>
-            <button class="logout-btn" onclick="handleLogout()">התנתק</button>
+            <button class="logout-btn" id="btnLogout" onclick="handleLogout()">התנתק</button>
         </div>
     </header>
 
     <div class="container">
 
         <!-- Auth View -->
-        <div id="view-auth">
+        <!-- Loading View -->
+        <div id="view-loading">
+            <div style="text-align:center; padding:50px;">
+                <div class="loading" style="font-size:1.2rem; color:var(--gold);" id="loadingText">טוען...</div>
+            </div>
+        </div>
+
+        <div id="view-auth" class="hidden">
             <div class="auth-container">
                 <div class="auth-tabs">
-                    <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">התחברות</div>
-                    <div class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">הרשמה</div>
+                    <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')"><span id="tabLoginText">התחברות</span></div>
+                    <div class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')"><span id="tabSignupText">הרשמה</span></div>
                 </div>
                 <div class="card">
                     <div id="auth-form-login">
-                        <h3>התחברות</h3>
+                        <h3 id="loginTitle">התחברות</h3>
                         <input type="email" id="loginEmail" placeholder="אימייל">
                         <input type="password" id="loginPassword" placeholder="סיסמה">
                         <div id="loginError" class="error-message hidden"></div>
-                        <button class="btn-gold" onclick="handleLogin()">התחבר</button>
+                        <button class="btn-gold" id="btnLogin" onclick="handleLogin()">התחבר</button>
                     </div>
                     <div id="auth-form-signup" class="hidden">
-                        <h3>הרשמה</h3>
-                        <input type="text" id="signupUsername" placeholder="שם משתמש">
-                        <input type="email" id="signupEmail" placeholder="אימייל">
-                        <input type="tel" id="signupPhone" placeholder="מספר טלפון (חובה)" pattern="[0-9]{10}">
-                        <input type="password" id="signupPassword" placeholder="סיסמה">
+                        <h3 id="signupTitle">הרשמה</h3>
+                        <input type="text" id="signupUsername" placeholder="שם משתמש" required>
+                        <input type="email" id="signupEmail" placeholder="אימייל" required>
+                        <input type="tel" id="signupPhone" placeholder="מספר טלפון (חובה)" pattern="[0-9]{10}" required>
+                        <input type="password" id="signupPassword" placeholder="סיסמה" required>
                         <div id="signupError" class="error-message hidden"></div>
-                        <button class="btn-gold" onclick="handleSignup()">הירשם</button>
+                        <button class="btn-gold" id="btnSignup" onclick="handleSignup()">הירשם</button>
                     </div>
                 </div>
             </div>
@@ -369,73 +398,114 @@
 
         <!-- Main App Views -->
         <div id="view-lobby" class="hidden">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h3 style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; flex:1;">שולחנות פעילים</h3>
-                <button class="btn-outline" onclick="showMyStats()" style="width:auto; margin:0 0 0 10px; padding:8px 15px;">
-                    📊 הנתונים שלי
-            </button>
+            <!-- Lobby Tabs -->
+            <div class="auth-tabs" style="margin-bottom: 20px;">
+                <div class="auth-tab active" id="tab-active-games" onclick="switchLobbyTab('active')">שולחנות פעילים</div>
+                <div class="auth-tab" id="tab-history" onclick="switchLobbyTab('history')">היסטוריה</div>
             </div>
-            <div id="tablesListContainer" class="loading">טוען...</div>
-            
-            <button class="btn-gold" onclick="openModal('modal-create')">+ פתח שולחן חדש</button>
+
+            <div id="lobby-active-view">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; flex:1;" id="activeTablesTitle">שולחנות פעילים</h3>
+                    <button class="btn-outline" onclick="showMyStats()" style="width:auto; margin:0 0 0 10px; padding:8px 15px;" id="btnMyStats">
+                        <span id="myStatsBtnText">הנתונים שלי</span> <span style="margin-right: 5px;">📊</span>
+            </button>
+                </div>
+                <div id="tablesListContainer" class="loading"><span id="loadingTablesText">טוען...</span></div>
+            <button class="btn-gold" onclick="openModal('modal-create')" id="btnCreateTable">פתח שולחן חדש <span style="margin-right: 5px;">+</span></button>
+        </div>
+
+            <div id="lobby-history-view" class="hidden">
+                <h3 style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px;">שולחנות שנמחקו <span style="margin-right: 5px;">📜</span></h3>
+                <div id="deletedTablesContainer" class="loading">טוען שולחנות שנמחקו...</div>
+            </div>
         </div>
 
         <!-- My Stats View -->
         <div id="view-my-stats" class="hidden">
-            <h2 style="text-align:center; color:var(--gold); margin-bottom:20px;">📊 הנתונים שלי</h2>
+            <h2 style="text-align:center; color:var(--gold); margin-bottom:20px;"><span id="myStatsPageTitle">הנתונים שלי</span> <span style="margin-right: 5px;">📊</span></h2>
             <div class="card">
-                <div id="myStatsContent" class="loading">טוען נתונים...</div>
+                <div id="myStatsContent" class="loading"><span id="loadingStatsText">טוען נתונים...</span></div>
             </div>
+        </div>
+
+        <!-- Game Summary View -->
+        <div id="view-summary" class="hidden">
+            <h2 style="text-align:center; color:var(--gold); margin-bottom:10px;"><span id="summaryTitle">סיכום משחק</span> <span style="margin-right: 5px;">🏆</span></h2>
+            <h3 id="summaryTableName" style="text-align:center; margin:0 0 20px 0; color:var(--gray);"></h3>
+            
+            <div class="card">
+                <h3 style="color:var(--gold); margin-top:0;" id="finalResultsTitle">תוצאות סופיות</h3>
+                <div id="summaryList"></div>
+            </div>
+
+            <button class="btn-outline" onclick="showLobby()" style="margin-top:20px;" id="btnBackToLobby">חזרה ללובי</button>
         </div>
 
         <div id="view-table" class="hidden">
             <div class="card" style="text-align:center; border-color:var(--gold);">
                 <h2 id="activeTableName" style="margin:0; color:var(--gold)"></h2>
                 <div style="display:flex; justify-content:space-around; margin-top:10px;">
-                    <div><small style="color:var(--gray)">כניסה</small><div id="activeBuyIn" style="font-weight:bold"></div></div>
-                    <div><small style="color:var(--gray)">קופה</small><div id="activePot" style="font-weight:bold"></div></div>
+                    <div><small style="color:var(--gray)" id="entryLabel">כניסה</small><div id="activeBuyIn" style="font-weight:bold"></div></div>
+                    <div><small style="color:var(--gray)" id="potLabel">קופה</small><div id="activePot" style="font-weight:bold"></div></div>
                 </div>
             </div>
 
             <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                <span>שחקנים</span>
-                <button onclick="openModal('modal-add-player')" style="background:none; border:none; color:var(--gold);">+ הוסף</button>
+                <span id="playersLabel">שחקנים</span>
+                <button onclick="openModal('modal-add-player')" style="background:none; border:none; color:var(--gold);" id="btnAddPlayer">+ <span id="addPlayerText">הוסף</span></button>
             </div>
             
             <div id="activePlayersList"></div>
 
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
-                <button class="btn-gold btn-food" onclick="openFoodModal()">🍔🍕 היינו רעבים</button>
-                <button class="btn-outline" onclick="openShareModal()">🔗 שתף קישור</button>
-                <button class="btn-gold" style="grid-column:span 2;" onclick="startSettle()">💰 שולם</button>
+            <!-- Game Logs Section -->
+            <div style="margin-top: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span id="gameActivityLabel">פעילות המשחק <span style="margin-right: 5px;">📝</span></span>
+                    <button onclick="toggleGameLogs()" style="background:none; border:none; color:var(--gold); font-size:0.9rem;" id="btnToggleLogs">הצג/הסתר</button>
+                </div>
+                <div id="gameLogsContainer" class="card hidden" style="max-height:200px; overflow-y:auto; background:#1a1a1a;">
+                    <div id="gameLogsList" class="loading"><span id="loadingLogsText">טוען לוגים...</span></div>
+                </div>
             </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
+                <button class="btn-gold btn-food" onclick="openFoodModal()">היינו רעבים <span style="margin-right: 5px;">🍔🍕</span></button>
+                <button class="btn-outline" onclick="openShareModal()">שתף קישור <span style="margin-right: 5px;">🔗</span></button>
+                <button class="btn-gold" style="grid-column:span 2;" onclick="startSettle()">שולם <span style="margin-right: 5px;">💰</span></button>
+            </div>
+
+            <!-- Delete Table Button (only for owner) -->
+            <button id="btnDeleteTable" class="btn-outline" onclick="deleteTableFromView()" style="margin-top: 20px; width: 100%; background: var(--red); color: #fff; border-color: var(--red); display: none;">
+                מחק שולחן <span style="margin-right: 5px;">🗑️</span>
+            </button>
 
             <!-- Hall of Fame Section -->
             <div class="hall-of-fame">
                 <button class="btn-outline" onclick="toggleHallOfFame()" style="margin-top: 20px;">
-                    🏆 היכל התהילה
+                    היכל התהילה <span style="margin-right: 5px;">🏆</span>
                 </button>
                 <div id="hallOfFameContent" class="hidden">
                     <div class="card" style="margin-top: 15px;">
-                        <h3 style="text-align:center; color:var(--gold); margin-top:0;">🏆 היכל התהילה</h3>
+                        <h3 style="text-align:center; color:var(--gold); margin-top:0;"><span id="hallOfFameTitle">היכל התהילה</span> <span style="margin-right: 5px;">🏆</span></h3>
                         
                         <div class="hof-stat">
-                            <div class="hof-stat-title">🦈 הכריש (הרווח הגדול ביותר במשחק בודד)</div>
+                            <div class="hof-stat-title"><span id="sharkTitle">הכריש (הרווח הגדול ביותר במשחק בודד)</span> <span style="margin-right: 5px;">🦈</span></div>
                             <div class="hof-stat-value" id="hofShark">-</div>
                         </div>
 
                         <div class="hof-stat">
-                            <div class="hof-stat-title">🐑 המפסיד (ההפסד הגדול ביותר במשחק בודד)</div>
+                            <div class="hof-stat-title"><span id="loserTitle">המפסיד (ההפסד הגדול ביותר במשחק בודד)</span> <span style="margin-right: 5px;">🐑</span></div>
                             <div class="hof-stat-value" id="hofLoser">-</div>
                         </div>
 
-                        <h4 style="color:var(--gray); margin-top:20px; margin-bottom:10px;">טבלת ליגה (שולחן זה בלבד)</h4>
+                        <h4 style="color:var(--gray); margin-top:20px; margin-bottom:10px;" id="leagueTableTitle">טבלת ליגה (שולחן זה בלבד)</h4>
                         <table class="league-table" id="tableLeagueTable">
                             <thead>
                                 <tr>
-                                    <th>שחקן</th>
-                                    <th>משחקים</th>
-                                    <th>רווח/הפסד</th>
+                                    <th id="thPlayer">שחקן</th>
+                                    <th id="thGames">משחקים</th>
+                                    <th id="thProfitLoss">רווח/הפסד</th>
                                 </tr>
                             </thead>
                             <tbody id="tableLeagueTableBody">
@@ -447,62 +517,68 @@
         </div>
 
         <div id="view-settle" class="hidden">
-            <h2 style="text-align:center">ספירת כסף בקופה</h2>
-            <p style="color:#888; text-align:center; margin-bottom:20px;">כמה כסף יש לכל אחד ביד?</p>
+            <h2 style="text-align:center; color:var(--gold); margin-bottom:20px;"><span id="settlePageTitle">סיום חשבון</span> <span style="margin-right: 5px;">💰</span></h2>
+            
+            <div class="card">
+                <h3 style="color:var(--gray); margin-top:0;" id="howMuchCashTitle">כמה כסף יש לכל אחד ביד?</h3>
             <div id="settleInputs"></div>
-            <button class="btn-gold" onclick="calcResult()">חשב תוצאות</button>
+                
+                <button class="btn-gold" onclick="calcResult()" style="margin-top:20px;" id="btnCalculate">חשב תוצאות</button>
+            </div>
+
+            <div id="settleResults" class="card hidden" style="margin-top:20px;"></div>
             
-            <div id="settleResults" class="card hidden" style="margin-top:20px; background:#111;"></div>
-            
-            <button id="btnSaveLeague" class="btn-gold hidden" style="background:var(--green); color:#fff;" onclick="saveToLeague()">✅ שמור לליגה וסגור שולחן</button>
+            <div style="margin-top:20px; text-align:center;">
+                <button class="btn-gold hidden" id="btnFinishGame" onclick="saveAndExit()">🏠 <span id="updateAndExitText">עדכן נתונים וצא ללובי</span></button>
+            </div>
         </div>
 
     </div>
 
     <div id="modal-create" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3>שולחן חדש</h3>
+            <h3 id="newTableTitle">שולחן חדש</h3>
             <input type="text" id="newTableName" placeholder="שם השולחן">
             <input type="number" id="newTableBuyIn" placeholder="מחיר כניסה (₪)">
-            <button class="btn-gold" onclick="createNewTable()">צור</button>
-            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-create')">ביטול</button>
+            <button class="btn-gold" onclick="createNewTable()" id="btnCreate">צור</button>
+            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-create')" id="btnCancelCreate">ביטול</button>
         </div>
     </div>
 
     <div id="modal-add-player" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3>הוסף שחקן</h3>
+            <h3 id="addPlayerTitle">הוסף שחקן</h3>
             <input type="text" id="newPlayerName" placeholder="שם השחקן">
-            <button class="btn-gold" onclick="addPlayer()">הוסף</button>
-            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-add-player')">ביטול</button>
+            <button class="btn-gold" onclick="addPlayer()" id="btnAddPlayerModal">הוסף</button>
+            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-add-player')" id="btnCancelAddPlayer">ביטול</button>
         </div>
     </div>
 
     <div id="modal-food" class="modal-overlay hidden">
         <div class="modal-box">
-            <h3>מי שילם?</h3>
+            <h3 id="whoPaidTitle">מי שילם?</h3>
             <select id="foodPayerSelect"></select>
             
             <div style="margin: 15px 0;">
                 <div class="toggle-container">
-                    <div class="toggle-btn active" id="btnSplitEqual" onclick="setFoodMode('equal')">חלוקה שווה</div>
-                    <div class="toggle-btn" id="btnSplitIndiv" onclick="setFoodMode('indiv')">לפי סועד</div>
+                    <div class="toggle-btn active" id="btnSplitEqual" onclick="setFoodMode('equal')"><span id="splitEqualText">חלוקה שווה</span></div>
+                    <div class="toggle-btn" id="btnSplitIndiv" onclick="setFoodMode('indiv')"><span id="splitIndivText">לפי סועד</span></div>
                 </div>
             </div>
 
             <div id="foodModeEqual">
-                <input type="number" id="foodTotalAmount" placeholder="סה״כ לתשלום">
-                <p style="font-size:0.8rem; color:#888;">בחר מי השתתף בארוחה:</p>
+                <input type="number" id="foodTotalAmount" placeholder="">
+                <p style="font-size:0.8rem; color:#888;" id="selectParticipantsText">בחר מי השתתף בארוחה:</p>
                 <div id="foodEatersListEqual" style="max-height:150px; overflow-y:auto;"></div>
             </div>
 
             <div id="foodModeIndiv" class="hidden">
-                <p style="font-size:0.8rem; color:#888;">הזן סכום לכל מי שהזמין:</p>
+                <p style="font-size:0.8rem; color:#888;" id="enterAmountText">הזן סכום לכל מי שהזמין:</p>
                 <div id="foodEatersListIndiv" style="max-height:200px; overflow-y:auto;"></div>
             </div>
 
-            <button class="btn-gold" onclick="submitFood()">שמור הוצאה</button>
-            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-food')">ביטול</button>
+            <button class="btn-gold" onclick="submitFood()" id="btnSaveExpense">שמור הוצאה</button>
+            <button class="btn-outline" style="border:none; color:#888;" onclick="closeModal('modal-food')" id="btnCancelFood">ביטול</button>
         </div>
     </div>
 
@@ -517,8 +593,9 @@
 
     <script>
         // --- SUPABASE INIT ---
-        const SUPABASE_URL = 'https://gfchswspvayyvdlxbggw.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmY2hzd3NwdmF5eXZkbHhiZ2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MDI1NTUsImV4cCI6MjA3OTM3ODU1NX0.5vIkcgyGEWEW3uI5Y2bJKG7Ex2uhIAsUtC8US6BFVtA';
+        // Read from environment variables (Vercel) or use defaults
+        const SUPABASE_URL = window.SUPABASE_URL || 'https://gfchswspvayyvdlxbggw.supabase.co';
+        const SUPABASE_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmY2hzd3NwdmF5eXZkbHhiZ2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MDI1NTUsImV4cCI6MjA3OTM3ODU1NX0.5vIkcgyGEWEW3uI5Y2bJKG7Ex2uhIAsUtC8US6BFVtA';
         
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -529,6 +606,595 @@
         let currentFoodMode = 'equal';
         let pendingJoinTableId = null;
         let realtimeChannels = {}; // Store realtime subscriptions
+        let isLoading = true; // Loading state for initial auth check
+        let currentLanguage = localStorage.getItem('language') || 'he'; // Default to Hebrew
+        
+        // UUID validation regex (reusable)
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        // --- TRANSLATIONS ---
+        const translations = {
+            he: {
+                // Navigation
+                'logout': 'התנתק',
+                'back': 'חזור',
+                // Auth
+                'login': 'התחברות',
+                'signup': 'הרשמה',
+                'email': 'אימייל',
+                'password': 'סיסמה',
+                'username': 'שם משתמש',
+                'phone': 'טלפון',
+                'loginBtn': 'התחבר',
+                'signupBtn': 'הירשם',
+                'loading': 'טוען...',
+                // Lobby
+                'activeTables': 'שולחנות פעילים',
+                'history': 'היסטוריה',
+                'myStats': 'הנתונים שלי',
+                'createTable': 'פתח שולחן חדש',
+                'deletedTables': 'שולחנות שנמחקו',
+                'noActiveTables': 'אין שולחנות פעילים',
+                'noDeletedTables': 'אין שולחנות שנמחקו',
+                'loadingDeleted': 'טוען שולחנות שנמחקו...',
+                // Table
+                'players': 'שחקנים',
+                'add': 'הוסף',
+                'gameActivity': 'פעילות המשחק',
+                'showHide': 'הצג/הסתר',
+                'weWereHungry': 'היינו רעבים',
+                'shareLink': 'שתף קישור',
+                'settle': 'שולם',
+                'deleteTable': 'מחק שולחן',
+                'hallOfFame': 'היכל התהילה',
+                'shark': 'הכריש (הרווח הגדול ביותר במשחק בודד)',
+                'loser': 'המפסיד (ההפסד הגדול ביותר במשחק בודד)',
+                'leagueTable': 'טבלת ליגה (שולחן זה בלבד)',
+                'player': 'שחקן',
+                'games': 'משחקים',
+                'profitLoss': 'רווח/הפסד',
+                // Settle
+                'settleTitle': 'סיום חשבון',
+                'howMuchCash': 'כמה כסף יש לכל אחד ביד?',
+                'calculate': 'חשב תוצאות',
+                // Summary
+                'gameSummary': 'סיכום משחק',
+                'finalResults': 'תוצאות סופיות',
+                'backToLobby': 'חזרה ללובי',
+                // My Stats
+                'myStatsTitle': 'הנתונים שלי',
+                'totalProfitLoss': 'סה"כ רווח/הפסד',
+                'gamesPlayed': 'משחקים',
+                'averagePerGame': 'ממוצע למשחק',
+                'biggestWin': 'הרווח הגדול ביותר',
+                'biggestLoss': 'ההפסד הגדול ביותר',
+                // History
+                'restoreTable': 'שחזר שולחן',
+                'summary': 'סיכום',
+                'entry': 'כניסה',
+                // Modals
+                'tableName': 'שם שולחן',
+                'buyIn': 'כניסה',
+                'create': 'צור',
+                'cancel': 'ביטול',
+                'playerName': 'שם שחקן',
+                // Messages
+                'tableDeleted': 'השולחן נמחק ועבר לארכיון',
+                'tableRestored': 'השולחן שוחזר בהצלחה',
+                'confirmDelete': 'האם אתה בטוח שברצונך למחוק את השולחן? השולחן יעבור לארכיון ויוכל להיות משוחזר.',
+                // Emojis (will be added after text in RTL)
+                'emojiStats': '📊',
+                'emojiHistory': '📜',
+                'emojiActivity': '📝',
+                'emojiFood': '🍔🍕',
+                'emojiShare': '🔗',
+                'emojiSettle': '💰',
+                'emojiDelete': '🗑️',
+                'emojiHall': '🏆',
+                'emojiShark': '🦈',
+                'emojiLoser': '🐑',
+                'emojiCreate': '+',
+                // Additional texts
+                'phoneRequired': 'מספר טלפון (חובה)',
+                'tableNamePlaceholder': 'שם השולחן',
+                'pot': 'קופה',
+                'invested': 'השקיע',
+                'loadingLogs': 'טוען לוגים...',
+                'loadingData': 'טוען נתונים...',
+                'updateAndExit': 'עדכן נתונים וצא ללובי',
+                'newTable': 'שולחן חדש',
+                'allTime': 'לכל הזמן',
+                'noData': 'אין נתונים',
+                'noDataYet': 'אין נתונים עדיין',
+                'error': 'שגיאה',
+                'errorLoading': 'שגיאה בטעינה',
+                'errorLoadingTables': 'שגיאה בטעינת שולחנות',
+                'errorLoadingHistory': 'שגיאה בטעינת היסטוריה',
+                'errorLoadingDeleted': 'שגיאה בטעינת שולחנות שנמחקו',
+                'errorLoadingSummary': 'שגיאה בטעינת הסיכום',
+                'errorLoadingStats': 'שגיאה בטעינת נתונים',
+                'errorCreatingTable': 'שגיאה ביצירת שולחן',
+                'errorAddingPlayer': 'שגיאה בהוספת שחקן',
+                'errorDeletingTable': 'שגיאה במחיקת שולחן',
+                'errorRestoringTable': 'שגיאה בשחזור שולחן',
+                'errorCalculating': 'שגיאה בחישוב תוצאות',
+                'errorSaving': 'שגיאה בשמירה',
+                'errorCriticalSaving': 'שגיאה קריטית בשמירה',
+                'userNotFound': 'משתמש לא נמצא',
+                'playerAlreadyInTable': 'השחקן כבר בשולחן',
+                'playerAdded': 'הצטרף לשולחן',
+                'fillAllFields': 'מלא את כל הפרטים',
+                'notConnected': 'אינך מחובר. אנא התחבר מחדש.',
+                'tableCreatedButNoId': 'שגיאה: שולחן נוצר אבל לא קיבלנו ID',
+                'tableCreatedSuccess': 'שולחן נוצר בהצלחה, אבל הייתה בעיה בהוספתך כשחקן. נא להוסיף את עצמך ידנית.',
+                'noDataToSave': 'אין נתונים לשמירה',
+                'invalidTable': 'שגיאה: שולחן לא תקין. נא לחזור ללובי ולפתוח שולחן מחדש.',
+                'dataSavedSuccess': 'הנתונים נשמרו בהצלחה! הפרופילים עודכנו.',
+                'dataSavedTable': 'הנתונים נשמרו בשולחן. (לא היו משתמשים רשומים תקינים לעדכון פרופיל)',
+                'errorSavingHistory': 'שגיאה בשמירת היסטוריה',
+                'dataSavedButStatsNotUpdated': 'הנתונים בשולחן נשמרו, אבל הסטטיסטיקות לא עודכנו.',
+                'noValidPlayers': 'שגיאה: אין שחקנים תקינים לשמירה. וודא שכל השחקנים רשומים במערכת.',
+                'noActiveTableToDelete': 'שגיאה: אין שולחן פעיל למחיקה',
+                'invalidTableId': 'שגיאה: מזהה שולחן לא תקין',
+                'tableNotFound': 'שולחן לא נמצא',
+                'cannotLoadTable': 'לא ניתן לטעון את השולחן',
+                'allBalanced': 'כולם מאוזנים!',
+                'transfersToMake': 'העברות לביצוע:',
+                'transfers': 'מעביר',
+                'to': 'ל',
+                'payWithBit': 'שלם עם Bit',
+                'whoPaid': 'מי שילם?',
+                'noPlayers': 'אין שחקנים',
+                'missingDetails': 'חסרים פרטים',
+                'noAmountsEntered': 'לא הוזנו סכומים',
+                'buyInPrice': 'מחיר כניסה (₪)',
+                'allTimeText': 'לכל הזמן',
+                'splitEqual': 'חלוקה שווה',
+                'splitIndiv': 'לפי סועד',
+                'selectParticipants': 'בחר מי השתתף בארוחה:',
+                'enterAmount': 'הזן סכום לכל מי שהזמין:',
+                'saveExpense': 'שמור הוצאה',
+                'totalToPay': 'סה״כ לתשלום',
+                'host': 'המארח',
+                'added': 'הוסיף',
+                'removed': 'הוריד',
+                'firstBuyIn': 'הצטרף לשולחן (buy-in ראשון)',
+                'emailVerified': 'אימייל אומת בהצלחה!',
+                'openingBit': 'פתיחת Bit...',
+                'numberCopied': 'מספר הועתק! פותח Bit...',
+                'savedPayerCredited': 'נשמר! המשלם זוכה, הסועדים חויבו.',
+                'errorSavingExpense': 'שגיאה בשמירת הוצאה',
+                'errorLoadingTable': 'שגיאה בטעינת השולחן',
+                'emailVerificationError': 'שגיאה באימות אימייל. נסה להתחבר ידנית.',
+                'noPermissionAccess': ' או אין הרשאה לגשת אליו',
+                'unknownError': 'שגיאה לא ידועה',
+                'errorLoadingLogs': 'שגיאה בטעינת לוגים',
+                'noPlayersYet': 'אין שחקנים עדיין',
+                'noActivityYet': 'אין פעילות עדיין',
+                'noPlayersInTable': 'אין שחקנים בשולחן'
+            },
+            en: {
+                // Navigation
+                'logout': 'Logout',
+                'back': 'Back',
+                // Auth
+                'login': 'Login',
+                'signup': 'Sign Up',
+                'email': 'Email',
+                'password': 'Password',
+                'username': 'Username',
+                'phone': 'Phone',
+                'loginBtn': 'Login',
+                'signupBtn': 'Sign Up',
+                'loading': 'Loading...',
+                // Lobby
+                'activeTables': 'Active Tables',
+                'history': 'History',
+                'myStats': 'My Stats',
+                'createTable': 'Create New Table',
+                'deletedTables': 'Deleted Tables',
+                'noActiveTables': 'No active tables',
+                'noDeletedTables': 'No deleted tables',
+                'loadingDeleted': 'Loading deleted tables...',
+                // Table
+                'players': 'Players',
+                'add': 'Add',
+                'gameActivity': 'Game Activity',
+                'showHide': 'Show/Hide',
+                'weWereHungry': 'We Were Hungry',
+                'shareLink': 'Share Link',
+                'settle': 'Settle',
+                'deleteTable': 'Delete Table',
+                'hallOfFame': 'Hall of Fame',
+                'shark': 'The Shark (Biggest single-game win)',
+                'loser': 'The Loser (Biggest single-game loss)',
+                'leagueTable': 'League Table (This table only)',
+                'player': 'Player',
+                'games': 'Games',
+                'profitLoss': 'Profit/Loss',
+                // Settle
+                'settleTitle': 'Settle Game',
+                'howMuchCash': 'How much cash does each player have?',
+                'calculate': 'Calculate Results',
+                // Summary
+                'gameSummary': 'Game Summary',
+                'finalResults': 'Final Results',
+                'backToLobby': 'Back to Lobby',
+                // My Stats
+                'myStatsTitle': 'My Stats',
+                'totalProfitLoss': 'Total Profit/Loss',
+                'gamesPlayed': 'Games Played',
+                'averagePerGame': 'Average Per Game',
+                'biggestWin': 'Biggest Win',
+                'biggestLoss': 'Biggest Loss',
+                // History
+                'restoreTable': 'Restore Table',
+                'summary': 'Summary',
+                'entry': 'Entry',
+                // Modals
+                'tableName': 'Table Name',
+                'buyIn': 'Buy In',
+                'create': 'Create',
+                'cancel': 'Cancel',
+                'playerName': 'Player Name',
+                // Messages
+                'tableDeleted': 'Table deleted and moved to archive',
+                'tableRestored': 'Table restored successfully',
+                'confirmDelete': 'Are you sure you want to delete this table? The table will be moved to archive and can be restored.',
+                // Emojis
+                'emojiStats': '📊',
+                'emojiHistory': '📜',
+                'emojiActivity': '📝',
+                'emojiFood': '🍔🍕',
+                'emojiShare': '🔗',
+                'emojiSettle': '💰',
+                'emojiDelete': '🗑️',
+                'emojiHall': '🏆',
+                'emojiShark': '🦈',
+                'emojiLoser': '🐑',
+                'emojiCreate': '+',
+                // Additional texts
+                'phoneRequired': 'Phone Number (Required)',
+                'tableNamePlaceholder': 'Table Name',
+                'pot': 'Pot',
+                'invested': 'Invested',
+                'loadingLogs': 'Loading logs...',
+                'loadingData': 'Loading data...',
+                'updateAndExit': 'Update Data and Exit to Lobby',
+                'newTable': 'New Table',
+                'allTime': 'All Time',
+                'noData': 'No Data',
+                'noDataYet': 'No data yet',
+                'error': 'Error',
+                'errorLoading': 'Error loading',
+                'errorLoadingTables': 'Error loading tables',
+                'errorLoadingHistory': 'Error loading history',
+                'errorLoadingDeleted': 'Error loading deleted tables',
+                'errorLoadingSummary': 'Error loading summary',
+                'errorLoadingStats': 'Error loading data',
+                'errorCreatingTable': 'Error creating table',
+                'errorAddingPlayer': 'Error adding player',
+                'errorDeletingTable': 'Error deleting table',
+                'errorRestoringTable': 'Error restoring table',
+                'errorCalculating': 'Error calculating results',
+                'errorSaving': 'Error saving',
+                'errorCriticalSaving': 'Critical error saving',
+                'userNotFound': 'User not found',
+                'playerAlreadyInTable': 'Player already in table',
+                'playerAdded': 'joined the table',
+                'fillAllFields': 'Fill all fields',
+                'notConnected': 'You are not connected. Please log in again.',
+                'tableCreatedButNoId': 'Error: Table created but did not receive ID',
+                'tableCreatedSuccess': 'Table created successfully, but there was a problem adding you as a player. Please add yourself manually.',
+                'noDataToSave': 'No data to save',
+                'invalidTable': 'Error: Invalid table. Please return to lobby and open table again.',
+                'dataSavedSuccess': 'Data saved successfully! Profiles updated.',
+                'dataSavedTable': 'Data saved in table. (No valid registered users for profile update)',
+                'errorSavingHistory': 'Error saving history',
+                'dataSavedButStatsNotUpdated': 'Data saved in table, but statistics were not updated.',
+                'noValidPlayers': 'Error: No valid players to save. Make sure all players are registered in the system.',
+                'noActiveTableToDelete': 'Error: No active table to delete',
+                'invalidTableId': 'Error: Invalid table ID',
+                'tableNotFound': 'Table not found',
+                'cannotLoadTable': 'Cannot load table',
+                'allBalanced': 'Everyone is balanced!',
+                'transfersToMake': 'Transfers to make:',
+                'transfers': 'transfers',
+                'to': 'to',
+                'payWithBit': 'Pay with Bit',
+                'whoPaid': 'Who paid?',
+                'noPlayers': 'No players',
+                'missingDetails': 'Missing details',
+                'noAmountsEntered': 'No amounts entered',
+                'buyInPrice': 'Buy In (₪)',
+                'allTimeText': 'All Time',
+                'splitEqual': 'Equal Split',
+                'splitIndiv': 'Per Person',
+                'selectParticipants': 'Select who participated in the meal:',
+                'enterAmount': 'Enter amount for each person who ordered:',
+                'saveExpense': 'Save Expense',
+                'totalToPay': 'Total to Pay',
+                'host': 'Host',
+                'added': 'added',
+                'removed': 'removed',
+                'firstBuyIn': 'joined the table (first buy-in)',
+                'emailVerified': 'Email verified successfully!',
+                'openingBit': 'Opening Bit...',
+                'numberCopied': 'Number copied! Opening Bit...',
+                'savedPayerCredited': 'Saved! Payer credited, diners charged.',
+                'errorSavingExpense': 'Error saving expense',
+                'errorLoadingTable': 'Error loading table',
+                'emailVerificationError': 'Email verification error. Please try logging in manually.',
+                'noPermissionAccess': ' or no permission to access it',
+                'unknownError': 'Unknown error',
+                'errorLoadingLogs': 'Error loading logs',
+                'noPlayersYet': 'No players yet',
+                'noActivityYet': 'No activity yet',
+                'noPlayersInTable': 'No players in table'
+            }
+        };
+
+        function t(key) {
+            return translations[currentLanguage][key] || key;
+        }
+
+        function changeLanguage(lang) {
+            currentLanguage = lang;
+            localStorage.setItem('language', lang);
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+            
+            // Update language selector
+            const selector = document.getElementById('languageSelector');
+            if (selector) {
+                selector.value = lang;
+            }
+            
+            // Reload UI with new language
+            updateUI();
+            
+            // Re-render current view
+            if (currentUser) {
+                if (activeTableId) {
+                    renderTable();
+                    renderHallOfFame();
+                } else {
+                    renderLobby();
+                }
+            }
+        }
+
+        function updateUI() {
+            // Update all text elements that are always visible
+            if (document.getElementById('btnLogout')) {
+                document.getElementById('btnLogout').textContent = t('logout');
+            }
+            if (document.getElementById('deletedTablesTitle')) {
+                document.getElementById('deletedTablesTitle').textContent = t('deletedTables');
+            }
+            // Update tabs
+            const activeTab = document.getElementById('tab-active-games');
+            const historyTab = document.getElementById('tab-history');
+            if (activeTab) activeTab.textContent = t('activeTables');
+            if (historyTab) historyTab.textContent = t('history');
+            
+            // Update loading texts
+            if (document.getElementById('loadingText')) {
+                document.getElementById('loadingText').textContent = t('loading');
+            }
+            if (document.getElementById('loadingTablesText')) {
+                document.getElementById('loadingTablesText').textContent = t('loading');
+            }
+            if (document.getElementById('loadingStatsText')) {
+                document.getElementById('loadingStatsText').textContent = t('loadingData');
+            }
+            if (document.getElementById('loadingLogsText')) {
+                document.getElementById('loadingLogsText').textContent = t('loadingLogs');
+            }
+            
+            // Update auth tabs
+            if (document.getElementById('tabLoginText')) {
+                document.getElementById('tabLoginText').textContent = t('login');
+            }
+            if (document.getElementById('tabSignupText')) {
+                document.getElementById('tabSignupText').textContent = t('signup');
+            }
+            if (document.getElementById('loginTitle')) {
+                document.getElementById('loginTitle').textContent = t('login');
+            }
+            if (document.getElementById('signupTitle')) {
+                document.getElementById('signupTitle').textContent = t('signup');
+            }
+            if (document.getElementById('btnLogin')) {
+                document.getElementById('btnLogin').textContent = t('loginBtn');
+            }
+            if (document.getElementById('btnSignup')) {
+                document.getElementById('btnSignup').textContent = t('signupBtn');
+            }
+            
+            // Update placeholders
+            if (document.getElementById('loginEmail')) {
+                document.getElementById('loginEmail').placeholder = t('email');
+            }
+            if (document.getElementById('loginPassword')) {
+                document.getElementById('loginPassword').placeholder = t('password');
+            }
+            if (document.getElementById('signupUsername')) {
+                document.getElementById('signupUsername').placeholder = t('username');
+            }
+            if (document.getElementById('signupEmail')) {
+                document.getElementById('signupEmail').placeholder = t('email');
+            }
+            if (document.getElementById('signupPhone')) {
+                document.getElementById('signupPhone').placeholder = t('phoneRequired');
+            }
+            if (document.getElementById('signupPassword')) {
+                document.getElementById('signupPassword').placeholder = t('password');
+            }
+            
+            // Update lobby
+            if (document.getElementById('activeTablesTitle')) {
+                document.getElementById('activeTablesTitle').textContent = t('activeTables');
+            }
+            if (document.getElementById('myStatsBtnText')) {
+                document.getElementById('myStatsBtnText').textContent = t('myStats');
+            }
+            if (document.getElementById('btnCreateTable')) {
+                const btn = document.getElementById('btnCreateTable');
+                btn.innerHTML = t('createTable') + ' <span style="margin-right: 5px;">+</span>';
+            }
+            
+            // Update my stats
+            if (document.getElementById('myStatsPageTitle')) {
+                document.getElementById('myStatsPageTitle').textContent = t('myStatsTitle');
+            }
+            
+            // Update summary
+            if (document.getElementById('summaryTitle')) {
+                document.getElementById('summaryTitle').textContent = t('gameSummary');
+            }
+            if (document.getElementById('finalResultsTitle')) {
+                document.getElementById('finalResultsTitle').textContent = t('finalResults');
+            }
+            if (document.getElementById('btnBackToLobby')) {
+                document.getElementById('btnBackToLobby').textContent = t('backToLobby');
+            }
+            
+            // Update table view
+            if (document.getElementById('entryLabel')) {
+                document.getElementById('entryLabel').textContent = t('entry');
+            }
+            if (document.getElementById('potLabel')) {
+                document.getElementById('potLabel').textContent = t('pot');
+            }
+            if (document.getElementById('playersLabel')) {
+                document.getElementById('playersLabel').textContent = t('players');
+            }
+            if (document.getElementById('addPlayerText')) {
+                document.getElementById('addPlayerText').textContent = t('add');
+            }
+            if (document.getElementById('gameActivityLabel')) {
+                document.getElementById('gameActivityLabel').innerHTML = t('gameActivity') + ' <span style="margin-right: 5px;">📝</span>';
+            }
+            if (document.getElementById('btnToggleLogs')) {
+                document.getElementById('btnToggleLogs').textContent = t('showHide');
+            }
+            if (document.getElementById('btnWeWereHungry')) {
+                document.getElementById('btnWeWereHungry').innerHTML = t('weWereHungry') + ' <span style="margin-right: 5px;">🍔🍕</span>';
+            }
+            if (document.getElementById('btnShareLink')) {
+                document.getElementById('btnShareLink').innerHTML = t('shareLink') + ' <span style="margin-right: 5px;">🔗</span>';
+            }
+            if (document.getElementById('btnSettle')) {
+                document.getElementById('btnSettle').innerHTML = t('settle') + ' <span style="margin-right: 5px;">💰</span>';
+            }
+            if (document.getElementById('deleteTableText')) {
+                document.getElementById('deleteTableText').textContent = t('deleteTable');
+            }
+            if (document.getElementById('hallOfFameBtnText')) {
+                document.getElementById('hallOfFameBtnText').textContent = t('hallOfFame');
+            }
+            if (document.getElementById('hallOfFameTitle')) {
+                document.getElementById('hallOfFameTitle').textContent = t('hallOfFame');
+            }
+            if (document.getElementById('sharkTitle')) {
+                document.getElementById('sharkTitle').textContent = t('shark');
+            }
+            if (document.getElementById('loserTitle')) {
+                document.getElementById('loserTitle').textContent = t('loser');
+            }
+            if (document.getElementById('leagueTableTitle')) {
+                document.getElementById('leagueTableTitle').textContent = t('leagueTable');
+            }
+            if (document.getElementById('thPlayer')) {
+                document.getElementById('thPlayer').textContent = t('player');
+            }
+            if (document.getElementById('thGames')) {
+                document.getElementById('thGames').textContent = t('games');
+            }
+            if (document.getElementById('thProfitLoss')) {
+                document.getElementById('thProfitLoss').textContent = t('profitLoss');
+            }
+            
+            // Update settle view
+            if (document.getElementById('settlePageTitle')) {
+                document.getElementById('settlePageTitle').textContent = t('settleTitle');
+            }
+            if (document.getElementById('howMuchCashTitle')) {
+                document.getElementById('howMuchCashTitle').textContent = t('howMuchCash');
+            }
+            if (document.getElementById('btnCalculate')) {
+                document.getElementById('btnCalculate').textContent = t('calculate');
+            }
+            if (document.getElementById('updateAndExitText')) {
+                document.getElementById('updateAndExitText').textContent = t('updateAndExit');
+            }
+            
+            // Update modals
+            if (document.getElementById('newTableTitle')) {
+                document.getElementById('newTableTitle').textContent = t('newTable');
+            }
+            if (document.getElementById('newTableName')) {
+                document.getElementById('newTableName').placeholder = t('tableNamePlaceholder');
+            }
+            if (document.getElementById('newTableBuyIn')) {
+                document.getElementById('newTableBuyIn').placeholder = currentLanguage === 'he' ? 'מחיר כניסה (₪)' : 'Buy In (₪)';
+            }
+            if (document.getElementById('btnCreate')) {
+                document.getElementById('btnCreate').textContent = t('create');
+            }
+            if (document.getElementById('btnCancelCreate')) {
+                document.getElementById('btnCancelCreate').textContent = t('cancel');
+            }
+            if (document.getElementById('addPlayerTitle')) {
+                document.getElementById('addPlayerTitle').textContent = t('add') + ' ' + t('player');
+            }
+            if (document.getElementById('newPlayerName')) {
+                document.getElementById('newPlayerName').placeholder = t('playerName');
+            }
+            if (document.getElementById('btnAddPlayerModal')) {
+                document.getElementById('btnAddPlayerModal').textContent = t('add');
+            }
+            if (document.getElementById('btnCancelAddPlayer')) {
+                document.getElementById('btnCancelAddPlayer').textContent = t('cancel');
+            }
+            if (document.getElementById('whoPaidTitle')) {
+                document.getElementById('whoPaidTitle').textContent = t('whoPaid');
+            }
+            if (document.getElementById('splitEqualText')) {
+                document.getElementById('splitEqualText').textContent = t('splitEqual');
+            }
+            if (document.getElementById('splitIndivText')) {
+                document.getElementById('splitIndivText').textContent = t('splitIndiv');
+            }
+            if (document.getElementById('selectParticipantsText')) {
+                document.getElementById('selectParticipantsText').textContent = t('selectParticipants');
+            }
+            if (document.getElementById('enterAmountText')) {
+                document.getElementById('enterAmountText').textContent = t('enterAmount');
+            }
+            if (document.getElementById('btnSaveExpense')) {
+                document.getElementById('btnSaveExpense').textContent = t('saveExpense');
+            }
+            if (document.getElementById('btnCancelFood')) {
+                document.getElementById('btnCancelFood').textContent = t('cancel');
+            }
+            if (document.getElementById('foodTotalAmount')) {
+                document.getElementById('foodTotalAmount').placeholder = t('totalToPay');
+            }
+        }
+
+        // Initialize language on page load
+        function initLanguage() {
+            const savedLang = localStorage.getItem('language') || 'he';
+            currentLanguage = savedLang;
+            document.documentElement.lang = savedLang;
+            document.documentElement.dir = savedLang === 'he' ? 'rtl' : 'ltr';
+            const selector = document.getElementById('languageSelector');
+            if (selector) {
+                selector.value = savedLang;
+            }
+        }
 
         // --- TOAST NOTIFICATION ---
         function showToast(message) {
@@ -545,11 +1211,24 @@
 
         // --- AUTHENTICATION ---
         async function checkAuth() {
+            // Show loading screen immediately
+            isLoading = true;
+            showLoading();
+            
+            console.log('🔄 Starting auth check...');
+            console.log('📍 Current URL:', window.location.href);
+            
             // Check for email confirmation token in URL
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
             const type = urlParams.get('type');
             const tokenHash = urlParams.get('token_hash');
+            
+            // Check if there's a tableId in URL (before checking session)
+            const tableIdFromURL = getTableIdFromURL();
+            if (tableIdFromURL) {
+                console.log('🔍 Found tableId in URL before session check:', tableIdFromURL);
+            }
             
             if ((token || tokenHash) && (type === 'signup' || type === 'email')) {
                 // User clicked email confirmation link
@@ -562,17 +1241,15 @@
                     
                     if (error) {
                         console.error('Email verification error:', error);
-                        // Show error message
-                        showAuth();
                         const errorDiv = document.getElementById('loginError') || document.getElementById('signupError');
                         if (errorDiv) {
-                            errorDiv.textContent = 'שגיאה באימות אימייל. נסה להתחבר ידנית.';
+                            errorDiv.textContent = t('emailVerificationError');
                             errorDiv.style.color = 'var(--red)';
                             errorDiv.classList.remove('hidden');
                         }
                     } else {
                         console.log('Email verified successfully');
-                        showToast('אימייל אומת בהצלחה!');
+                        showToast(t('emailVerified'));
                     }
                     
                     // Clean URL
@@ -582,13 +1259,133 @@
                 }
             }
             
-            const { data: { session } } = await supabase.auth.getSession();
+            // CRITICAL: Wait for session before making any navigation decisions
+            // In a new window/tab, session might need a moment to load from localStorage
+            console.log('⏳ Waiting for session...');
+            
+            let session = null;
+            let sessionError = null;
+            let attempts = 0;
+            const maxAttempts = 3;
+            
+            // Try to get session with retries (for new windows/tabs)
+            while (attempts < maxAttempts && !session) {
+                const result = await supabase.auth.getSession();
+                session = result.data?.session;
+                sessionError = result.error;
+                
+                if (session) {
+                    console.log(`✅ Session found on attempt ${attempts + 1}`);
+                    break;
+                }
+                
+                attempts++;
+                if (attempts < maxAttempts) {
+                    console.log(`⏳ Session not found, retrying... (${attempts}/${maxAttempts})`);
+                    // Wait a bit before retrying (for new windows/tabs)
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+            }
+            
+            if (sessionError && !session) {
+                console.error('Session error:', sessionError);
+                isLoading = false;
+                showAuth();
+                return;
+            }
+            
             if (session) {
+                console.log('✅ Session found, user:', session.user.id);
                 currentUser = session.user;
                 await loadProfile();
-                handleJoinFlow();
-                showLobby();
+                
+                // NOW check if there's a tableId in URL
+                const tableIdFromURL = getTableIdFromURL();
+                console.log('🔍 Checking URL for tableId:', tableIdFromURL);
+                
+                if (tableIdFromURL) {
+                    // Try to load the table
+                    console.log('🚀 Attempting to load table from URL:', tableIdFromURL);
+                    
+                    try {
+                        // Check if table exists and user has access
+                        const { data: table, error: tableError } = await supabase
+                            .from('tables')
+                            .select('*')
+                            .eq('id', tableIdFromURL)
+                            .single();
+                        
+                        if (tableError || !table) {
+                            console.error('❌ Table not found:', tableError);
+                            // Table doesn't exist - clear URL and show lobby
+                            if (tableError && tableError.code === 'PGRST116') {
+                                clearTableFromURL();
+                            }
+                            isLoading = false;
+                            handleJoinFlow();
+                            showLobby();
+                            return;
+                        }
+                        
+                        console.log('✅ Table found:', table.name);
+                        
+                        // Check if user is owner or player
+                        const { data: player, error: playerError } = await supabase
+                            .from('table_players')
+                            .select('*')
+                            .eq('table_id', tableIdFromURL)
+                            .eq('user_id', currentUser.id)
+                            .single();
+                        
+                        const isOwner = table.owner_id === currentUser.id;
+                        const isPlayer = !playerError && player !== null;
+                        
+                        console.log('Access check:', { isOwner, isPlayer, playerError: playerError?.code });
+                        
+                        if (isOwner || isPlayer) {
+                            // User has access - open the table directly (skip lobby)
+                            console.log('✅ User has access - opening table directly');
+                            isLoading = false;
+                            await openTable(tableIdFromURL);
+                            return; // Exit - don't show lobby
+                        } else {
+                            // User doesn't have access
+                            console.log('⚠️ User does not have access to this table');
+                            // Check if it's a join link
+                            const joinTableParam = urlParams.get('joinTable');
+                            if (joinTableParam === tableIdFromURL) {
+                                handleJoinFlow();
+                            }
+                            isLoading = false;
+                            showLobby();
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('❌ Error loading table:', error);
+                        // On error, clear URL and show lobby
+                        clearTableFromURL();
+                        isLoading = false;
+                        handleJoinFlow();
+                        showLobby();
+                        return;
+                    }
+                } else {
+                    // No tableId in URL - normal flow
+                    console.log('📋 No tableId in URL - showing lobby');
+                    isLoading = false;
+                    handleJoinFlow();
+                    showLobby();
+                }
             } else {
+                // Not logged in
+                console.log('❌ No session - showing auth');
+                // Check if there's a tableId in URL to remember it
+                const tableIdFromURL = getTableIdFromURL();
+                if (tableIdFromURL) {
+                    pendingJoinTableId = tableIdFromURL;
+                    console.log('💾 Stored tableId for after login:', tableIdFromURL);
+                }
+                isLoading = false;
                 showAuth();
             }
         }
@@ -773,12 +1570,29 @@
                     currentUser = finalSession.user;
                     await loadProfile();
                     
-                    if (pendingJoinTableId) {
+                    // Check if there's a tableId in URL
+                    const tableIdFromURL = getTableIdFromURL();
+                    if (tableIdFromURL) {
+                        // Try to open the table
+                        try {
+                            await openTable(tableIdFromURL);
+                        } catch (error) {
+                            console.error('Error opening table from URL after signup:', error);
+                            // If there's a pending join, handle it now
+                            if (pendingJoinTableId) {
+                                await joinTable(pendingJoinTableId);
+                                pendingJoinTableId = null;
+                            } else {
+                                showLobby();
+                            }
+                        }
+                    } else if (pendingJoinTableId) {
+                        // If there's a pending join, handle it now
                         await joinTable(pendingJoinTableId);
                         pendingJoinTableId = null;
+                    } else {
+                        showLobby();
                     }
-                    
-                    showLobby();
                 } else {
                     // This shouldn't happen, but just in case
                     throw new Error('לא ניתן לקבל session. נסה להתחבר ידנית.');
@@ -828,13 +1642,29 @@
                 currentUser = data.user;
                 await loadProfile();
                 
-                // If there's a pending join, handle it now
-                if (pendingJoinTableId) {
+                // Check if there's a tableId in URL
+                const tableIdFromURL = getTableIdFromURL();
+                if (tableIdFromURL) {
+                    // Try to open the table
+                    try {
+                        await openTable(tableIdFromURL);
+                    } catch (error) {
+                        console.error('Error opening table from URL after login:', error);
+                        // If there's a pending join, handle it now
+                        if (pendingJoinTableId) {
+                            await joinTable(pendingJoinTableId);
+                            pendingJoinTableId = null;
+                        } else {
+                            showLobby();
+                        }
+                    }
+                } else if (pendingJoinTableId) {
+                    // If there's a pending join, handle it now
                     await joinTable(pendingJoinTableId);
                     pendingJoinTableId = null;
+                } else {
+                    showLobby();
                 }
-                
-                showLobby();
             } catch (error) {
                 errorDiv.textContent = error.message || 'שגיאה בהתחברות';
                 errorDiv.style.color = 'var(--red)';
@@ -877,8 +1707,10 @@
                     // User not logged in, store for after auth
                     pendingJoinTableId = joinTableId;
                 }
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
+                // Clean joinTable param but keep tableId if exists
+                const url = new URL(window.location);
+                url.searchParams.delete('joinTable');
+                window.history.replaceState({}, document.title, url);
             }
         }
 
@@ -907,7 +1739,7 @@
 
                 if (error) {
                     console.error('Error joining table:', error);
-                    alert('שגיאה בהצטרפות לשולחן');
+                    alert(currentLanguage === 'he' ? 'שגיאה בהצטרפות לשולחן' : 'Error joining table');
                 } else {
                     openTable(tableId);
                 }
@@ -920,19 +1752,49 @@
         function setupRealtimeForTable(tableId) {
             // Unsubscribe from previous table if exists
             if (realtimeChannels[tableId]) {
+                console.log('Unsubscribing from previous channel for table:', tableId);
                 realtimeChannels[tableId].unsubscribe();
+                delete realtimeChannels[tableId];
             }
 
-            // Subscribe to table_players changes
+            console.log('Setting up realtime for table:', tableId);
+
+            // Subscribe to table_players changes (INSERT, UPDATE, DELETE)
             const channel = supabase
-                .channel(`table:${tableId}`)
+                .channel(`table:${tableId}`, {
+                    config: {
+                        broadcast: { self: true }
+                    }
+                })
                 .on('postgres_changes', {
-                    event: '*',
+                    event: 'INSERT',
                     schema: 'public',
                     table: 'table_players',
                     filter: `table_id=eq.${tableId}`
                 }, (payload) => {
-                    console.log('Table players changed:', payload);
+                    console.log('🟢 INSERT - Table player added:', payload);
+                    if (activeTableId === tableId) {
+                        renderTable();
+                    }
+                })
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'table_players',
+                    filter: `table_id=eq.${tableId}`
+                }, (payload) => {
+                    console.log('🟡 UPDATE - Table player updated:', payload);
+                    if (activeTableId === tableId) {
+                        renderTable();
+                    }
+                })
+                .on('postgres_changes', {
+                    event: 'DELETE',
+                    schema: 'public',
+                    table: 'table_players',
+                    filter: `table_id=eq.${tableId}`
+                }, (payload) => {
+                    console.log('🔴 DELETE - Table player removed:', payload);
                     if (activeTableId === tableId) {
                         renderTable();
                     }
@@ -943,15 +1805,128 @@
                     table: 'tables',
                     filter: `id=eq.${tableId}`
                 }, (payload) => {
-                    console.log('Table changed:', payload);
+                    console.log('📊 Table metadata changed:', payload);
                     if (activeTableId === tableId) {
                         renderTable();
                     }
                 })
-                .subscribe();
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'game_logs',
+                    filter: `table_id=eq.${tableId}`
+                }, (payload) => {
+                    console.log('📝 New game log inserted:', payload);
+                    if (activeTableId === tableId) {
+                        // Add the new log to the UI immediately
+                        addLogToUI(payload.new);
+                        // Also refresh the full list to be safe
+                        renderGameLogs();
+                    }
+                })
+                .subscribe((status) => {
+                    console.log('Realtime subscription status:', status);
+                    if (status === 'SUBSCRIBED') {
+                        console.log('✅ Successfully subscribed to realtime for table:', tableId);
+                    } else if (status === 'CHANNEL_ERROR') {
+                        console.error('❌ Realtime channel error for table:', tableId);
+                    } else if (status === 'TIMED_OUT') {
+                        console.warn('⏱️ Realtime subscription timed out for table:', tableId);
+                    } else if (status === 'CLOSED') {
+                        console.log('🔒 Realtime channel closed for table:', tableId);
+                    }
+                });
 
             realtimeChannels[tableId] = channel;
         }
+
+        // Helper function to add new log to UI immediately
+        function addLogToUI(logData) {
+            const logsList = document.getElementById('gameLogsList');
+            if (!logsList) return;
+
+            // If logs container is hidden, don't add (will be added when shown)
+            const container = document.getElementById('gameLogsContainer');
+            if (container && container.classList.contains('hidden')) {
+                return;
+            }
+
+            // Create new log item
+            const logItem = document.createElement('div');
+            logItem.className = 'game-log-item';
+            const time = new Date(logData.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            logItem.innerHTML = `
+                <span class="game-log-time">${time}</span>
+                <span>${logData.action_description}</span>
+            `;
+            
+            // Insert at the top of the list
+            if (logsList.firstChild) {
+                logsList.insertBefore(logItem, logsList.firstChild);
+            } else {
+                logsList.appendChild(logItem);
+            }
+
+            // Remove old logs if more than 20
+            while (logsList.children.length > 20) {
+                logsList.removeChild(logsList.lastChild);
+            }
+        }
+
+        // --- URL MANAGEMENT ---
+        function updateURL(tableId = null) {
+            const url = new URL(window.location);
+            if (tableId) {
+                url.searchParams.set('tableId', tableId);
+                console.log('✅ Updating URL with tableId:', tableId);
+            } else {
+                url.searchParams.delete('tableId');
+                console.log('🗑️ Removing tableId from URL');
+            }
+            // Use pushState to update URL without page refresh
+            window.history.pushState({ tableId }, document.title, url);
+            console.log('Current URL:', window.location.href);
+        }
+
+        function clearTableFromURL() {
+            const url = new URL(window.location);
+            url.searchParams.delete('tableId');
+            console.log('🗑️ Clearing tableId from URL');
+            window.history.pushState({}, document.title, url);
+        }
+
+        function getTableIdFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tableId = urlParams.get('tableId');
+            console.log('🔍 Getting tableId from URL:', tableId);
+            
+            // Validate that it's a valid UUID (if it exists)
+            if (tableId) {
+                if (tableId === 'null' || 
+                    tableId === 'undefined' || 
+                    !UUID_REGEX.test(tableId)) {
+                    console.warn('⚠️ Invalid tableId in URL:', tableId);
+                    // Clear invalid tableId from URL
+                    clearTableFromURL();
+                    return null;
+                }
+            }
+            
+            return tableId;
+        }
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', (event) => {
+            const tableId = getTableIdFromURL();
+            if (tableId && currentUser) {
+                // User navigated back to a table URL
+                openTable(tableId);
+            } else if (!tableId && activeTableId) {
+                // User navigated away from table
+                activeTableId = null;
+                showLobby();
+            }
+        });
 
         // --- NAVIGATION ---
         function showAuth() {
@@ -959,9 +1934,16 @@
             document.getElementById('view-auth').classList.remove('hidden');
             document.getElementById('backBtn').style.visibility = 'hidden';
             document.getElementById('userMenu').style.display = 'none';
+            clearTableFromURL();
         }
 
         function showLobby() {
+            // Don't clear URL if we're in the middle of loading a table
+            const tableIdFromURL = getTableIdFromURL();
+            if (!tableIdFromURL) {
+                clearTableFromURL();
+            }
+            
             hideAllViews();
             document.getElementById('view-lobby').classList.remove('hidden');
             document.getElementById('backBtn').style.visibility = 'hidden';
@@ -976,13 +1958,45 @@
         }
 
         async function openTable(id) {
+            // Validate table ID - must be a valid UUID
+            if (!id || 
+                id === null || 
+                id === 'null' || 
+                id === 'undefined' ||
+                typeof id !== 'string' ||
+                !UUID_REGEX.test(id)) {
+                console.error('❌ Invalid table ID provided to openTable:', id);
+                console.error('Type:', typeof id);
+                alert('שגיאה: מזהה שולחן לא תקין');
+                return;
+            }
+
+            console.log('✅ Opening table with valid ID:', id);
             activeTableId = id;
+            
+            // Update URL without page refresh
+            updateURL(id);
+            
             hideAllViews();
             document.getElementById('view-table').classList.remove('hidden');
             document.getElementById('backBtn').style.visibility = 'visible';
             setupRealtimeForTable(id);
-            await renderTable();
-            await renderHallOfFame();
+            
+            try {
+                await renderTable();
+                await renderHallOfFame();
+                await renderGameLogs();
+            } catch (error) {
+                console.error('Error opening table:', error);
+                // If table doesn't exist or error, show error but keep URL
+                // Only clear URL if it's a real "not found" error
+                const errorMessage = error.message || '';
+                if (errorMessage.includes('לא נמצא') || errorMessage.includes('not found')) {
+                    clearTableFromURL();
+                }
+                showLobby();
+                alert(t('tableNotFound') + t('noPermissionAccess'));
+            }
         }
 
         function goBack() {
@@ -994,23 +2008,311 @@
             } else if (!document.getElementById('view-my-stats').classList.contains('hidden')) {
                 showLobby();
             } else {
+                // Going back from table view - clear URL and go to lobby
+                clearTableFromURL();
+                activeTableId = null;
                 showLobby();
             }
         }
 
         function hideAllViews() {
-            ['view-auth', 'view-lobby', 'view-table', 'view-settle', 'view-my-stats'].forEach(id => {
+            ['view-loading', 'view-auth', 'view-lobby', 'view-table', 'view-settle', 'view-my-stats', 'view-summary'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
+        }
+
+        function showLoading() {
+            hideAllViews();
+            document.getElementById('view-loading').classList.remove('hidden');
+        }
+
+        // --- LOBBY TABS ---
+        function switchLobbyTab(tab) {
+            document.getElementById('tab-active-games').classList.toggle('active', tab === 'active');
+            document.getElementById('tab-history').classList.toggle('active', tab === 'history');
+            
+            document.getElementById('lobby-active-view').classList.toggle('hidden', tab !== 'active');
+            document.getElementById('lobby-history-view').classList.toggle('hidden', tab !== 'history');
+            
+            if (tab === 'active') {
+                renderLobby();
+            } else {
+                renderHistory();
+            }
+        }
+
+        async function renderHistory() {
+            // History now only shows deleted tables
+            await renderDeletedTables();
+        }
+
+        async function renderDeletedTables() {
+            const container = document.getElementById('deletedTablesContainer');
+            container.innerHTML = `<div class="loading">${t('loadingDeleted')}</div>`;
+
+            try {
+                // Get deleted tables where user is owner
+                const { data: ownedDeletedTables, error: ownedError } = await supabase
+                    .from('tables')
+                    .select('*')
+                    .eq('owner_id', currentUser.id)
+                    .eq('is_deleted', true)
+                    .order('created_at', { ascending: false });
+
+                if (ownedError) throw ownedError;
+
+                // Get deleted tables where user is a player
+                const { data: playerTables, error: playerError } = await supabase
+                    .from('table_players')
+                    .select('table_id, tables(*)')
+                    .eq('user_id', currentUser.id);
+
+                if (playerError) throw playerError;
+
+                // Combine and deduplicate deleted tables
+                const tableMap = new Map();
+                ownedDeletedTables?.forEach(t => tableMap.set(t.id, t));
+                playerTables?.forEach(tp => {
+                    if (tp.tables && tp.tables.is_deleted) {
+                        tableMap.set(tp.tables.id, tp.tables);
+                    }
+                });
+
+                const deletedTables = Array.from(tableMap.values());
+                
+                container.innerHTML = '';
+
+                if (!deletedTables || deletedTables.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; padding:20px; color:#666;">${t('noDeletedTables')}</div>`;
+                    return;
+                }
+
+                // Get player counts for each table
+                for (const table of deletedTables) {
+                    const { count } = await supabase
+                        .from('table_players')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('table_id', table.id);
+                    table.playerCount = count || 0;
+                }
+
+                deletedTables.forEach(table => {
+                    const date = new Date(table.created_at).toLocaleDateString('he-IL');
+                    const div = document.createElement('div');
+                    div.className = 'card';
+                    div.style.opacity = '0.7'; // Dim deleted games more
+                    div.style.marginBottom = '10px';
+                    div.style.borderColor = 'var(--red)';
+                    div.innerHTML = `
+                        <div style="flex: 1;">
+                            <div class="card-title">${table.name} <span style="margin-right: 5px;">🗑️</span></div>
+                            <div style="color:#888;">${t('entry')}: ${table.buy_in}₪ | ${table.playerCount || 0} ${t('players')} | ${date}</div>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="btn-outline" onclick="viewGameSummary('${table.id}')" style="flex: 1;">${t('summary')}</button>
+                            <button class="btn-gold" onclick="restoreDeletedTable('${table.id}')" style="flex: 1;">${t('restoreTable')}</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+
+            } catch (error) {
+                console.error('Error loading deleted tables:', error);
+                container.innerHTML = `<div style="text-align:center; color:var(--red);">${t('errorLoadingDeleted')}</div>`;
+            }
+        }
+
+        async function viewGameSummary(tableId) {
+            try {
+                // Fetch table details
+                const { data: table } = await supabase
+                    .from('tables')
+                    .select('*')
+                    .eq('id', tableId)
+                    .single();
+                    
+                document.getElementById('activeTableName').innerText = table.name; // Hack to reuse element for summary name
+
+                // Fetch player results from this table
+                const { data: players } = await supabase
+                    .from('table_players')
+                    .select('*, profiles(username, phone_number)')
+                    .eq('table_id', tableId);
+
+                const results = players.map(p => ({
+                    name: p.profiles?.username || t('player'),
+                    net: p.net_profit || 0
+                }));
+
+                showGameSummary(results);
+            } catch (error) {
+                console.error('Error viewing summary:', error);
+                alert(t('errorLoadingSummary'));
+            }
+        }
+
+        async function deleteTableFromView() {
+            if (!activeTableId) {
+                alert(t('noActiveTableToDelete'));
+                return;
+            }
+            await deleteTable(activeTableId);
+            // After deletion, return to lobby
+            showLobby();
+        }
+
+        async function deleteTable(tableId) {
+            try {
+                // Validate table ID
+                if (!tableId || 
+                    tableId === null || 
+                    tableId === 'null' || 
+                    tableId === 'undefined' ||
+                    typeof tableId !== 'string' ||
+                    !UUID_REGEX.test(tableId)) {
+                    console.error('❌ Invalid table ID provided to deleteTable:', tableId);
+                    alert(t('invalidTableId'));
+                    return;
+                }
+
+                // Confirm deletion
+                if (!confirm(t('confirmDelete'))) {
+                    return;
+                }
+
+                console.log('🗑️ Soft deleting table:', tableId);
+
+                // Update table to set is_deleted = true (soft delete)
+                const { error: updateError } = await supabase
+                    .from('tables')
+                    .update({ is_deleted: true })
+                    .eq('id', tableId);
+
+                if (updateError) {
+                    console.error('❌ Error deleting table:', updateError);
+                    alert(t('errorDeletingTable') + ': ' + updateError.message);
+                    return;
+                }
+
+                console.log('✅ Table soft deleted successfully');
+
+                showToast(t('tableDeleted'));
+
+            } catch (error) {
+                console.error('Error in deleteTable:', error);
+                alert(t('errorDeletingTable') + ': ' + error.message);
+            }
+        }
+
+        async function restoreDeletedTable(tableId) {
+            try {
+                // Validate table ID
+                if (!tableId || 
+                    tableId === null || 
+                    tableId === 'null' || 
+                    tableId === 'undefined' ||
+                    typeof tableId !== 'string' ||
+                    !UUID_REGEX.test(tableId)) {
+                    console.error('❌ Invalid table ID provided to restoreDeletedTable:', tableId);
+                    alert(t('invalidTableId'));
+                    return;
+                }
+
+                console.log('🔄 Restoring deleted table:', tableId);
+
+                // Update table to set is_deleted = false and is_active = true
+                const { error: updateError } = await supabase
+                    .from('tables')
+                    .update({ is_deleted: false, is_active: true })
+                    .eq('id', tableId);
+
+                if (updateError) {
+                    console.error('❌ Error restoring deleted table:', updateError);
+                    alert(t('errorRestoringTable') + ': ' + updateError.message);
+                    return;
+                }
+
+                console.log('✅ Deleted table restored successfully');
+
+                // Refresh both lobby and history views
+                await renderLobby();
+                await renderHistory();
+
+                // If we're in the history view, switch to active tab to show the restored table
+                const currentTab = document.getElementById('tab-history').classList.contains('active') ? 'history' : 'active';
+                if (currentTab === 'history') {
+                    switchLobbyTab('active');
+                }
+
+                showToast(t('tableRestored'));
+
+            } catch (error) {
+                console.error('Error in restoreDeletedTable:', error);
+                alert(t('errorRestoringTable') + ': ' + error.message);
+            }
+        }
+
+        async function restoreTable(tableId) {
+            try {
+                // Validate table ID
+                if (!tableId || 
+                    tableId === null || 
+                    tableId === 'null' || 
+                    tableId === 'undefined' ||
+                    typeof tableId !== 'string' ||
+                    !UUID_REGEX.test(tableId)) {
+                    console.error('❌ Invalid table ID provided to restoreTable:', tableId);
+                    alert(t('invalidTableId'));
+                    return;
+                }
+
+                console.log('🔄 Restoring table:', tableId);
+
+                // Update table to active
+                const { error: updateError } = await supabase
+                    .from('tables')
+                    .update({ is_active: true })
+                    .eq('id', tableId);
+
+                if (updateError) {
+                    console.error('❌ Error restoring table:', updateError);
+                    alert(t('errorRestoringTable') + ': ' + updateError.message);
+                    return;
+                }
+
+                console.log('✅ Table restored successfully');
+
+                // Immediately open the restored table
+                await openTable(tableId);
+
+                // If we're in the history view, switch back to active tab
+                // (The table will now appear in active tables, not history)
+                const currentTab = document.getElementById('tab-history').classList.contains('active') ? 'history' : 'active';
+                if (currentTab === 'history') {
+                    // Switch to active tab to show the restored table
+                    switchLobbyTab('active');
+                }
+
+            } catch (error) {
+                console.error('Error in restoreTable:', error);
+                alert(t('errorRestoringTable') + ': ' + error.message);
+            }
         }
 
         // --- LOBBY ---
         async function createNewTable() {
             const name = document.getElementById('newTableName').value;
             const buyIn = parseInt(document.getElementById('newTableBuyIn').value);
-            if (!name || !buyIn) return alert('מלא את כל הפרטים');
+            if (!name || !buyIn) return alert(t('fillAllFields'));
 
             try {
+                if (!currentUser) {
+                    alert(t('notConnected'));
+                    return;
+                }
+
+                // Step 1: Create the Table
+                console.log('📋 Step 1: Creating table...');
                 const { data, error } = await supabase
                     .from('tables')
                     .insert([{
@@ -1022,26 +2324,88 @@
                     .select()
                     .single();
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Error creating table:', error);
+                    if (error.message.includes('row-level security') || error.message.includes('RLS') || error.message.includes('policy')) {
+                        alert(currentLanguage === 'he' ? 'בעיית הרשאות. ודא שהרצת את fix_all_rls_final.sql ב-Supabase SQL Editor.' : 'Permission issue. Make sure you ran fix_all_rls_final.sql in Supabase SQL Editor.');
+                    } else {
+                        alert(t('errorCreatingTable') + ': ' + error.message);
+                    }
+                    return;
+                }
 
+                if (!data || !data.id) {
+                    alert(t('tableCreatedButNoId'));
+                    return;
+                }
+
+                const tableId = data.id;
+                console.log('✅ Step 1: Table created with ID:', tableId);
+
+                // Step 2: Add Host as Player
+                console.log('👤 Step 2: Adding host as player...');
+                const { error: playerError } = await supabase
+                    .from('table_players')
+                    .insert([{
+                        table_id: tableId,
+                        user_id: currentUser.id,
+                        rebuys: 1, // Automatically register 1 buy-in
+                        food_credit: 0,
+                        food_debt: 0
+                    }]);
+
+                if (playerError) {
+                    console.error('❌ Error adding host as player:', playerError);
+                    // If adding player fails, we should still show success but warn
+                    alert(t('tableCreatedSuccess'));
+                } else {
+                    console.log('✅ Step 2: Host added as player with 1 buy-in');
+                }
+
+                // Step 3: Add game log for player addition
+                try {
+                    await supabase
+                        .from('game_logs')
+                        .insert([{
+                            table_id: tableId,
+                            action: 'player_added',
+                            message: `${currentUser.user_metadata?.username || t('host')} ${t('firstBuyIn')}`,
+                            user_id: currentUser.id
+                        }]);
+                    console.log('✅ Step 3: Game log created');
+                } catch (logError) {
+                    console.warn('⚠️ Could not create game log:', logError);
+                    // Non-critical, continue
+                }
+
+                // Close modal and clear form
             closeModal('modal-create');
-                await openTable(data.id);
+                document.getElementById('newTableName').value = '';
+                document.getElementById('newTableBuyIn').value = '';
+                
+                // Direct entry to game - open the table immediately
+                console.log('🎮 Opening table directly...');
+                await openTable(tableId);
+                
             } catch (error) {
-                alert('שגיאה ביצירת שולחן: ' + error.message);
+                console.error('Error in createNewTable:', error);
+                alert(t('errorCreatingTable') + ': ' + (error.message || t('unknownError')));
             }
         }
 
         async function renderLobby() {
             const container = document.getElementById('tablesListContainer');
-            container.innerHTML = '<div class="loading">טוען...</div>';
+            container.innerHTML = `<div class="loading">${t('loading')}</div>`;
 
             try {
                 // Get tables where user is owner or player
+                // Filter out deleted tables (is_deleted = false or null)
                 const { data: ownedTables, error: ownedError } = await supabase
                     .from('tables')
                     .select('*')
                     .eq('owner_id', currentUser.id)
-                    .eq('is_active', true);
+                    .eq('is_active', true)
+                    .or('is_deleted.is.null,is_deleted.eq.false');
 
                 if (ownedError) throw ownedError;
 
@@ -1052,11 +2416,16 @@
 
                 if (playerError) throw playerError;
 
-                // Combine and deduplicate
+                // Combine and deduplicate, filtering out deleted tables
                 const tableMap = new Map();
-                ownedTables?.forEach(t => tableMap.set(t.id, t));
+                ownedTables?.forEach(t => {
+                    // Only add if not deleted
+                    if (!t.is_deleted) {
+                        tableMap.set(t.id, t);
+                    }
+                });
                 playerTables?.forEach(tp => {
-                    if (tp.tables && tp.tables.is_active) {
+                    if (tp.tables && tp.tables.is_active && !tp.tables.is_deleted) {
                         tableMap.set(tp.tables.id, tp.tables);
                     }
                 });
@@ -1064,10 +2433,11 @@
                 const activeTables = Array.from(tableMap.values());
 
                 container.innerHTML = '';
-            if (activeTables.length === 0) {
-                container.innerHTML = '<div style="text-align:center; color:#666;">אין שולחנות פעילים</div>';
-                return;
-            }
+                
+                if (activeTables.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; color:#666;">${t('noActiveTables')}</div>`;
+                    return;
+                }
 
                 // Get player counts
                 for (const table of activeTables) {
@@ -1078,19 +2448,19 @@
                     table.playerCount = count || 0;
                 }
 
-            activeTables.forEach(t => {
-                const div = document.createElement('div');
-                div.className = 'card';
-                div.style.cursor = 'pointer';
-                div.innerHTML = `
-                    <div class="card-title">${t.name}</div>
-                        <div style="color:#888;">כניסה: ${t.buy_in}₪ | ${t.playerCount || 0} שחקנים</div>
-                `;
-                div.onclick = () => openTable(t.id);
-                container.appendChild(div);
-            });
+                activeTables.forEach(table => {
+                    const div = document.createElement('div');
+                    div.className = 'card';
+                    div.style.cursor = 'pointer';
+                    div.innerHTML = `
+                        <div class="card-title">${table.name}</div>
+                        <div style="color:#888;">${t('entry')}: ${table.buy_in}₪ | ${table.playerCount || 0} ${currentLanguage === 'he' ? 'שחקנים' : 'players'}</div>
+                    `;
+                    div.onclick = () => openTable(table.id);
+                    container.appendChild(div);
+                });
             } catch (error) {
-                container.innerHTML = '<div style="text-align:center; color:var(--red);">שגיאה בטעינת שולחנות</div>';
+                container.innerHTML = `<div style="text-align:center; color:var(--red);">${t('errorLoadingTables')}</div>`;
                 console.error('Error loading tables:', error);
             }
         }
@@ -1098,26 +2468,38 @@
         // --- MY STATS ---
         async function renderMyStats() {
             const container = document.getElementById('myStatsContent');
-            container.innerHTML = '<div class="loading">טוען נתונים...</div>';
+            container.innerHTML = `<div class="loading">${t('loadingData')}</div>`;
+
+            console.log('=== RENDERING MY STATS ===');
+            console.log('Current user ID:', currentUser.id);
 
             try {
-                // Get all game results for this user across all tables
+                // Get profile stats (updated by trigger)
+                const { data: profile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('total_profit, games_played')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                console.log('Profile data:', profile);
+                console.log('Profile error:', profileError);
+
+                if (profileError) throw profileError;
+
+                // Get all game results for best/worst game
                 const { data: results, error } = await supabase
                     .from('game_results')
                     .select('*')
                     .eq('user_id', currentUser.id);
 
+                console.log('Game results:', results);
+
                 if (error) throw error;
 
-                let totalGames = 0;
-                let totalNet = 0;
                 let maxWin = null;
                 let maxLoss = null;
 
                 results?.forEach(result => {
-                    totalGames++;
-                    totalNet += result.net_profit || 0;
-                    
                     if (result.net_profit > 0 && (!maxWin || result.net_profit > maxWin.net_profit)) {
                         maxWin = result;
                     }
@@ -1126,42 +2508,47 @@
                     }
                 });
 
-                const colorClass = totalNet >= 0 ? 'profit' : 'loss';
+                const totalNet = profile.total_profit || 0;
+                const totalGames = profile.games_played || 0;
                 const sign = totalNet > 0 ? '+' : '';
+
+                console.log('Total profit:', totalNet);
+                console.log('Total games:', totalGames);
 
                 container.innerHTML = `
                     <div style="text-align:center; margin-bottom:20px;">
                         <div style="font-size:2rem; font-weight:bold; color:var(--gold); margin-bottom:10px;">
                             ${sign}${Math.round(totalNet)}₪
                         </div>
-                        <div style="color:var(--gray);">סה״כ רווח/הפסד</div>
+                        <div style="color:var(--gray);">${t('totalProfitLoss')} ${t('allTime')}</div>
                     </div>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
                         <div class="hof-stat">
-                            <div class="hof-stat-title">משחקים</div>
+                            <div class="hof-stat-title">${t('gamesPlayed')}</div>
                             <div class="hof-stat-value">${totalGames}</div>
                         </div>
                         <div class="hof-stat">
-                            <div class="hof-stat-title">ממוצע למשחק</div>
+                            <div class="hof-stat-title">${t('averagePerGame')}</div>
                             <div class="hof-stat-value">${totalGames > 0 ? Math.round(totalNet / totalGames) : 0}₪</div>
                         </div>
                     </div>
                     ${maxWin ? `
                         <div class="hof-stat">
-                            <div class="hof-stat-title">🦈 הרווח הגדול ביותר</div>
+                            <div class="hof-stat-title">${t('biggestWin')} <span style="margin-right: 5px;">🦈</span></div>
                             <div class="hof-stat-value" style="color:var(--green);">+${Math.round(maxWin.net_profit)}₪</div>
                         </div>
                     ` : ''}
                     ${maxLoss ? `
                         <div class="hof-stat">
-                            <div class="hof-stat-title">🐑 ההפסד הגדול ביותר</div>
+                            <div class="hof-stat-title">${t('biggestLoss')} <span style="margin-right: 5px;">🐑</span></div>
                             <div class="hof-stat-value" style="color:var(--red);">${Math.round(maxLoss.net_profit)}₪</div>
                         </div>
                     ` : ''}
-                    ${results?.length === 0 ? '<div style="text-align:center; color:#666; padding:20px;">אין נתונים עדיין</div>' : ''}
                 `;
+                
+                console.log('My Stats rendered successfully');
             } catch (error) {
-                container.innerHTML = '<div style="text-align:center; color:var(--red);">שגיאה בטעינת נתונים</div>';
+                container.innerHTML = `<div style="text-align:center; color:var(--red);">${t('errorLoadingStats')}: ${error.message}</div>`;
                 console.error('Error loading stats:', error);
             }
         }
@@ -1169,16 +2556,56 @@
         // --- ACTIVE TABLE ---
         async function renderTable() {
             try {
+                // Validate activeTableId - must be a valid UUID, not null or "null"
+                if (!activeTableId || 
+                    activeTableId === null || 
+                    activeTableId === 'null' || 
+                    activeTableId === 'undefined' ||
+                    typeof activeTableId !== 'string' ||
+                    !UUID_REGEX.test(activeTableId)) {
+                    console.error('❌ Invalid active table ID:', activeTableId);
+                    console.error('Type:', typeof activeTableId);
+                    console.error('Is null:', activeTableId === null);
+                    console.error('Is "null":', activeTableId === 'null');
+                    // Clear invalid table ID and return to lobby
+                    activeTableId = null;
+                    clearTableFromURL();
+                    showLobby();
+                    return;
+                }
+
+                console.log('✅ Valid active table ID:', activeTableId);
+
                 const { data: table, error: tableError } = await supabase
                     .from('tables')
                     .select('*')
                     .eq('id', activeTableId)
                     .single();
 
-                if (tableError) throw tableError;
+                if (tableError) {
+                    console.error('Error fetching table:', tableError);
+                    throw new Error('לא ניתן לטעון את השולחן: ' + tableError.message);
+                }
+
+                if (!table) {
+                    throw new Error('שולחן לא נמצא');
+                }
 
                 document.getElementById('activeTableName').innerText = table.name;
                 document.getElementById('activeBuyIn').innerText = table.buy_in + '₪';
+                
+                // Store buy_in for optimistic updates
+                currentTableBuyIn = table.buy_in;
+
+                // Show delete button only if user is the owner
+                const deleteBtn = document.getElementById('btnDeleteTable');
+                if (deleteBtn) {
+                    if (table.owner_id === currentUser.id) {
+                        deleteBtn.style.display = 'block';
+                    } else {
+                        deleteBtn.style.display = 'none';
+                    }
+                }
 
                 // Get players
                 const { data: players, error: playersError } = await supabase
@@ -1186,37 +2613,63 @@
                     .select('*, profiles(username)')
                     .eq('table_id', activeTableId);
 
-                if (playersError) throw playersError;
+                if (playersError) {
+                    console.error('Error fetching players:', playersError);
+                    console.error('Full error details:', JSON.stringify(playersError, null, 2));
+                    console.error('Current user ID:', currentUser?.id);
+                    console.error('Active table ID:', activeTableId);
+                    
+                    // If it's RLS error, show helpful message with more details
+                    if (playersError.message.includes('row-level security') || playersError.message.includes('RLS') || playersError.message.includes('policy') || playersError.code === '42501') {
+                        const detailedError = `בעיית הרשאות RLS.\n\nפרטים:\n- קוד שגיאה: ${playersError.code || 'לא ידוע'}\n- הודעה: ${playersError.message}\n- משתמש: ${currentUser?.id || 'לא מחובר'}\n- שולחן: ${activeTableId || 'לא נבחר'}\n\nאנא הרץ את quick_fix_rls.sql ב-Supabase SQL Editor.`;
+                        throw new Error(detailedError);
+                    }
+                    throw playersError;
+                }
             
             let pot = 0;
             const list = document.getElementById('activePlayersList');
+                if (!list) {
+                    console.error('activePlayersList element not found');
+                    return;
+                }
             list.innerHTML = '';
 
-                players?.forEach(p => {
-                    const invested = (p.rebuys || 1) * table.buy_in;
+                if (players && players.length > 0) {
+                    players.forEach(p => {
+                        const invested = (p.rebuys || 1) * table.buy_in;
                 pot += invested;
                 
                 const div = document.createElement('div');
                 div.className = 'player-row';
-                    const playerName = p.profiles?.username || 'שחקן';
+                        const playerName = p.profiles?.username || t('player');
                 div.innerHTML = `
                     <div>
-                            <div style="font-weight:bold;">${playerName}</div>
-                        <div style="font-size:0.8rem; color:#888;">השקיע: ${invested}₪</div>
+                                <div style="font-weight:bold;">${playerName}</div>
+                        <div style="font-size:0.8rem; color:#888;">${t('invested')}: ${invested}₪</div>
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
-                            <button class="rebuy-btn" onclick="removeRebuy('${p.id}')" ${(p.rebuys || 1) <= 1 ? 'disabled' : ''}>-</button>
-                            <span style="font-size:0.9rem;">${p.rebuys || 1}</span>
-                            <button class="rebuy-btn" onclick="addRebuy('${p.id}')">+</button>
+                                <button class="rebuy-btn" onclick="removeRebuy('${p.id}')" ${(p.rebuys || 1) <= 1 ? 'disabled' : ''}>-</button>
+                                <span style="font-size:0.9rem;">${p.rebuys || 1}</span>
+                                <button class="rebuy-btn" onclick="addRebuy('${p.id}')">+</button>
                     </div>
                 `;
                 list.appendChild(div);
             });
+                } else {
+                    list.innerHTML = `<div style="text-align:center; color:#666; padding:10px;">${t('noPlayersYet')}</div>`;
+                }
 
-            document.getElementById('activePot').innerText = pot + '₪';
+                const potElement = document.getElementById('activePot');
+                if (potElement) {
+                    potElement.innerText = pot + '₪';
+                }
             } catch (error) {
                 console.error('Error rendering table:', error);
-                alert('שגיאה בטעינת השולחן');
+                const errorMsg = error.message || t('errorLoadingTable');
+                alert(errorMsg);
+                // Go back to lobby on error
+                showLobby();
             }
         }
 
@@ -1233,7 +2686,7 @@
                     .single();
 
                 if (!profile) {
-                    alert('משתמש לא נמצא');
+                    alert(t('userNotFound'));
                     return;
                 }
 
@@ -1246,7 +2699,7 @@
                     .single();
 
                 if (existing) {
-                    alert('השחקן כבר בשולחן');
+                    alert(t('playerAlreadyInTable'));
                     return;
                 }
 
@@ -1262,53 +2715,251 @@
 
                 if (error) throw error;
 
+                // Add game log
+                await addGameLog(
+                    'player_added',
+                    `${name} ${t('playerAdded')}`
+                );
+
             document.getElementById('newPlayerName').value = '';
             closeModal('modal-add-player');
-                await renderTable();
+            await renderTable();
+            // Refresh Hall of Fame to show the new player immediately (with 0 profit)
+            await renderHallOfFame();
             } catch (error) {
-                alert('שגיאה בהוספת שחקן: ' + error.message);
+                alert(t('errorAddingPlayer') + ': ' + error.message);
+            }
+        }
+
+        // --- GAME LOGS ---
+        async function addGameLog(actionType, actionDescription, oldValue = null, newValue = null) {
+            try {
+                const { error } = await supabase
+                    .from('game_logs')
+                    .insert([{
+                        table_id: activeTableId,
+                        user_id: currentUser.id,
+                        action_type: actionType,
+                        action_description: actionDescription,
+                        old_value: oldValue,
+                        new_value: newValue
+                    }]);
+
+                if (error) {
+                    console.error('Error adding game log:', error);
+                }
+            } catch (error) {
+                console.error('Error adding game log:', error);
+            }
+        }
+
+        async function renderGameLogs() {
+            const logsList = document.getElementById('gameLogsList');
+            if (!logsList) return;
+
+            try {
+                const { data: logs, error } = await supabase
+                    .from('game_logs')
+                    .select('*, profiles(username)')
+                    .eq('table_id', activeTableId)
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+
+                if (error) throw error;
+
+                if (!logs || logs.length === 0) {
+                    logsList.innerHTML = `<div style="text-align:center; color:#666; padding:10px;">${t('noActivityYet')}</div>`;
+                    return;
+                }
+
+                logsList.innerHTML = '';
+                logs.forEach(log => {
+                    const logItem = document.createElement('div');
+                    logItem.className = 'game-log-item';
+                    const time = new Date(log.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                    logItem.innerHTML = `
+                        <span class="game-log-time">${time}</span>
+                        <span>${log.action_description}</span>
+                    `;
+                    logsList.appendChild(logItem);
+                });
+            } catch (error) {
+                console.error('Error rendering game logs:', error);
+                    logsList.innerHTML = `<div style="text-align:center; color:var(--red); padding:10px;">${t('errorLoadingLogs')}</div>`;
+            }
+        }
+
+        function toggleGameLogs() {
+            const container = document.getElementById('gameLogsContainer');
+            container.classList.toggle('hidden');
+            if (!container.classList.contains('hidden')) {
+                renderGameLogs();
             }
         }
 
         async function addRebuy(playerId) {
             try {
-                const { data: player } = await supabase
+                // Get current player data
+                const { data: player, error: fetchError } = await supabase
                     .from('table_players')
-                    .select('rebuys')
+                    .select('rebuys, profiles(username)')
                     .eq('id', playerId)
                     .single();
 
-                const { error } = await supabase
+                if (fetchError) throw fetchError;
+
+                const oldRebuys = player.rebuys || 1;
+                const newRebuys = oldRebuys + 1;
+                const playerName = player.profiles?.username || 'שחקן';
+
+                // OPTIMISTIC UI: Update immediately
+                updateRebuyDisplay(playerId, newRebuys);
+
+                // Get table buy_in for log
+                const { data: table } = await supabase
+                    .from('tables')
+                    .select('buy_in')
+                    .eq('id', activeTableId)
+                    .single();
+
+                const buyInAmount = table?.buy_in || 0;
+                const amountAdded = buyInAmount;
+
+                // Update in database
+                const { error: updateError } = await supabase
                     .from('table_players')
-                    .update({ rebuys: (player.rebuys || 1) + 1 })
+                    .update({ rebuys: newRebuys })
                     .eq('id', playerId);
 
-                if (error) throw error;
-                // Realtime will update automatically
+                if (updateError) {
+                    // Rollback on error
+                    updateRebuyDisplay(playerId, oldRebuys);
+                    throw updateError;
+                }
+
+                // Add game log
+                await addGameLog(
+                    'rebuy_add',
+                    `${playerName} ${t('added')} ${amountAdded}₪`,
+                    oldRebuys,
+                    newRebuys
+                );
+
+                // Realtime will sync with other users
             } catch (error) {
                 console.error('Error adding rebuy:', error);
+                // Re-render to get correct state
+            renderTable();
             }
         }
 
         async function removeRebuy(playerId) {
             try {
-                const { data: player } = await supabase
+                // Get current player data
+                const { data: player, error: fetchError } = await supabase
                     .from('table_players')
-                    .select('rebuys')
+                    .select('rebuys, profiles(username)')
                     .eq('id', playerId)
                     .single();
 
-                if ((player.rebuys || 1) <= 1) return;
+                if (fetchError) throw fetchError;
 
-                const { error } = await supabase
+                const oldRebuys = player.rebuys || 1;
+                if (oldRebuys <= 1) return;
+
+                const newRebuys = oldRebuys - 1;
+                const playerName = player.profiles?.username || 'שחקן';
+
+                // OPTIMISTIC UI: Update immediately
+                updateRebuyDisplay(playerId, newRebuys);
+
+                // Get table buy_in for log
+                const { data: table } = await supabase
+                    .from('tables')
+                    .select('buy_in')
+                    .eq('id', activeTableId)
+                    .single();
+
+                const buyInAmount = table?.buy_in || 0;
+                const amountRemoved = buyInAmount;
+
+                // Update in database
+                const { error: updateError } = await supabase
                     .from('table_players')
-                    .update({ rebuys: (player.rebuys || 1) - 1 })
+                    .update({ rebuys: newRebuys })
                     .eq('id', playerId);
 
-                if (error) throw error;
-                // Realtime will update automatically
+                if (updateError) {
+                    // Rollback on error
+                    updateRebuyDisplay(playerId, oldRebuys);
+                    throw updateError;
+                }
+
+                // Add game log
+                await addGameLog(
+                    'rebuy_remove',
+                    `${playerName} ${t('removed')} ${amountRemoved}₪`,
+                    oldRebuys,
+                    newRebuys
+                );
+
+                // Realtime will sync with other users
             } catch (error) {
                 console.error('Error removing rebuy:', error);
+                // Re-render to get correct state
+                renderTable();
+            }
+        }
+
+        // Store current table buy_in for optimistic updates
+        let currentTableBuyIn = 0;
+
+        // Helper function for Optimistic UI update
+        function updateRebuyDisplay(playerId, newRebuys) {
+            const list = document.getElementById('activePlayersList');
+            if (!list) return;
+            
+            const playerRows = list.querySelectorAll('.player-row');
+            let foundPlayer = false;
+            
+            playerRows.forEach(row => {
+                const buttons = row.querySelectorAll('button');
+                const span = row.querySelector('span');
+                
+                // Check if this is the right player (by checking onclick attribute)
+                const addBtn = Array.from(buttons).find(btn => 
+                    btn.onclick && btn.onclick.toString().includes(`'${playerId}'`)
+                );
+                
+                if (addBtn && span) {
+                    foundPlayer = true;
+                    span.textContent = newRebuys;
+                    
+                    // Update disable state for minus button
+                    const minusBtn = Array.from(buttons).find(btn => 
+                        btn.textContent === '-' && btn.onclick && btn.onclick.toString().includes(`'${playerId}'`)
+                    );
+                    if (minusBtn) {
+                        minusBtn.disabled = newRebuys <= 1;
+                    }
+                }
+            });
+            
+            // Recalculate pot if we found the player
+            if (foundPlayer && currentTableBuyIn > 0) {
+                let totalPot = 0;
+                playerRows.forEach(r => {
+                    const rebuySpan = r.querySelector('span');
+                    if (rebuySpan) {
+                        const rebuys = parseInt(rebuySpan.textContent) || 1;
+                        totalPot += rebuys * currentTableBuyIn;
+                    }
+                });
+                
+                const potElement = document.getElementById('activePot');
+                if (potElement) {
+                    potElement.innerText = totalPot + '₪';
+                }
             }
         }
 
@@ -1322,26 +2973,54 @@
         }
 
         async function renderHallOfFame() {
+            console.log('=== RENDERING HALL OF FAME ===');
+            console.log('Table ID:', activeTableId);
+            
             try {
+                // Get all current players in the table (for immediate leaderboard registration)
+                const { data: currentPlayers, error: playersError } = await supabase
+                    .from('table_players')
+                    .select('user_id, profiles(username)')
+                    .eq('table_id', activeTableId);
+
+                if (playersError) {
+                    console.error('Error fetching current players:', playersError);
+                }
+
                 // Get all game results for this table
-                const { data: results, error } = await supabase
+                const { data: results, error} = await supabase
                     .from('game_results')
                     .select('*, profiles(username)')
                     .eq('table_id', activeTableId);
 
+                console.log('Hall of Fame query results:', results);
+                console.log('Hall of Fame query error:', error);
+
                 if (error) throw error;
 
-                if (!results || results.length === 0) {
-                    document.getElementById('hofShark').innerText = 'אין נתונים';
-                    document.getElementById('hofLoser').innerText = 'אין נתונים';
-                    document.getElementById('tableLeagueTableBody').innerHTML = '<tr><td colspan="3" style="text-align:center; color:#666;">אין נתונים עדיין</td></tr>';
-                    return;
+                // Initialize tableStats with all current players (for immediate leaderboard registration)
+                const tableStats = {};
+                
+                // First, add all current players with 0 stats (so they appear immediately)
+                if (currentPlayers && currentPlayers.length > 0) {
+                    currentPlayers.forEach(player => {
+                        const username = player.profiles?.username || 'שחקן';
+                        if (player.user_id && !tableStats[player.user_id]) {
+                            tableStats[player.user_id] = {
+                                username: username,
+                                gamesPlayed: 0,
+                                net: 0
+                            };
+                        }
+                    });
                 }
 
-                // Calculate stats
-                const tableStats = {};
                 let maxWin = null;
                 let maxLoss = null;
+
+                // Then, update stats from game results
+                if (results && results.length > 0) {
+                    console.log(`Found ${results.length} game results`);
 
                 results.forEach(result => {
                     const username = result.profiles?.username || 'שחקן';
@@ -1367,13 +3046,20 @@
                         }
                     }
                 });
+                } else {
+                    console.log('No game results found for this table');
+                }
+
+                console.log('Shark:', maxWin);
+                console.log('Loser:', maxLoss);
+                console.log('Table Stats:', tableStats);
 
                 // Display The Shark
                 if (maxWin) {
                     document.getElementById('hofShark').innerHTML = 
                         `<span style="color:var(--green);">${maxWin.username}</span>: +${Math.round(maxWin.net_profit)}₪`;
                 } else {
-                    document.getElementById('hofShark').innerText = 'אין נתונים';
+                    document.getElementById('hofShark').innerText = t('noData');
                 }
 
                 // Display The Loser (🐑)
@@ -1381,7 +3067,7 @@
                     document.getElementById('hofLoser').innerHTML = 
                         `<span style="color:var(--red);">${maxLoss.username}</span>: ${Math.round(maxLoss.net_profit)}₪`;
                 } else {
-                    document.getElementById('hofLoser').innerText = 'אין נתונים';
+                    document.getElementById('hofLoser').innerText = t('noData');
                 }
 
                 // Display League Table
@@ -1390,6 +3076,9 @@
                 
                 const sortedPlayers = Object.values(tableStats).sort((a,b) => b.net - a.net);
                 
+                if (sortedPlayers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#666;">${t('noPlayersInTable')}</td></tr>`;
+                } else {
                 sortedPlayers.forEach(p => {
                     const colorClass = p.net >= 0 ? 'profit' : 'loss';
                     const sign = p.net > 0 ? '+' : '';
@@ -1401,8 +3090,13 @@
                     `;
                     tbody.appendChild(row);
                 });
+                }
+                
+                console.log('Hall of Fame rendered successfully');
             } catch (error) {
                 console.error('Error rendering Hall of Fame:', error);
+                document.getElementById('hofShark').innerText = 'שגיאה: ' + error.message;
+                document.getElementById('hofLoser').innerText = 'שגיאה';
             }
         }
 
@@ -1428,7 +3122,7 @@
                     .select('*, profiles(username)')
                     .eq('table_id', activeTableId);
 
-                if (!players || players.length === 0) return alert('אין שחקנים');
+                if (!players || players.length === 0) return alert(t('noPlayers'));
 
             // Populate Payer Select
             const select = document.getElementById('foodPayerSelect');
@@ -1475,7 +3169,7 @@
                 totalAmount = parseFloat(document.getElementById('foodTotalAmount').value) || 0;
                 const checkboxes = document.querySelectorAll('#foodEatersListEqual input:checked');
                 
-                if(!totalAmount || checkboxes.length === 0) return alert('חסרים פרטים');
+                if(!totalAmount || checkboxes.length === 0) return alert(t('missingDetails'));
                 
                 const amountPerPerson = totalAmount / checkboxes.length;
                     for (const cb of checkboxes) {
@@ -1508,7 +3202,7 @@
                                 .eq('id', inp.dataset.id);
                         }
                     }
-                if(totalAmount === 0) return alert('לא הוזנו סכומים');
+                if(totalAmount === 0) return alert(t('noAmountsEntered'));
             }
 
             // Credit the payer
@@ -1524,9 +3218,9 @@
                     .eq('id', payerId);
                 
             closeModal('modal-food');
-            alert('נשמר! המשלם זוכה, הסועדים חויבו.');
+            alert(t('savedPayerCredited'));
             } catch (error) {
-                alert('שגיאה בשמירת הוצאה: ' + error.message);
+                alert(t('errorSavingExpense') + ': ' + error.message);
             }
         }
 
@@ -1553,7 +3247,7 @@
             document.getElementById('view-settle').classList.remove('hidden');
             document.getElementById('backBtn').style.visibility = 'visible';
             document.getElementById('settleResults').classList.add('hidden');
-            document.getElementById('btnSaveLeague').classList.add('hidden');
+            document.getElementById('btnFinishGame').classList.add('hidden');
             } catch (error) {
                 console.error('Error starting settle:', error);
             }
@@ -1561,46 +3255,121 @@
 
         async function calcResult() {
             try {
+                // Validate activeTableId
+                if (!activeTableId || 
+                    activeTableId === null || 
+                    activeTableId === 'null' || 
+                    typeof activeTableId !== 'string' ||
+                    !UUID_REGEX.test(activeTableId)) {
+                    console.error('❌ Invalid active table ID in calcResult:', activeTableId);
+                    alert(t('invalidTable'));
+                    return;
+                }
+
                 const { data: table } = await supabase
                     .from('tables')
                     .select('buy_in')
                     .eq('id', activeTableId)
                     .single();
 
-                const { data: players } = await supabase
+                const { data: players, error: playersError } = await supabase
                     .from('table_players')
-                    .select('*, profiles(username, phone_number)')
+                    .select('id, user_id, rebuys, food_credit, food_debt, profiles(username, phone_number)')
                     .eq('table_id', activeTableId);
+                
+                if (playersError) {
+                    console.error('❌ Error fetching players:', playersError);
+                    throw playersError;
+                }
+                
+                console.log('📊 Players data from DB:', players);
 
             const inputs = document.querySelectorAll('.cashout-input');
             let tempPlayers = [];
+
+            console.log('=== STARTING CALCULATION ===');
+            console.log(`Found ${inputs.length} input fields`);
 
             inputs.forEach(inp => {
                     const playerId = inp.dataset.id;
                 const cash = parseFloat(inp.value) || 0;
                     const p = players.find(x => x.id === playerId);
                     
-                    const invested = (p.rebuys || 1) * table.buy_in;
-                    const net = (cash - invested) + ((p.food_credit || 0) - (p.food_debt || 0));
+                    if (!p) {
+                        console.error(`❌ Player with ID ${playerId} not found in database!`);
+                        return;
+                    }
                     
-                    tempPlayers.push({
-                        id: playerId,
-                        userId: p.user_id,
-                        name: p.profiles?.username || 'שחקן',
+                    const invested = (p.rebuys || 1) * table.buy_in;
+                    const foodCredit = p.food_credit || 0;
+                    const foodDebt = p.food_debt || 0;
+                    const foodBalance = foodCredit - foodDebt;
+                    const net = (cash - invested) + foodBalance;
+                    
+                    console.log(`\n💰 Calculating for "${p.profiles?.username || 'Unknown'}":`);
+                    console.log(`   📥 Input value (raw): "${inp.value}"`);
+                    console.log(`   📥 Cash out: ${cash}₪`);
+                    console.log(`   🎰 Rebuys: ${p.rebuys || 1}`);
+                    console.log(`   💵 Buy-in: ${table.buy_in}₪`);
+                    console.log(`   💸 Total invested: ${invested}₪`);
+                    console.log(`   🍕 Food credit: ${foodCredit}₪`);
+                    console.log(`   🍔 Food debt: ${foodDebt}₪`);
+                    console.log(`   🍽️ Food balance: ${foodBalance}₪`);
+                    console.log(`   📊 Net profit calculation: (${cash} - ${invested}) + ${foodBalance} = ${net}₪`);
+                    console.log(`   🔍 net value: ${net}, type: ${typeof net}, isNaN: ${isNaN(net)}`);
+                    
+                    // CRITICAL FIX: Get the actual user_id from the database row
+                    // Make sure null values are NOT converted to string "null"
+                    const actualUserId = p.user_id;
+                    const isValidUUID = actualUserId && actualUserId !== null && typeof actualUserId === 'string' && actualUserId !== 'null';
+                    
+                    console.log(`👤 Player: "${p.profiles?.username || 'Unknown'}":`);
+                    console.log(`   - user_id: "${actualUserId}"`);
+                    console.log(`   - type: ${typeof actualUserId}`);
+                    console.log(`   - is null: ${actualUserId === null}`);
+                    console.log(`   - is "null": ${actualUserId === 'null'}`);
+                    console.log(`   - is valid UUID: ${isValidUUID}`);
+                    console.log(`   - net profit: ${net}₪`);
+                    
+                    // Create player object with explicit net value
+                    const playerObj = {
+                        id: playerId, // table_players id
+                        userId: actualUserId, // ACTUAL user UUID from DB (or null)
+                        name: p.profiles?.username || t('player'),
                         phone: p.profiles?.phone_number || null,
-                        net: net
-                    });
+                        cash_out: cash, // Save the cash out amount!
+                        net: net // Explicitly set net value
+                    };
+                    
+                    console.log(`   ✅ Player object created with net: ${playerObj.net}₪`);
+                    console.log(`   🔍 playerObj.net value: ${playerObj.net}, type: ${typeof playerObj.net}`);
+                    
+                    tempPlayers.push(playerObj);
+                    
+                    console.log(`   ✅ Player added to tempPlayers. Last player net: ${tempPlayers[tempPlayers.length - 1].net}₪`);
             });
 
-            // Validate Sum
+            // Validate Sum (logging only, no blocking)
             const total = tempPlayers.reduce((sum, p) => sum + p.net, 0);
-            if (Math.abs(total) > 2) {
-                return alert(`הסכומים לא מתאזנים! יש הפרש של ${Math.round(total)}₪. בדוק ספירה.`);
+            console.log('Calculated total balance:', total);
+            console.log('All players data:', tempPlayers);
+            
+            // Just log if there's a discrepancy, don't block
+            if (Math.abs(total) > 0.5) {
+                console.warn(`⚠️ Balance discrepancy: ${Math.round(total)}₪`);
             }
 
                 // Display Logic with Pay with Bit buttons
-            let debtors = tempPlayers.filter(p => p.net < -0.5).sort((a,b) => a.net - b.net);
-            let creditors = tempPlayers.filter(p => p.net > 0.5).sort((a,b) => b.net - a.net);
+            // CRITICAL FIX: Create copies of players for transfer calculation
+            // This prevents modifying the original net values in tempPlayers
+            let debtors = tempPlayers
+                .filter(p => p.net < -0.5)
+                .map(p => ({ ...p, net: p.net })) // Create copy with net value
+                .sort((a,b) => a.net - b.net);
+            let creditors = tempPlayers
+                .filter(p => p.net > 0.5)
+                .map(p => ({ ...p, net: p.net })) // Create copy with net value
+                .sort((a,b) => b.net - a.net);
             let transfers = [];
 
             let d=0, c=0;
@@ -1613,7 +3382,7 @@
                     let transferHtml = `
                         <div class="transfer-row">
                             <div class="transfer-info">
-                                <b>${debtorName}</b> מעביר <b>${Math.round(amount)}₪</b> ל-<b>${creditorName}</b>
+                                <b>${debtorName}</b> ${t('transfers')} <b>${Math.round(amount)}₪</b> ${t('to')} <b>${creditorName}</b>
                             </div>
                     `;
                     
@@ -1630,6 +3399,7 @@
                     transferHtml += '</div>';
                     transfers.push(transferHtml);
                 
+                // Now it's safe to modify net - we're working with copies
                 debtors[d].net += amount;
                 creditors[c].net -= amount;
                 
@@ -1639,15 +3409,25 @@
 
             const resDiv = document.getElementById('settleResults');
             resDiv.classList.remove('hidden');
-            resDiv.innerHTML = '<h3 style="color:var(--gold); margin-top:0;">העברות לביצוע:</h3>' + 
-                                   (transfers.length ? transfers.join('') : '<div style="text-align:center; padding:20px;">כולם מאוזנים!</div>');
+            resDiv.innerHTML = `<h3 style="color:var(--gold); margin-top:0;">${t('transfersToMake')}</h3>` + 
+                                   (transfers.length ? transfers.join('') : `<div style="text-align:center; padding:20px;">${t('allBalanced')}</div>`);
             
                 // Store results for saving
+                console.log('\n💾 Storing tempSettleResults:');
+                tempPlayers.forEach((p, idx) => {
+                    console.log(`  Player ${idx + 1}: ${p.name}`);
+                    console.log(`    - id: ${p.id}`);
+                    console.log(`    - userId: ${p.userId}`);
+                    console.log(`    - cash_out: ${p.cash_out}₪`);
+                    console.log(`    - net: ${p.net}₪`);
+                    console.log(`    - net type: ${typeof p.net}`);
+                });
                 window.tempSettleResults = tempPlayers;
-            document.getElementById('btnSaveLeague').classList.remove('hidden');
+                console.log('✅ tempSettleResults stored:', window.tempSettleResults);
+            document.getElementById('btnFinishGame').classList.remove('hidden');
             } catch (error) {
                 console.error('Error calculating results:', error);
-                alert('שגיאה בחישוב תוצאות');
+                alert(t('errorCalculating'));
             }
         }
 
@@ -1658,7 +3438,7 @@
                 await navigator.clipboard.writeText(phoneNumber);
                 
                 // Show toast notification
-                showToast('מספר הועתק! פותח Bit...');
+                showToast(t('numberCopied'));
                 
                 // Try to open Bit app (deep link)
                 const bitUrl = `bit://pay?phone=${phoneNumber}`;
@@ -1675,42 +3455,281 @@
                 console.error('Error with Bit payment:', error);
                 // Fallback: just open Bit website
                 window.open('https://www.bitpay.co.il/app/', '_blank');
-                showToast('פתיחת Bit...');
+                showToast(t('openingBit'));
             }
         }
 
-        async function saveToLeague() {
+        async function saveAndExit() {
             try {
-                if (!window.tempSettleResults) return;
+                if (!window.tempSettleResults) {
+                    alert(t('noDataToSave'));
+                    return;
+                }
 
-                // Save game results
-                const resultsToInsert = window.tempSettleResults.map(p => ({
-                    table_id: activeTableId,
-                    user_id: p.userId,
-                    net_profit: p.net,
-                    game_date: new Date().toISOString()
+                // Validate activeTableId - must be a valid UUID
+                if (!activeTableId || 
+                    activeTableId === null || 
+                    activeTableId === 'null' || 
+                    activeTableId === 'undefined' ||
+                    typeof activeTableId !== 'string' ||
+                    !UUID_REGEX.test(activeTableId)) {
+                    console.error('❌ Invalid active table ID in saveAndExit:', activeTableId);
+                    alert(t('invalidTable'));
+                    return;
+                }
+
+                console.log('=== STARTING SAVE AND EXIT ===');
+                console.log('✅ Valid Active Table ID:', activeTableId);
+                console.log('\n📋 All players to save (raw):', window.tempSettleResults);
+                if (window.tempSettleResults) {
+                    window.tempSettleResults.forEach((p, idx) => {
+                        console.log(`  Player ${idx + 1}: ${p.name}`);
+                        console.log(`    - id: ${p.id}`);
+                        console.log(`    - userId: ${p.userId}`);
+                        console.log(`    - cash_out: ${p.cash_out}₪`);
+                        console.log(`    - net: ${p.net}₪`);
+                        console.log(`    - net type: ${typeof p.net}`);
+                        console.log(`    - net === 0: ${p.net === 0}`);
+                        console.log(`    - net === '0': ${p.net === '0'}`);
+                    });
+                }
+
+                // 1. Update table_players with results (Cash Out & Net Profit)
+                // This works for ALL players
+                console.log('Step 1: Updating table_players...');
+                console.log('Data from tempSettleResults:', window.tempSettleResults);
+                
+                const updates = window.tempSettleResults.map(p => ({
+                    id: p.id, // table_players id
+                    cash_out: p.cash_out || 0, // Use the saved cash_out value
+                    net_profit: p.net
                 }));
+                
+                console.log('Updates to apply:', updates);
 
-                const { error: resultsError } = await supabase
-                    .from('game_results')
-                    .insert(resultsToInsert);
+                // Perform updates in parallel
+                const updateResults = await Promise.all(updates.map(u => 
+                    supabase.from('table_players')
+                        .update({ cash_out: u.cash_out, net_profit: u.net_profit })
+                        .eq('id', u.id)
+                ));
 
-                if (resultsError) throw resultsError;
+                // Check for errors in updates
+                const updateErrors = updateResults.filter(r => r.error);
+                if (updateErrors.length > 0) {
+                    console.error('Errors updating table_players:', updateErrors);
+                    // We continue anyway to try and save game history
+                }
 
-            // Close Table
-                const { error: closeError } = await supabase
+                console.log('Step 1 complete: table_players updated');
+
+                // 2. Save to game_results (This triggers user stats update via trigger)
+                console.log('Step 2: Filtering valid users for game_results...');
+                
+                // First, log ALL players to see what we have
+                console.log('🔍 ALL players in tempSettleResults:');
+                window.tempSettleResults.forEach((p, idx) => {
+                    console.log(`  Player ${idx + 1}: "${p.name}"`);
+                    console.log(`    - userId: ${p.userId}`);
+                    console.log(`    - userId type: ${typeof p.userId}`);
+                    console.log(`    - userId === null: ${p.userId === null}`);
+                    console.log(`    - userId === undefined: ${p.userId === undefined}`);
+                    console.log(`    - userId === 'null': ${p.userId === 'null'}`);
+                });
+
+                const validResults = window.tempSettleResults.filter(p => {
+                    const userId = p.userId;
+                    
+                    // Check for all possible invalid states
+                    if (userId === null || userId === undefined) {
+                        console.warn(`❌ Skipping player "${p.name}" - userId is null/undefined`);
+                        return false;
+                    }
+                    
+                    if (typeof userId !== 'string') {
+                        console.warn(`❌ Skipping player "${p.name}" - userId is not a string (type: ${typeof userId})`);
+                        return false;
+                    }
+                    
+                    if (userId === 'null' || userId === 'undefined' || userId.trim() === '') {
+                        console.warn(`❌ Skipping player "${p.name}" - userId is invalid string: "${userId}"`);
+                        return false;
+                    }
+                    
+                    if (!UUID_REGEX.test(userId)) {
+                        console.warn(`❌ Skipping player "${p.name}" - userId is not a valid UUID: "${userId}"`);
+                        return false;
+                    }
+                    
+                    console.log(`✅ Player "${p.name}" has valid UUID: ${userId}`);
+                    return true;
+                });
+                
+                console.log(`Found ${validResults.length} valid registered users out of ${window.tempSettleResults.length} total players`);
+
+                // Additional safety check: Verify all players in table_players have valid user_ids
+                console.log('\n🔍 Double-checking table_players in database...');
+                const { data: dbPlayers, error: dbCheckError } = await supabase
+                    .from('table_players')
+                    .select('id, user_id')
+                    .eq('table_id', activeTableId);
+                
+                if (dbCheckError) {
+                    console.error('❌ Error checking table_players:', dbCheckError);
+                } else {
+                    const playersWithNull = dbPlayers.filter(p => !p.user_id || p.user_id === null);
+                    if (playersWithNull.length > 0) {
+                        console.warn(`⚠️ WARNING: Found ${playersWithNull.length} players in database with NULL user_id!`);
+                        console.warn('These players will be skipped when saving game results.');
+                        console.warn('Player IDs with NULL user_id:', playersWithNull.map(p => p.id));
+                    } else {
+                        console.log('✅ All players in database have valid user_id');
+                    }
+                }
+
+                if (validResults.length > 0) {
+                    console.log('\n=== PREPARING DATA FOR GAME_RESULTS INSERT ===');
+                    validResults.forEach((p, index) => {
+                        console.log(`Player ${index + 1}: ${p.name}`);
+                        console.log(`  - user_id: ${p.userId}`);
+                        console.log(`  - net_profit: ${p.net}₪`);
+                    });
+                    
+                    // Final safety check: Remove any results with invalid user_id (double-check)
+                    const finalValidResults = validResults.filter(p => {
+                        const userId = p.userId;
+                        if (!userId || userId === null || userId === undefined || 
+                            userId === 'null' || userId === 'undefined' || 
+                            typeof userId !== 'string' || !UUID_REGEX.test(userId)) {
+                            console.error(`🚨 CRITICAL: Found invalid userId in final check: "${userId}" for player "${p.name}"`);
+                            return false;
+                        }
+                        return true;
+                    });
+
+                    if (finalValidResults.length !== validResults.length) {
+                        console.error(`🚨 WARNING: Filtered out ${validResults.length - finalValidResults.length} invalid results in final check!`);
+                    }
+
+                    if (finalValidResults.length === 0) {
+                        console.error('❌ No valid results to insert after final check!');
+                        alert(t('noValidPlayers'));
+                        return;
+                    }
+
+                    const resultsToInsert = finalValidResults.map(p => {
+                        // Triple-check the user_id before inserting
+                        if (!p.userId || p.userId === 'null' || !UUID_REGEX.test(p.userId)) {
+                            throw new Error(`Invalid user_id detected: "${p.userId}" for player "${p.name}"`);
+                        }
+                        return {
+                            table_id: activeTableId,
+                            user_id: p.userId,
+                            net_profit: p.net,
+                            game_date: new Date().toISOString()
+                        };
+                    });
+
+                    console.log('\n📤 Final data to insert into game_results (after triple-check):');
+                    console.log(JSON.stringify(resultsToInsert, null, 2));
+                    
+                    const { data: insertedData, error: resultsError } = await supabase
+                        .from('game_results')
+                        .insert(resultsToInsert)
+                        .select();
+
+                    if (resultsError) {
+                        console.error('❌ Error inserting game results:', resultsError);
+                        alert(t('errorSavingHistory') + ': ' + resultsError.message + '\n' + t('dataSavedButStatsNotUpdated'));
+                    } else {
+                        console.log('✅ Game results inserted successfully:', insertedData);
+                        alert(t('dataSavedSuccess'));
+                    }
+                } else {
+                    console.warn('⚠️ No valid users to save to history');
+                    alert(t('dataSavedTable'));
+                }
+
+                console.log('Step 2 complete');
+                
+                // Clear local state
+                window.tempSettleResults = null;
+                
+                // Close realtime subscriptions before clearing activeTableId
+                if (activeTableId && realtimeChannels[activeTableId]) {
+                    console.log('🔒 Closing realtime subscription for table:', activeTableId);
+                    realtimeChannels[activeTableId].unsubscribe();
+                    delete realtimeChannels[activeTableId];
+                }
+                
+                // Mark table as inactive (closed) when saving game
+                console.log('Step 3: Marking table as inactive...');
+                const { error: updateTableError } = await supabase
                     .from('tables')
                     .update({ is_active: false })
                     .eq('id', activeTableId);
-            
-                if (closeError) throw closeError;
-            
-                window.tempSettleResults = null;
-                alert('הנתונים נשמרו! השולחן נסגר.');
+                
+                if (updateTableError) {
+                    console.error('❌ Error marking table as inactive:', updateTableError);
+                    // Non-critical, continue anyway
+                } else {
+                    console.log('✅ Table marked as inactive');
+                }
+                
+                // Exit to Lobby
+                console.log('Exiting to lobby...');
+                clearTableFromURL();
+                activeTableId = null;
             showLobby();
+                
             } catch (error) {
-                alert('שגיאה בשמירה: ' + error.message);
+                console.error('=== ERROR IN SAVE AND EXIT ===');
+                console.error(error);
+                alert(t('errorCriticalSaving') + ': ' + error.message);
             }
+        }
+
+        function showGameSummary(results) {
+            hideAllViews();
+            document.getElementById('view-summary').classList.remove('hidden');
+            document.getElementById('backBtn').style.visibility = 'hidden';
+            
+            document.getElementById('summaryTableName').textContent = document.getElementById('activeTableName').innerText;
+            
+            const list = document.getElementById('summaryList');
+            list.innerHTML = '';
+            
+            // Sort by profit (highest first)
+            const sorted = [...results].sort((a, b) => b.net - a.net);
+            
+            sorted.forEach((p, index) => {
+                const isWinner = p.net > 0;
+                const color = isWinner ? 'var(--green)' : (p.net < 0 ? 'var(--red)' : 'var(--gray)');
+                const sign = p.net > 0 ? '+' : '';
+                const icon = index === 0 ? '👑' : (index === sorted.length - 1 ? '💀' : '👤');
+                
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.justifyContent = 'space-between';
+                row.style.padding = '10px';
+                row.style.borderBottom = '1px solid #333';
+                row.style.fontSize = '1.1rem';
+                
+                row.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span>${icon}</span>
+                        <span>${p.name}</span>
+                    </div>
+                    <div style="font-weight:bold; color:${color};">
+                        ${sign}${Math.round(p.net)}₪
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+            
+            // Clear URL (game is over)
+            clearTableFromURL();
+            activeTableId = null;
         }
 
         // --- SHARE ---
@@ -1727,16 +3746,31 @@
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
         // --- INIT ---
+        // Initialize language first
+        initLanguage();
+        
+        // Then check authentication
         checkAuth();
 
         // Listen for auth changes
         supabase.auth.onAuthStateChange((event, session) => {
+            console.log('🔐 Auth state change:', event);
+            
             if (event === 'SIGNED_IN' && session) {
                 currentUser = session.user;
-                loadProfile().then(() => {
-                    handleJoinFlow();
+                // Don't redirect if we are in the middle of initial loading
+                // or if checkAuth is handling a specific table URL
+                if (!isLoading) {
+                    loadProfile().then(() => {
+                        const tableId = getTableIdFromURL();
+                        if (!tableId) {
+                            handleJoinFlow();
         showLobby();
-                });
+                        } else {
+                            console.log('Skipping lobby redirect in onAuthStateChange because tableId exists');
+                        }
+                    });
+                }
             } else if (event === 'SIGNED_OUT') {
                 currentUser = null;
                 currentProfile = null;

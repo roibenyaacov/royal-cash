@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בדיקת חיבור - Royal Cash</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #121212;
+            color: #F5F5DC;
+        }
+        .test-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #1e1e1e;
+            border-radius: 5px;
+        }
+        .success { color: #2ecc71; }
+        .error { color: #e74c3c; }
+        .warning { color: #f39c12; }
+        button {
+            background: #D4AF37;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px 5px;
+        }
+        pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 בדיקת חיבור - Royal Cash</h1>
+    <button onclick="runAllTests()">הרץ את כל הבדיקות</button>
+    <div id="results"></div>
+
+    <script>
+        const SUPABASE_URL = window.SUPABASE_URL || 'https://gfchswspvayyvdlxbggw.supabase.co';
+        const SUPABASE_KEY = window.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmY2hzd3NwdmF5eXZkbHhiZ2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MDI1NTUsImV4cCI6MjA3OTM3ODU1NX0.5vIkcgyGEWEW3uI5Y2bJKG7Ex2uhIAsUtC8US6BFVtA';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const resultsDiv = document.getElementById('results');
+
+        function addResult(title, status, message, data = null) {
+            const div = document.createElement('div');
+            div.className = 'test-item';
+            const statusClass = status === 'success' ? 'success' : status === 'error' ? 'error' : 'warning';
+            div.innerHTML = `
+                <h3 class="${statusClass}">${status === 'success' ? '✅' : status === 'error' ? '❌' : '⚠️'} ${title}</h3>
+                <p>${message}</p>
+                ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `;
+            resultsDiv.appendChild(div);
+        }
+
+        async function testConfig() {
+            addResult('בדיקת הגדרות', 'info', 'בודק את ההגדרות...');
+            
+            if (!SUPABASE_URL || SUPABASE_URL.includes('undefined')) {
+                addResult('בדיקת URL', 'error', 'SUPABASE_URL לא מוגדר!');
+                return false;
+            }
+            
+            if (!SUPABASE_KEY || SUPABASE_KEY.includes('undefined')) {
+                addResult('בדיקת Key', 'error', 'SUPABASE_KEY לא מוגדר!');
+                return false;
+            }
+            
+            addResult('בדיקת URL', 'success', `SUPABASE_URL: ${SUPABASE_URL}`);
+            addResult('בדיקת Key', 'success', `SUPABASE_KEY: ${SUPABASE_KEY.substring(0, 20)}...`);
+            return true;
+        }
+
+        async function testConnection() {
+            addResult('בדיקת חיבור', 'info', 'בודק חיבור ל-Supabase...');
+            
+            try {
+                const { data, error } = await supabase.from('profiles').select('count').limit(1);
+                
+                if (error) {
+                    addResult('בדיקת חיבור', 'error', `שגיאה: ${error.message}`, error);
+                    return false;
+                }
+                
+                addResult('בדיקת חיבור', 'success', 'החיבור ל-Supabase עובד!');
+                return true;
+            } catch (err) {
+                addResult('בדיקת חיבור', 'error', `שגיאה: ${err.message}`, err);
+                return false;
+            }
+        }
+
+        async function testTables() {
+            addResult('בדיקת טבלאות', 'info', 'בודק את הטבלאות...');
+            
+            const tables = ['profiles', 'tables', 'table_players', 'game_results'];
+            const results = {};
+            
+            for (const table of tables) {
+                try {
+                    const { data, error } = await supabase.from(table).select('*').limit(1);
+                    if (error) {
+                        results[table] = { status: 'error', message: error.message };
+                    } else {
+                        results[table] = { status: 'success', count: data ? data.length : 0 };
+                    }
+                } catch (err) {
+                    results[table] = { status: 'error', message: err.message };
+                }
+            }
+            
+            let allGood = true;
+            for (const [table, result] of Object.entries(results)) {
+                if (result.status === 'error') {
+                    addResult(`טבלה: ${table}`, 'error', result.message);
+                    allGood = false;
+                } else {
+                    addResult(`טבלה: ${table}`, 'success', `נגישה (${result.count} שורות לדוגמה)`);
+                }
+            }
+            
+            return allGood;
+        }
+
+        async function testTrigger() {
+            addResult('בדיקת טריגר', 'info', 'בודק את הטריגר...');
+            
+            try {
+                // Check if trigger exists by trying to query game_results
+                const { data, error } = await supabase
+                    .from('game_results')
+                    .select('*')
+                    .limit(1);
+                
+                if (error) {
+                    addResult('בדיקת טריגר', 'warning', `לא ניתן לבדוק ישירות. בדוק ב-SQL Editor: SELECT * FROM pg_trigger WHERE tgname = 'on_game_result_insert';`);
+                    return false;
+                }
+                
+                addResult('בדיקת טריגר', 'warning', 'הטריגר לא ניתן לבדיקה ישירות. בדוק ב-SQL Editor: SELECT * FROM pg_trigger WHERE tgname = \'on_game_result_insert\';');
+                return true;
+            } catch (err) {
+                addResult('בדיקת טריגר', 'error', `שגיאה: ${err.message}`);
+                return false;
+            }
+        }
+
+        async function testProfiles() {
+            addResult('בדיקת פרופילים', 'info', 'בודק את הפרופילים...');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, username, total_profit, games_played')
+                    .limit(5);
+                
+                if (error) {
+                    addResult('בדיקת פרופילים', 'error', `שגיאה: ${error.message}`, error);
+                    return false;
+                }
+                
+                if (!data || data.length === 0) {
+                    addResult('בדיקת פרופילים', 'warning', 'אין פרופילים במערכת');
+                    return true;
+                }
+                
+                // Check if columns exist
+                const hasTotalProfit = data.some(p => 'total_profit' in p);
+                const hasGamesPlayed = data.some(p => 'games_played' in p);
+                
+                if (!hasTotalProfit) {
+                    addResult('בדיקת עמודות פרופילים', 'error', 'העמודה total_profit לא קיימת! הרץ את ultimate_fix.sql');
+                } else {
+                    addResult('בדיקת עמודות פרופילים', 'success', 'העמודה total_profit קיימת');
+                }
+                
+                if (!hasGamesPlayed) {
+                    addResult('בדיקת עמודות פרופילים', 'error', 'העמודה games_played לא קיימת! הרץ את ultimate_fix.sql');
+                } else {
+                    addResult('בדיקת עמודות פרופילים', 'success', 'העמודה games_played קיימת');
+                }
+                
+                addResult('בדיקת פרופילים', 'success', `נמצאו ${data.length} פרופילים`, data);
+                return true;
+            } catch (err) {
+                addResult('בדיקת פרופילים', 'error', `שגיאה: ${err.message}`, err);
+                return false;
+            }
+        }
+
+        async function testTablePlayers() {
+            addResult('בדיקת שחקנים בשולחנות', 'info', 'בודק את שחקני השולחנות...');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('table_players')
+                    .select('id, user_id, cash_out, net_profit')
+                    .limit(10);
+                
+                if (error) {
+                    addResult('בדיקת שחקנים בשולחנות', 'error', `שגיאה: ${error.message}`, error);
+                    return false;
+                }
+                
+                if (!data || data.length === 0) {
+                    addResult('בדיקת שחקנים בשולחנות', 'warning', 'אין שחקנים בשולחנות');
+                    return true;
+                }
+                
+                // Check for invalid user_ids
+                const invalidUsers = data.filter(p => 
+                    p.user_id === 'null' || 
+                    (p.user_id !== null && typeof p.user_id === 'string' && p.user_id.trim() === '')
+                );
+                
+                if (invalidUsers.length > 0) {
+                    addResult('בדיקת user_id', 'error', `נמצאו ${invalidUsers.length} שחקנים עם user_id לא תקין!`, invalidUsers);
+                } else {
+                    addResult('בדיקת user_id', 'success', 'כל ה-user_id תקינים');
+                }
+                
+                addResult('בדיקת שחקנים בשולחנות', 'success', `נמצאו ${data.length} שחקנים`, data.slice(0, 3));
+                return true;
+            } catch (err) {
+                addResult('בדיקת שחקנים בשולחנות', 'error', `שגיאה: ${err.message}`, err);
+                return false;
+            }
+        }
+
+        async function runAllTests() {
+            resultsDiv.innerHTML = '';
+            addResult('התחלת בדיקות', 'info', 'מתחיל את כל הבדיקות...');
+            
+            const configOk = await testConfig();
+            if (!configOk) {
+                addResult('סיכום', 'error', 'הבדיקות נכשלו - יש בעיה בהגדרות!');
+                return;
+            }
+            
+            const connectionOk = await testConnection();
+            if (!connectionOk) {
+                addResult('סיכום', 'error', 'הבדיקות נכשלו - אין חיבור ל-Supabase!');
+                return;
+            }
+            
+            await testTables();
+            await testProfiles();
+            await testTablePlayers();
+            await testTrigger();
+            
+            addResult('סיכום', 'success', 'כל הבדיקות הושלמו! בדוק את התוצאות למעלה.');
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            addResult('מידע', 'info', 'לחץ על "הרץ את כל הבדיקות" כדי להתחיל');
+        });
+    </script>
+</body>
+</html>
+
+
