@@ -60,7 +60,7 @@
         }
 
         .app-logo {
-            max-height: 80px;
+            max-height: 50px;
             width: auto;
             display: block;
             margin: 0 auto;
@@ -105,7 +105,6 @@
             max-width: 500px;
             margin: 0 auto;
             padding: 15px;
-            padding-bottom: 100px; /* Space for FAB */
         }
 
         .hidden { display: none !important; }
@@ -257,167 +256,6 @@
             background: var(--gold);
             color: #000;
             font-weight: bold;
-        }
-
-        /* --- Modern Lobby Tabs --- */
-        .lobby-tabs {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin: 30px 0;
-            border-bottom: 1px solid #333;
-        }
-
-        .lobby-tab {
-            padding: 12px 0;
-            font-size: 1.05rem;
-            color: #888;
-            cursor: pointer;
-            position: relative;
-            transition: color 0.3s;
-            border: none;
-            background: none;
-        }
-
-        .lobby-tab.active {
-            color: var(--gold);
-            font-weight: 600;
-        }
-
-        .lobby-tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--gold);
-        }
-
-        .lobby-tab:hover:not(.active) {
-            color: #bbb;
-        }
-
-        /* --- Lobby Header --- */
-        .lobby-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 25px 0 20px 0;
-        }
-
-        .lobby-title {
-            font-size: 1.4rem;
-            color: #fff;
-            margin: 0;
-            font-weight: 600;
-        }
-
-        .btn-stats {
-            background: transparent;
-            border: 1px solid var(--gold);
-            color: var(--gold);
-            padding: 8px 16px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-
-        .btn-stats:hover {
-            background: var(--gold);
-            color: #000;
-        }
-
-        .stats-icon {
-            font-size: 1.1rem;
-        }
-
-        /* --- Floating Action Button (FAB) --- */
-        .fab {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            background: var(--gold);
-            border: none;
-            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
-            cursor: pointer;
-            z-index: 50;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .fab:hover {
-            transform: translateX(-50%) scale(1.1);
-            box-shadow: 0 6px 16px rgba(212, 175, 55, 0.6);
-        }
-
-        .fab:active {
-            transform: translateX(-50%) scale(0.95);
-        }
-
-        .fab-icon {
-            font-size: 2rem;
-            color: #000;
-            font-weight: 300;
-            line-height: 1;
-        }
-
-        /* --- Modern Table Cards --- */
-        .table-card-modern {
-            background: #252525;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .table-card-modern:hover {
-            border-color: var(--gold);
-            transform: translateY(-2px);
-        }
-
-        .table-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .table-card-title {
-            font-size: 1.1rem;
-            color: #fff;
-            font-weight: 600;
-            margin: 0;
-        }
-
-        .table-card-info {
-            display: flex;
-            gap: 24px;
-            color: #888;
-            font-size: 0.9rem;
-        }
-
-        .table-info-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .table-info-icon {
-            color: var(--gold);
-            font-size: 1rem;
         }
 
         /* --- Settlement Transfer Row --- */
@@ -642,8 +480,8 @@
                 </div>
             </div>
         </div>
-                <!-- Center: Logo -->
-                <img src="RoyalCashClean.png" class="app-logo" alt="Royal Cash">
+        <!-- Center: Logo -->
+        <img src="logo.png" class="app-logo" alt="Royal Cash">
         <!-- Right side: User menu -->
         <div style="display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end;">
             <div class="user-menu" id="userMenu" style="display:none;">
@@ -692,43 +530,27 @@
 
         <!-- Main App Views -->
         <div id="view-lobby" class="hidden">
-            <!-- Modern Tab Bar -->
-            <div class="lobby-tabs">
-                <div class="lobby-tab" id="tab-history" onclick="switchLobbyTab('history')">
-                    <span id="tabHistoryText">היסטוריה</span>
-                </div>
-                <div class="lobby-tab active" id="tab-active-games" onclick="switchLobbyTab('active')">
-                    <span id="tabActiveText">שולחנות פעילים</span>
-                </div>
+            <!-- Lobby Tabs -->
+            <div class="auth-tabs" style="margin-bottom: 20px;">
+                <div class="auth-tab active" id="tab-active-games" onclick="switchLobbyTab('active')">שולחנות פעילים</div>
+                <div class="auth-tab" id="tab-history" onclick="switchLobbyTab('history')">היסטוריה</div>
             </div>
 
-            <!-- Active Tables View -->
             <div id="lobby-active-view">
-                <!-- Header with Stats Button -->
-                <div class="lobby-header">
-                    <h2 id="activeTablesTitle" class="lobby-title">שולחנות פעילים</h2>
-                    <button class="btn-stats" onclick="showMyStats()" id="btnMyStats">
-                        <span class="stats-icon">📊</span>
-                        <span id="myStatsBtnText">הנתונים שלי</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; flex:1;" id="activeTablesTitle">שולחנות פעילים</h3>
+                    <button class="btn-outline" onclick="showMyStats()" style="width:auto; margin:0 0 0 10px; padding:8px 15px;" id="btnMyStats">
+                        <span id="myStatsBtnText">הנתונים שלי</span> <span style="margin-right: 5px;">📊</span>
                     </button>
                 </div>
-
-                <!-- Tables List -->
                 <div id="tablesListContainer" class="loading"><span id="loadingTablesText">טוען...</span></div>
-            </div>
+            <button class="btn-gold" onclick="openModal('modal-create')" id="btnCreateTable">פתח שולחן חדש <span style="margin-right: 5px;">+</span></button>
+        </div>
 
-            <!-- History View -->
             <div id="lobby-history-view" class="hidden">
-                <div class="lobby-header">
-                    <h2 id="deletedTablesTitle" class="lobby-title">היסטוריה</h2>
-                </div>
+                <h3 id="deletedTablesTitle" style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px;"><span style="margin-right: 5px;">📜</span></h3>
                 <div id="deletedTablesContainer" class="loading"></div>
             </div>
-
-            <!-- Floating Action Button -->
-            <button class="fab" onclick="openModal('modal-create')" id="btnCreateTable" title="פתח שולחן חדש">
-                <span class="fab-icon">+</span>
-            </button>
         </div>
 
         <!-- My Stats View -->
@@ -1262,10 +1084,8 @@
             // Update tabs
             const activeTab = document.getElementById('tab-active-games');
             const historyTab = document.getElementById('tab-history');
-            const activeTabText = document.getElementById('tabActiveText');
-            const historyTabText = document.getElementById('tabHistoryText');
-            if (activeTabText) activeTabText.textContent = t('activeTables');
-            if (historyTabText) historyTabText.textContent = t('history');
+            if (activeTab) activeTab.textContent = t('activeTables');
+            if (historyTab) historyTab.textContent = t('history');
             
             // Update loading texts
             if (document.getElementById('loadingText')) {
@@ -2857,23 +2677,13 @@
 
             uniqueTables.forEach(table => {
                 if (!table || !table.id) return; // Skip invalid tables
-
+                
                 const div = document.createElement('div');
-                div.className = 'table-card-modern';
+                div.className = 'card';
+                div.style.cursor = 'pointer';
                 div.innerHTML = `
-                    <div class="table-card-header">
-                        <h3 class="table-card-title">${table.name}</h3>
-                    </div>
-                    <div class="table-card-info">
-                        <div class="table-info-item">
-                            <span class="table-info-icon">💰</span>
-                            <span>${t('entry')}: ₪${table.buy_in}</span>
-                        </div>
-                        <div class="table-info-item">
-                            <span class="table-info-icon">👥</span>
-                            <span>${table.playerCount || 0} ${currentLanguage === 'he' ? 'שחקנים' : 'players'}</span>
-                        </div>
-                    </div>
+                    <div class="card-title">${table.name}</div>
+                    <div style="color:#888;">${t('entry')}: ${table.buy_in}₪ | ${table.playerCount || 0} ${currentLanguage === 'he' ? 'שחקנים' : 'players'}</div>
                 `;
                 div.onclick = () => openTable(table.id);
                 container.appendChild(div);
