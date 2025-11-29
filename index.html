@@ -74,6 +74,11 @@
             cursor: pointer;
             visibility: hidden;
         }
+        
+        /* Flip arrow direction for English (LTR) */
+        html[dir="ltr"] .back-btn {
+            transform: scaleX(-1);
+        }
 
         .user-menu {
             display: flex;
@@ -530,8 +535,8 @@
         </div>
 
             <div id="lobby-history-view" class="hidden">
-                <h3 style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px;">שולחנות שנמחקו <span style="margin-right: 5px;">📜</span></h3>
-                <div id="deletedTablesContainer" class="loading">טוען שולחנות שנמחקו...</div>
+                <h3 id="deletedTablesTitle" style="margin:0; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px;"><span style="margin-right: 5px;">📜</span></h3>
+                <div id="deletedTablesContainer" class="loading"></div>
             </div>
         </div>
 
@@ -584,20 +589,20 @@
             </div>
 
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px;">
-                <button class="btn-gold btn-food" onclick="openFoodModal()">היינו רעבים <span style="margin-right: 5px;">🍔🍕</span></button>
-                <button class="btn-outline" onclick="openShareModal()">שתף קישור <span style="margin-right: 5px;">🔗</span></button>
-                <button class="btn-gold" style="grid-column:span 2;" onclick="startSettle()">שולם <span style="margin-right: 5px;">💰</span></button>
+                <button id="btnWeWereHungry" class="btn-gold btn-food" onclick="openFoodModal()"><span style="margin-right: 5px;">🍔🍕</span></button>
+                <button id="btnShareLink" class="btn-outline" onclick="openShareModal()"><span style="margin-right: 5px;">🔗</span></button>
+                <button id="btnSettle" class="btn-gold" style="grid-column:span 2;" onclick="startSettle()"><span style="margin-right: 5px;">💰</span></button>
             </div>
 
             <!-- Delete Table Button (only for owner) -->
             <button id="btnDeleteTable" class="btn-outline" onclick="deleteTableFromView()" style="margin-top: 20px; width: 100%; background: var(--red); color: #fff; border-color: var(--red); display: none;">
-                מחק שולחן <span style="margin-right: 5px;">🗑️</span>
+                <span id="deleteTableText"></span> <span style="margin-right: 5px;">🗑️</span>
             </button>
 
             <!-- Hall of Fame Section -->
             <div class="hall-of-fame">
-                <button class="btn-outline" onclick="toggleHallOfFame()" style="margin-top: 20px;">
-                    היכל התהילה <span style="margin-right: 5px;">🏆</span>
+                <button id="btnHallOfFame" class="btn-outline" onclick="toggleHallOfFame()" style="margin-top: 20px;">
+                    <span id="hallOfFameBtnText"></span> <span style="margin-right: 5px;">🏆</span>
                 </button>
                 <div id="hallOfFameContent" class="hidden">
                     <div class="card" style="margin-top: 15px;">
@@ -698,10 +703,15 @@
 
     <div id="modal-share" class="modal-overlay hidden">
         <div class="modal-box" style="text-align:center;">
-            <h3>סרוק להצטרפות</h3>
+            <h3 id="scanToJoinTitle">סרוק להצטרפות</h3>
             <img id="qrImage" src="" style="border:5px solid #fff; border-radius:4px; margin:10px 0;">
-            <input type="text" id="shareLink" readonly style="text-align:center; font-size:0.8rem;">
-            <button class="btn-gold" onclick="closeModal('modal-share')">סגור</button>
+            <div style="display: flex; gap: 5px; align-items: center; margin: 10px 0;">
+                <button class="btn-gold" onclick="copyShareLink()" style="width: 35px; height: 35px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; min-width: 35px; flex-shrink: 0;" id="copyLinkBtnTitle" title="">
+                    📋
+                </button>
+                <input type="text" id="shareLink" readonly style="flex: 1; text-align:center; font-size:0.8rem; padding: 6px 8px;">
+            </div>
+            <button id="btnCloseShare" class="btn-gold" onclick="closeModal('modal-share')">סגור</button>
         </div>
     </div>
 
@@ -820,6 +830,9 @@
                 'allTime': 'לכל הזמן',
                 'noData': 'אין נתונים',
                 'noDataYet': 'אין נתונים עדיין',
+                'scanToJoin': 'סרוק להצטרפות',
+                'copyLink': 'העתק קישור',
+                'close': 'סגור',
                 'error': 'שגיאה',
                 'errorLoading': 'שגיאה בטעינה',
                 'errorLoadingTables': 'שגיאה בטעינת שולחנות',
@@ -956,6 +969,9 @@
                 'allTime': 'All Time',
                 'noData': 'No Data',
                 'noDataYet': 'No data yet',
+                'scanToJoin': 'Scan to Join',
+                'copyLink': 'Copy Link',
+                'close': 'Close',
                 'error': 'Error',
                 'errorLoading': 'Error loading',
                 'errorLoadingTables': 'Error loading tables',
@@ -1230,6 +1246,19 @@
             if (document.getElementById('btnCancelAddPlayer')) {
                 document.getElementById('btnCancelAddPlayer').textContent = t('cancel');
             }
+            
+            // Back button arrow direction is handled by CSS transform based on dir attribute
+            
+            // Update share modal
+            if (document.getElementById('scanToJoinTitle')) {
+                document.getElementById('scanToJoinTitle').textContent = t('scanToJoin');
+            }
+            if (document.getElementById('copyLinkBtnTitle')) {
+                document.getElementById('copyLinkBtnTitle').title = t('copyLink');
+            }
+            if (document.getElementById('btnCloseShare')) {
+                document.getElementById('btnCloseShare').textContent = t('close');
+            }
         }
 
         // Initialize language on page load
@@ -1248,6 +1277,8 @@
             }
             // Update UI with correct language (including placeholders)
             updateUI();
+            
+            // Back button arrow direction is handled by CSS transform based on dir attribute
         }
 
         // --- TOAST NOTIFICATION ---
@@ -1501,7 +1532,32 @@
 
                 if (authError) {
                     console.error('Auth error:', authError);
-                    throw authError;
+                    
+                    // Handle specific signup errors
+                    if (authError.message.includes('already registered') || 
+                        authError.message.includes('already exists') ||
+                        authError.code === 'user_already_registered') {
+                        errorDiv.textContent = 'האימייל הזה כבר רשום במערכת. נסה להתחבר במקום.';
+                        errorDiv.style.color = 'var(--red)';
+                        errorDiv.classList.remove('hidden');
+                        setTimeout(() => {
+                            switchAuthTab('login');
+                            document.getElementById('loginEmail').value = email;
+                        }, 2000);
+                        return;
+                    }
+                    
+                    if (authError.message.includes('password')) {
+                        errorDiv.textContent = 'הסיסמה חלשה מדי. אנא השתמש בסיסמה חזקה יותר (לפחות 6 תווים).';
+                        errorDiv.style.color = 'var(--red)';
+                        errorDiv.classList.remove('hidden');
+                        return;
+                    }
+                    
+                    errorDiv.textContent = 'שגיאה בהרשמה: ' + (authError.message || 'נסה שוב מאוחר יותר');
+                    errorDiv.style.color = 'var(--red)';
+                    errorDiv.classList.remove('hidden');
+                    return;
                 }
 
                 if (!authData.user) {
@@ -1671,30 +1727,63 @@
             }
 
             try {
+                // Clear error div
+                errorDiv.classList.add('hidden');
+                errorDiv.textContent = '';
+
                 const { data, error } = await supabase.auth.signInWithPassword({
                     email,
                     password
                 });
 
                 if (error) {
-                    // Handle specific error cases
+                    console.error('Login error:', error);
+                    
+                    // Handle specific error cases with better messages
                     if (error.message.includes('Email not confirmed') || error.message.includes('email')) {
-                        errorDiv.textContent = 'האימייל לא אומת. כבה את אימות האימייל ב-Supabase Settings או בדוק את תיבת הדואר.';
+                        errorDiv.textContent = 'האימייל לא אומת. אנא בדוק את תיבת הדואר שלך ולחץ על הקישור לאימות. אם לא קיבלת אימייל, נסה לבקש אימייל אימות מחדש.';
                         errorDiv.style.color = 'var(--red)';
                         errorDiv.classList.remove('hidden');
                         return;
                     }
-                    if (error.message.includes('Invalid login credentials') || error.message.includes('credentials')) {
-                        errorDiv.textContent = 'סיסמה או אימייל לא נכונים. אם נרשמת לאחרונה, נסה להירשם מחדש (מחק את המשתמש ב-Supabase Users קודם).';
+                    
+                    if (error.message.includes('Invalid login credentials') || 
+                        error.message.includes('credentials') ||
+                        error.message.includes('Invalid') ||
+                        error.code === 'invalid_credentials') {
+                        errorDiv.textContent = 'סיסמה או אימייל לא נכונים. אנא בדוק את הפרטים ונסה שוב.';
                         errorDiv.style.color = 'var(--red)';
                         errorDiv.classList.remove('hidden');
                         return;
                     }
-                    throw error;
+                    
+                    // Generic error message
+                    errorDiv.textContent = 'שגיאה בהתחברות: ' + (error.message || 'נסה שוב מאוחר יותר');
+                    errorDiv.style.color = 'var(--red)';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+
+                // Verify session is properly set (important for cross-device login)
+                const { data: { session: verifySession } } = await supabase.auth.getSession();
+                if (!verifySession) {
+                    console.warn('Session not found after login, retrying...');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    const { data: { session: retrySession } } = await supabase.auth.getSession();
+                    if (!retrySession) {
+                        errorDiv.textContent = 'שגיאה בשמירת ההתחברות. נסה שוב.';
+                        errorDiv.style.color = 'var(--red)';
+                        errorDiv.classList.remove('hidden');
+                        return;
+                    }
                 }
 
                 currentUser = data.user;
                 await loadProfile();
+                
+                // Clear error on success
+                errorDiv.classList.add('hidden');
+                errorDiv.textContent = '';
                 
                 // Check if there's a tableId in URL
                 const tableIdFromURL = getTableIdFromURL();
@@ -2509,34 +2598,52 @@
 
                 // Combine and deduplicate, filtering out deleted tables
                 const tableMap = new Map();
+                const seenIds = new Set(); // Track IDs to prevent duplicates
                 
-                // Add owned tables (only if not deleted)
+                // Add owned tables (only if not deleted and active)
                 ownedTables?.forEach(t => {
-                    // Only add if not deleted (null or false means not deleted)
-                    if (t && (t.is_deleted === false || t.is_deleted === null || t.is_deleted === undefined)) {
+                    if (t && 
+                        t.id && 
+                        !seenIds.has(t.id) &&
+                        t.is_active === true &&
+                        (t.is_deleted === false || t.is_deleted === null || t.is_deleted === undefined)) {
                         tableMap.set(t.id, t);
+                        seenIds.add(t.id);
                     }
                 });
                 
                 // Add tables where user is a player (only if active and not deleted)
+                // Skip if already added as owned table
                 playerTables?.forEach(tp => {
                     if (tp.tables && 
-                        tp.tables.is_active && 
+                        tp.tables.id &&
+                        !seenIds.has(tp.tables.id) &&
+                        tp.tables.is_active === true && 
                         (tp.tables.is_deleted === false || tp.tables.is_deleted === null || tp.tables.is_deleted === undefined)) {
                         tableMap.set(tp.tables.id, tp.tables);
+                        seenIds.add(tp.tables.id);
                     }
                 });
 
+                // Convert to array and ensure no duplicates (safety net)
                 const activeTables = Array.from(tableMap.values());
+                const finalTableMap = new Map();
+                activeTables.forEach(table => {
+                    if (table && table.id && !finalTableMap.has(table.id)) {
+                        finalTableMap.set(table.id, table);
+                    }
+                });
+                
+                const uniqueTables = Array.from(finalTableMap.values());
 
                 container.innerHTML = '';
-            if (activeTables.length === 0) {
+            if (uniqueTables.length === 0) {
                 container.innerHTML = `<div style="text-align:center; color:#666;">${t('noActiveTables')}</div>`;
                 return;
             }
 
                 // Get player counts
-                for (const table of activeTables) {
+                for (const table of uniqueTables) {
                     const { count } = await supabase
                         .from('table_players')
                         .select('*', { count: 'exact', head: true })
@@ -2544,7 +2651,9 @@
                     table.playerCount = count || 0;
             }
 
-            activeTables.forEach(table => {
+            uniqueTables.forEach(table => {
+                if (!table || !table.id) return; // Skip invalid tables
+                
                 const div = document.createElement('div');
                 div.className = 'card';
                 div.style.cursor = 'pointer';
@@ -2613,7 +2722,7 @@
 
                 container.innerHTML = `
                     <div style="text-align:center; margin-bottom:20px;">
-                        <div style="font-size:2rem; font-weight:bold; color:var(--gold); margin-bottom:10px;">
+                        <div style="font-size:2rem; font-weight:bold; color:var(--gold); margin-bottom:10px; direction:ltr; text-align:center;">
                             ${sign}${Math.round(totalNet)}₪
                         </div>
                         <div style="color:var(--gray);">${t('totalProfitLoss')} ${t('allTime')}</div>
@@ -2625,19 +2734,19 @@
                         </div>
                         <div class="hof-stat">
                             <div class="hof-stat-title">${t('averagePerGame')}</div>
-                            <div class="hof-stat-value">${totalGames > 0 ? Math.round(totalNet / totalGames) : 0}₪</div>
+                            <div class="hof-stat-value" style="direction:ltr; text-align:center;">${totalGames > 0 ? Math.round(totalNet / totalGames) : 0}₪</div>
                         </div>
                     </div>
                     ${maxWin ? `
                         <div class="hof-stat">
                             <div class="hof-stat-title">${t('biggestWin')} <span style="margin-right: 5px;">🦈</span></div>
-                            <div class="hof-stat-value" style="color:var(--green);">+${Math.round(maxWin.net_profit)}₪</div>
+                            <div class="hof-stat-value" style="color:var(--green); direction:ltr; text-align:center;">+${Math.round(maxWin.net_profit)}₪</div>
                         </div>
                     ` : ''}
                     ${maxLoss ? `
                         <div class="hof-stat">
                             <div class="hof-stat-title">${t('biggestLoss')} <span style="margin-right: 5px;">🐑</span></div>
-                            <div class="hof-stat-value" style="color:var(--red);">${Math.round(maxLoss.net_profit)}₪</div>
+                            <div class="hof-stat-value" style="color:var(--red); direction:ltr; text-align:center;">${Math.round(maxLoss.net_profit)}₪</div>
                         </div>
                     ` : ''}
                 `;
@@ -3287,17 +3396,17 @@
                 // Display The Shark
                 if (maxWin) {
                     document.getElementById('hofShark').innerHTML = 
-                        `<span style="color:var(--green);">${maxWin.username}</span>: +${Math.round(maxWin.net_profit)}₪`;
+                        `<span style="color:var(--green);">${maxWin.username}</span>: <span style="direction:ltr; display:inline-block;">+${Math.round(maxWin.net_profit)}₪</span>`;
                 } else {
-                    document.getElementById('hofShark').innerText = 'אין נתונים';
+                    document.getElementById('hofShark').innerText = t('noData');
                 }
 
                 // Display The Loser (🐑)
                 if (maxLoss) {
                     document.getElementById('hofLoser').innerHTML = 
-                        `<span style="color:var(--red);">${maxLoss.username}</span>: ${Math.round(maxLoss.net_profit)}₪`;
+                        `<span style="color:var(--red);">${maxLoss.username}</span>: <span style="direction:ltr; display:inline-block;">${Math.round(maxLoss.net_profit)}₪</span>`;
                 } else {
-                    document.getElementById('hofLoser').innerText = 'אין נתונים';
+                    document.getElementById('hofLoser').innerText = t('noData');
                 }
 
                 // Display League Table
@@ -4071,7 +4180,7 @@
                         <span>${icon}</span>
                         <span>${p.name}</span>
                     </div>
-                    <div style="font-weight:bold; color:${color};">
+                    <div style="font-weight:bold; color:${color}; direction:ltr; text-align:right;">
                         ${sign}${Math.round(p.net)}₪
                     </div>
                 `;
@@ -4090,6 +4199,32 @@
             document.getElementById('shareLink').value = joinUrl;
             document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(joinUrl)}`;
             openModal('modal-share');
+        }
+
+        async function copyShareLink() {
+            const shareLinkInput = document.getElementById('shareLink');
+            const link = shareLinkInput.value;
+            
+            if (!link) {
+                showToast('אין קישור להעתקה');
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(link);
+                showToast('הקישור הועתק!');
+            } catch (error) {
+                console.error('Error copying link:', error);
+                // Fallback: select text
+                shareLinkInput.select();
+                shareLinkInput.setSelectionRange(0, 99999); // For mobile devices
+                try {
+                    document.execCommand('copy');
+                    showToast('הקישור הועתק!');
+                } catch (err) {
+                    showToast('שגיאה בהעתקה. נסה לבחור את הטקסט ידנית.');
+                }
+            }
         }
 
         // --- HELPERS ---
