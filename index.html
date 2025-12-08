@@ -952,7 +952,15 @@
                 'errorFetchingPlayer': 'שגיאה בטעינת נתוני שחקן',
                 'rebuys': 'רכישות חוזרות',
                 'foodCredit': 'זיכוי אוכל',
-                'foodDebt': 'חוב אוכל'
+                'foodDebt': 'חוב אוכל',
+                'foodHistory': 'היסטוריית ארוחות',
+                'loadingFood': 'טוען ארוחות...',
+                'noFoodYet': 'אין ארוחות שנרשמו',
+                'payer': 'שילם',
+                'consumers': 'אכלו',
+                'splitEqual': 'חלוקה שווה',
+                'splitIndividual': 'לפי סועד',
+                'totalAmount': 'סה"כ'
             },
             en: {
                 // Navigation
@@ -1103,7 +1111,15 @@
                 'errorFetchingPlayer': 'Error fetching player data',
                 'rebuys': 'Rebuys',
                 'foodCredit': 'Food Credit',
-                'foodDebt': 'Food Debt'
+                'foodDebt': 'Food Debt',
+                'foodHistory': 'Food History',
+                'loadingFood': 'Loading food...',
+                'noFoodYet': 'No food recorded yet',
+                'payer': 'Paid by',
+                'consumers': 'Consumed by',
+                'splitEqual': 'Split equally',
+                'splitIndividual': 'Individual amounts',
+                'totalAmount': 'Total'
             }
         };
 
@@ -3914,49 +3930,73 @@
         async function submitFood() {
             try {
                 const payerId = document.getElementById('foodPayerSelect').value;
-            let totalAmount = 0;
+                let totalAmount = 0;
+                let consumersList = [];
 
-            if (currentFoodMode === 'equal') {
-                totalAmount = parseFloat(document.getElementById('foodTotalAmount').value) || 0;
-                const checkboxes = document.querySelectorAll('#foodEatersListEqual input:checked');
-                
-                if(!totalAmount || checkboxes.length === 0) return alert(t('missingDetails'));
-                
-                const amountPerPerson = totalAmount / checkboxes.length;
+                // Get all players for name lookup
+                const { data: allPlayers } = await supabase
+                    .from('table_players')
+                    .select('id, profiles(username)')
+                    .eq('table_id', activeTableId);
+
+                const payerPlayer = allPlayers.find(p => p.id === payerId);
+                const payerName = payerPlayer?.profiles?.username || t('player');
+
+                if (currentFoodMode === 'equal') {
+                    totalAmount = parseFloat(document.getElementById('foodTotalAmount').value) || 0;
+                    const checkboxes = document.querySelectorAll('#foodEatersListEqual input:checked');
+
+                    if(!totalAmount || checkboxes.length === 0) return alert(t('missingDetails'));
+
+                    const amountPerPerson = totalAmount / checkboxes.length;
                     for (const cb of checkboxes) {
-                        const { data: player } = await supabase
+                        const player = allPlayers.find(p => p.id === cb.value);
+                        const playerName = player?.profiles?.username || t('player');
+
+                        // Update food_debt
+                        const { data: playerData } = await supabase
                             .from('table_players')
                             .select('food_debt')
                             .eq('id', cb.value)
                             .single();
-                        
+
                         await supabase
                             .from('table_players')
-                            .update({ food_debt: (player.food_debt || 0) + amountPerPerson })
+                            .update({ food_debt: (playerData.food_debt || 0) + amountPerPerson })
                             .eq('id', cb.value);
+
+                        // Track for log
+                        consumersList.push(`${playerName} (${Math.round(amountPerPerson)}₪)`);
                     }
-            } else {
-                const inputs = document.querySelectorAll('.indiv-amount');
+                } else {
+                    const inputs = document.querySelectorAll('.indiv-amount');
                     for (const inp of inputs) {
-                    const val = parseFloat(inp.value) || 0;
-                    if (val > 0) {
-                        totalAmount += val;
-                            const { data: player } = await supabase
+                        const val = parseFloat(inp.value) || 0;
+                        if (val > 0) {
+                            totalAmount += val;
+                            const player = allPlayers.find(p => p.id === inp.dataset.id);
+                            const playerName = player?.profiles?.username || t('player');
+
+                            // Update food_debt
+                            const { data: playerData } = await supabase
                                 .from('table_players')
                                 .select('food_debt')
                                 .eq('id', inp.dataset.id)
                                 .single();
-                            
+
                             await supabase
                                 .from('table_players')
-                                .update({ food_debt: (player.food_debt || 0) + val })
+                                .update({ food_debt: (playerData.food_debt || 0) + val })
                                 .eq('id', inp.dataset.id);
+
+                            // Track for log
+                            consumersList.push(`${playerName} (${Math.round(val)}₪)`);
                         }
                     }
-                if(totalAmount === 0) return alert('לא הוזנו סכומים');
-            }
+                    if(totalAmount === 0) return alert(t('noAmountsEntered'));
+                }
 
-            // Credit the payer
+                // Credit the payer
                 const { data: payer } = await supabase
                     .from('table_players')
                     .select('food_credit')
@@ -3967,11 +4007,20 @@
                     .from('table_players')
                     .update({ food_credit: (payer.food_credit || 0) + totalAmount })
                     .eq('id', payerId);
-                
-            closeModal('modal-food');
-            alert('נשמר! המשלם זוכה, הסועדים חויבו.');
+
+                // Create detailed game log
+                const logDescription = currentLanguage === 'he'
+                    ? `🍽️ ${payerName} שילם ${Math.round(totalAmount)}₪ עבור אוכל. חויבו: ${consumersList.join(', ')}`
+                    : `🍽️ ${payerName} paid ${Math.round(totalAmount)}₪ for food. Charged: ${consumersList.join(', ')}`;
+
+                await addGameLog('food_expense', logDescription);
+
+                closeModal('modal-food');
+                showToast(currentLanguage === 'he' ? 'ארוחה נשמרה בהצלחה!' : 'Meal saved successfully!');
+
             } catch (error) {
-                alert('שגיאה בשמירת הוצאה: ' + error.message);
+                console.error('Error saving food expense:', error);
+                alert(t('errorSaving') + ': ' + error.message);
             }
         }
 
@@ -4033,12 +4082,16 @@
             }
         }
 
+        /**
+         * OPTIMIZED SETTLEMENT ALGORITHM
+         * Calculates final balances and minimizes transactions using greedy algorithm
+         */
         async function calcResult() {
             try {
                 // Validate activeTableId
-                if (!activeTableId || 
-                    activeTableId === null || 
-                    activeTableId === 'null' || 
+                if (!activeTableId ||
+                    activeTableId === null ||
+                    activeTableId === 'null' ||
                     typeof activeTableId !== 'string' ||
                     !UUID_REGEX.test(activeTableId)) {
                     console.error('❌ Invalid active table ID in calcResult:', activeTableId);
@@ -4056,161 +4109,214 @@
                     .from('table_players')
                     .select('id, user_id, rebuys, food_credit, food_debt, profiles(username, phone_number)')
                     .eq('table_id', activeTableId);
-                
+
                 if (playersError) {
                     console.error('❌ Error fetching players:', playersError);
                     throw playersError;
                 }
-                
+
                 console.log('📊 Players data from DB:', players);
+                console.log('=== 🧮 STARTING SETTLEMENT CALCULATION ===\n');
 
-            const inputs = document.querySelectorAll('.cashout-input');
-            let tempPlayers = [];
+                const inputs = document.querySelectorAll('.cashout-input');
+                let playerBalances = [];
+                let totalGamePot = 0;
 
-            console.log('=== STARTING CALCULATION ===');
-            console.log(`Found ${inputs.length} input fields`);
-
-            inputs.forEach(inp => {
+                // Step 1: Calculate individual player balances
+                inputs.forEach(inp => {
                     const playerId = inp.dataset.id;
-                const cash = parseFloat(inp.value) || 0;
+                    const cashOut = parseFloat(inp.value) || 0;
                     const p = players.find(x => x.id === playerId);
-                    
+
                     if (!p) {
                         console.error(`❌ Player with ID ${playerId} not found in database!`);
                         return;
                     }
-                    
-                    const invested = (p.rebuys || 1) * table.buy_in;
-                    const foodCredit = p.food_credit || 0;
-                    const foodDebt = p.food_debt || 0;
-                    const foodBalance = foodCredit - foodDebt;
-                    const net = (cash - invested) + foodBalance;
-                    
-                    console.log(`\n💰 Calculating for "${p.profiles?.username || 'Unknown'}":`);
-                    console.log(`   📥 Input value (raw): "${inp.value}"`);
-                    console.log(`   📥 Cash out: ${cash}₪`);
-                    console.log(`   🎰 Rebuys: ${p.rebuys || 1}`);
-                    console.log(`   💵 Buy-in: ${table.buy_in}₪`);
-                    console.log(`   💸 Total invested: ${invested}₪`);
-                    console.log(`   🍕 Food credit: ${foodCredit}₪`);
-                    console.log(`   🍔 Food debt: ${foodDebt}₪`);
-                    console.log(`   🍽️ Food balance: ${foodBalance}₪`);
-                    console.log(`   📊 Net profit calculation: (${cash} - ${invested}) + ${foodBalance} = ${net}₪`);
-                    console.log(`   🔍 net value: ${net}, type: ${typeof net}, isNaN: ${isNaN(net)}`);
-                    
-                    // CRITICAL FIX: Get the actual user_id from the database row
-                    // Make sure null values are NOT converted to string "null"
+
+                    // Game calculations
+                    const buyIn = (p.rebuys || 1) * table.buy_in;
+                    const gameNet = cashOut - buyIn;
+                    totalGamePot += buyIn;
+
+                    // Expense calculations
+                    const expenseCredits = p.food_credit || 0;  // Money paid for others
+                    const expenseDebits = p.food_debt || 0;     // Money owed for consumption
+
+                    // Final balance = Game result + Expense adjustments
+                    const finalBalance = gameNet + expenseCredits - expenseDebits;
+
+                    console.log(`\n💰 ${p.profiles?.username || 'Unknown'}:`);
+                    console.log(`   🎰 Game: Cash Out ${cashOut}₪ - Buy In ${buyIn}₪ = ${gameNet >= 0 ? '+' : ''}${gameNet}₪`);
+                    console.log(`   🍕 Expenses: Credits +${expenseCredits}₪, Debits -${expenseDebits}₪`);
+                    console.log(`   📊 Final Balance: ${finalBalance >= 0 ? '+' : ''}${finalBalance}₪`);
+
                     const actualUserId = p.user_id;
                     const isValidUUID = actualUserId && actualUserId !== null && typeof actualUserId === 'string' && actualUserId !== 'null';
-                    
-                    console.log(`👤 Player: "${p.profiles?.username || 'Unknown'}":`);
-                    console.log(`   - user_id: "${actualUserId}"`);
-                    console.log(`   - type: ${typeof actualUserId}`);
-                    console.log(`   - is null: ${actualUserId === null}`);
-                    console.log(`   - is "null": ${actualUserId === 'null'}`);
-                    console.log(`   - is valid UUID: ${isValidUUID}`);
-                    console.log(`   - net profit: ${net}₪`);
-                    
-                    // Create player object with explicit net value
-                    const playerObj = {
-                        id: playerId, // table_players id
-                        userId: actualUserId, // ACTUAL user UUID from DB (or null)
+
+                    playerBalances.push({
+                        id: playerId,
+                        userId: actualUserId,
                         name: p.profiles?.username || t('player'),
                         phone: p.profiles?.phone_number || null,
-                        cash_out: cash, // Save the cash out amount!
-                        net: net // Explicitly set net value
-                    };
-                    
-                    console.log(`   ✅ Player object created with net: ${playerObj.net}₪`);
-                    console.log(`   🔍 playerObj.net value: ${playerObj.net}, type: ${typeof playerObj.net}`);
-                    
-                    tempPlayers.push(playerObj);
-                    
-                    console.log(`   ✅ Player added to tempPlayers. Last player net: ${tempPlayers[tempPlayers.length - 1].net}₪`);
-            });
+                        cashOut: cashOut,
+                        buyIn: buyIn,
+                        gameNet: gameNet,
+                        expenseCredits: expenseCredits,
+                        expenseDebits: expenseDebits,
+                        finalBalance: finalBalance
+                    });
+                });
 
-            // Validate Sum (logging only, no blocking)
-            const total = tempPlayers.reduce((sum, p) => sum + p.net, 0);
-            console.log('Calculated total balance:', total);
-            console.log('All players data:', tempPlayers);
-            
-            // Just log if there's a discrepancy, don't block
-            if (Math.abs(total) > 0.5) {
-                console.warn(`⚠️ Balance discrepancy: ${Math.round(total)}₪`);
+                // Step 2: Validate that balances sum to zero
+                const totalBalance = playerBalances.reduce((sum, p) => sum + p.finalBalance, 0);
+                console.log(`\n✅ Validation: Total balance = ${totalBalance.toFixed(2)}₪`);
+
+                const epsilon = 0.5; // Allow 0.5₪ rounding error
+                if (Math.abs(totalBalance) > epsilon) {
+                    console.warn(`⚠️ Balance discrepancy detected: ${totalBalance.toFixed(2)}₪`);
+                }
+
+                // Step 3: Optimize transactions (Greedy Algorithm)
+                console.log('\n🔄 Optimizing transactions...');
+                const transactions = optimizeTransactions(playerBalances, epsilon);
+
+                console.log(`\n✅ Settlement complete! ${transactions.length} transaction(s) needed.\n`);
+
+                // Step 4: Display results
+                displaySettlementResults(transactions, playerBalances, totalGamePot);
+
+                // Step 5: Store for saving
+                window.tempSettleResults = playerBalances.map(p => ({
+                    id: p.id,
+                    userId: p.userId,
+                    name: p.name,
+                    phone: p.phone,
+                    cash_out: p.cashOut,
+                    net: p.finalBalance
+                }));
+
+                console.log('💾 Results stored for saving:', window.tempSettleResults);
+                document.getElementById('btnFinishGame').classList.remove('hidden');
+
+            } catch (error) {
+                console.error('❌ Error calculating results:', error);
+                alert('שגיאה בחישוב תוצאות');
+            }
+        }
+
+        /**
+         * Transaction Optimization Algorithm (Greedy)
+         * Minimizes the number of transactions by matching largest debtors with largest creditors
+         */
+        function optimizeTransactions(playerBalances, epsilon = 0.5) {
+            // Separate into debtors (negative balance) and creditors (positive balance)
+            const debtors = playerBalances
+                .filter(p => p.finalBalance < -epsilon)
+                .map(p => ({ ...p, remaining: Math.abs(p.finalBalance) }))
+                .sort((a, b) => b.remaining - a.remaining); // Sort descending by debt size
+
+            const creditors = playerBalances
+                .filter(p => p.finalBalance > epsilon)
+                .map(p => ({ ...p, remaining: p.finalBalance }))
+                .sort((a, b) => b.remaining - a.remaining); // Sort descending by credit size
+
+            const transactions = [];
+            let debtorIdx = 0;
+            let creditorIdx = 0;
+
+            // Greedy matching: Pair largest debtor with largest creditor
+            while (debtorIdx < debtors.length && creditorIdx < creditors.length) {
+                const debtor = debtors[debtorIdx];
+                const creditor = creditors[creditorIdx];
+
+                // Transaction amount = minimum of debt and credit
+                const amount = Math.min(debtor.remaining, creditor.remaining);
+
+                transactions.push({
+                    from: debtor.id,
+                    fromName: debtor.name,
+                    fromPhone: debtor.phone,
+                    to: creditor.id,
+                    toName: creditor.name,
+                    toPhone: creditor.phone,
+                    amount: Math.round(amount) // Round to whole shekel
+                });
+
+                console.log(`   💸 ${debtor.name} → ${creditor.name}: ${Math.round(amount)}₪`);
+
+                // Update remaining balances
+                debtor.remaining -= amount;
+                creditor.remaining -= amount;
+
+                // Move to next debtor/creditor if fully settled
+                if (debtor.remaining < epsilon) debtorIdx++;
+                if (creditor.remaining < epsilon) creditorIdx++;
             }
 
-                // Display Logic with Pay with Bit buttons
-            // CRITICAL FIX: Create copies of players for transfer calculation
-            // This prevents modifying the original net values in tempPlayers
-            let debtors = tempPlayers
-                .filter(p => p.net < -0.5)
-                .map(p => ({ ...p, net: p.net })) // Create copy with net value
-                .sort((a,b) => a.net - b.net);
-            let creditors = tempPlayers
-                .filter(p => p.net > 0.5)
-                .map(p => ({ ...p, net: p.net })) // Create copy with net value
-                .sort((a,b) => b.net - a.net);
-            let transfers = [];
+            return transactions;
+        }
 
-            let d=0, c=0;
-            while(d < debtors.length && c < creditors.length) {
-                let amount = Math.min(Math.abs(debtors[d].net), creditors[c].net);
-                    const creditorPhone = creditors[c].phone;
-                    const creditorName = creditors[c].name;
-                    const debtorName = debtors[d].name;
-                    
-                    let transferHtml = `
+        /**
+         * Display settlement results with transaction list
+         */
+        function displaySettlementResults(transactions, playerBalances, totalPot) {
+            const resDiv = document.getElementById('settleResults');
+            resDiv.classList.remove('hidden');
+
+            let html = `
+                <div style="margin-bottom: 20px; padding: 15px; background: rgba(218, 165, 32, 0.1); border-radius: 8px; border: 1px solid var(--gold);">
+                    <h3 style="color:var(--gold); margin:0 0 10px 0;">${t('gameSummary')}</h3>
+                    <div style="display: grid; gap: 8px; font-size: 0.9rem;">
+            `;
+
+            // Show each player's breakdown
+            playerBalances.forEach(p => {
+                const isWinner = p.finalBalance > 0;
+                const color = isWinner ? 'var(--green)' : (p.finalBalance < 0 ? 'var(--red)' : '#888');
+                html += `
+                    <div style="display: flex; justify-content: space-between; padding: 8px; background: #252525; border-radius: 5px;">
+                        <span><strong>${p.name}</strong></span>
+                        <span style="color: ${color}; font-weight: bold;">
+                            ${p.finalBalance >= 0 ? '+' : ''}${Math.round(p.finalBalance)}₪
+                        </span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+                <h3 style="color:var(--gold); margin-top:0;">${t('transfersToMake')}</h3>
+            `;
+
+            // Show transactions
+            if (transactions.length === 0) {
+                html += `<div style="text-align:center; padding:20px; color: var(--green);">✅ ${t('allBalanced')}</div>`;
+            } else {
+                transactions.forEach(tx => {
+                    html += `
                         <div class="transfer-row">
                             <div class="transfer-info">
-                                <b>${debtorName}</b> ${t('transfers')} <b>${Math.round(amount)}₪</b> ${t('to')} <b>${creditorName}</b>
+                                <b>${tx.fromName}</b> ${t('transfers')} <b>${tx.amount}₪</b> ${t('to')} <b>${tx.toName}</b>
                             </div>
                     `;
-                    
-                    // Add Pay with Bit button if phone number exists
-                    if (creditorPhone) {
-                        // Escape single quotes in names/phone for onclick
-                        const safePhone = creditorPhone.replace(/'/g, "\\'");
-                        const safeName = creditorName.replace(/'/g, "\\'");
-                        transferHtml += `
-                            <button class="btn-bit" onclick="payWithBit('${safePhone}', '${safeName}', ${amount})">
+
+                    // Add Pay with Bit button if phone exists
+                    if (tx.toPhone) {
+                        const safePhone = tx.toPhone.replace(/'/g, "\\'");
+                        const safeName = tx.toName.replace(/'/g, "\\'");
+                        html += `
+                            <button class="btn-bit" onclick="payWithBit('${safePhone}', '${safeName}', ${tx.amount})">
                                 💳 ${t('payWithBit')}
                             </button>
                         `;
                     }
-                    
-                    transferHtml += '</div>';
-                    transfers.push(transferHtml);
-                
-                // Now it's safe to modify net - we're working with copies
-                debtors[d].net += amount;
-                creditors[c].net -= amount;
-                
-                if(Math.abs(debtors[d].net) < 0.5) d++;
-                if(creditors[c].net < 0.5) c++;
+
+                    html += '</div>';
+                });
             }
 
-            const resDiv = document.getElementById('settleResults');
-            resDiv.classList.remove('hidden');
-            resDiv.innerHTML = `<h3 style="color:var(--gold); margin-top:0;">${t('transfersToMake')}</h3>` + 
-                                   (transfers.length ? transfers.join('') : `<div style="text-align:center; padding:20px;">${t('allBalanced')}</div>`);
-            
-                // Store results for saving
-                console.log('\n💾 Storing tempSettleResults:');
-                tempPlayers.forEach((p, idx) => {
-                    console.log(`  Player ${idx + 1}: ${p.name}`);
-                    console.log(`    - id: ${p.id}`);
-                    console.log(`    - userId: ${p.userId}`);
-                    console.log(`    - cash_out: ${p.cash_out}₪`);
-                    console.log(`    - net: ${p.net}₪`);
-                    console.log(`    - net type: ${typeof p.net}`);
-                });
-                window.tempSettleResults = tempPlayers;
-                console.log('✅ tempSettleResults stored:', window.tempSettleResults);
-            document.getElementById('btnFinishGame').classList.remove('hidden');
-            } catch (error) {
-                console.error('Error calculating results:', error);
-                alert('שגיאה בחישוב תוצאות');
-            }
+            resDiv.innerHTML = html;
         }
 
         // --- PAY WITH BIT ---
