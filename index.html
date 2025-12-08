@@ -190,6 +190,32 @@
             cursor: not-allowed;
         }
 
+        /* --- Remove Player Button --- */
+        .remove-player-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 69, 58, 0.1);
+            border: 1px solid var(--red);
+            color: var(--red);
+            cursor: pointer;
+            font-size: 0.9rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+        }
+        .remove-player-btn:hover {
+            opacity: 1;
+            background: rgba(255, 69, 58, 0.2);
+            transform: scale(1.1);
+        }
+        .remove-player-btn:active {
+            transform: scale(0.95);
+        }
+
         /* --- Leaderboard Table --- */
         .league-table {
             width: 100%;
@@ -732,6 +758,28 @@
         </div>
     </div>
 
+    <div id="modal-remove-player" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h3 id="removePlayerTitle" style="color: var(--red); margin-bottom: 15px;">הסר שחקן מהשולחן</h3>
+            <div id="removePlayerContent" style="margin-bottom: 20px; line-height: 1.6;">
+                <p id="removePlayerQuestion" style="margin-bottom: 10px;">
+                    האם אתה בטוח שברצונך להסיר את <strong id="removePlayerName"></strong> מהשולחן?
+                </p>
+                <p id="removePlayerWarning" style="font-size: 0.85rem; color: var(--gray);">
+                    פעולה זו לא ניתנת לביטול.
+                </p>
+                <div id="removePlayerFinancialWarning" class="hidden" style="margin-top: 15px; padding: 12px; background: rgba(255, 69, 58, 0.15); border: 1px solid var(--red); border-radius: 8px;">
+                    <p style="color: var(--red); font-weight: bold; margin-bottom: 5px;">⚠️ <span id="warningTitle">אזהרה: לשחקן יש נתונים פיננסיים פעילים</span></p>
+                    <div id="financialDetails" style="font-size: 0.85rem; color: #ddd;"></div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-outline" style="flex: 1; background: var(--red); color: #fff; border: none;" onclick="confirmRemovePlayer()" id="btnConfirmRemove">הסר שחקן</button>
+                <button class="btn-outline" style="flex: 1;" onclick="closeModal('modal-remove-player')" id="btnCancelRemove">ביטול</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- SUPABASE INIT ---
         // Read from environment variables (Vercel) or use defaults
@@ -894,7 +942,17 @@
                 'missingDetails': 'חסרים פרטים',
                 'noAmountsEntered': 'לא הוזנו סכומים',
                 'buyInPrice': 'מחיר כניסה (₪)',
-                'allTimeText': 'לכל הזמן'
+                'allTimeText': 'לכל הזמן',
+                'removePlayer': 'הסר שחקן',
+                'confirmRemovePlayer': 'האם אתה בטוח שברצונך להסיר את השחקן מהשולחן? פעולה זו אינה הפיכה.',
+                'playerHasFinancialData': 'לשחקן זה יש פעילות כספית (rebuys/אוכל)',
+                'remove': 'הסר',
+                'playerRemoved': 'הוסר מהשולחן',
+                'errorRemovingPlayer': 'שגיאה בהסרת שחקן',
+                'errorFetchingPlayer': 'שגיאה בטעינת נתוני שחקן',
+                'rebuys': 'רכישות חוזרות',
+                'foodCredit': 'זיכוי אוכל',
+                'foodDebt': 'חוב אוכל'
             },
             en: {
                 // Navigation
@@ -1035,7 +1093,17 @@
                 'missingDetails': 'Missing details',
                 'noAmountsEntered': 'No amounts entered',
                 'buyInPrice': 'Buy In (₪)',
-                'allTimeText': 'All Time'
+                'allTimeText': 'All Time',
+                'removePlayer': 'Remove Player',
+                'confirmRemovePlayer': 'Are you sure you want to remove this player from the table? This action cannot be undone.',
+                'playerHasFinancialData': 'This player has active financial data (rebuys/food)',
+                'remove': 'Remove',
+                'playerRemoved': 'removed from table',
+                'errorRemovingPlayer': 'Error removing player',
+                'errorFetchingPlayer': 'Error fetching player data',
+                'rebuys': 'Rebuys',
+                'foodCredit': 'Food Credit',
+                'foodDebt': 'Food Debt'
             }
         };
 
@@ -2875,16 +2943,28 @@
                     sortedPlayers.forEach(p => {
                         const invested = (p.rebuys || 1) * table.buy_in;
                 pot += invested;
-                
+
                 const div = document.createElement('div');
                 div.className = 'player-row';
                 div.setAttribute('data-player-id', p.id);
                 div.setAttribute('data-rebuys', p.rebuys || 1);
                         const playerName = p.profiles?.username || t('player');
+
+                        // Check if current user is the table owner
+                        const isOwner = table.owner_id === currentUser.id;
+
+                        // Show remove button only for table owner
+                        const removeButton = isOwner
+                            ? `<button class="remove-player-btn" onclick="handleRemovePlayer('${p.id}')" title="${currentLanguage === 'he' ? 'הסר שחקן' : 'Remove player'}">✕</button>`
+                            : '';
+
                 div.innerHTML = `
-                    <div>
-                                <div style="font-weight:bold;">${playerName}</div>
-                        <div style="font-size:0.8rem; color:#888;">${t('invested')}: ${invested}₪</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        ${removeButton}
+                        <div>
+                            <div style="font-weight:bold;">${playerName}</div>
+                            <div style="font-size:0.8rem; color:#888;">${t('invested')}: ${invested}₪</div>
+                        </div>
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                                 <button class="rebuy-btn" onclick="removeRebuy('${p.id}')" ${(p.rebuys || 1) <= 1 ? 'disabled' : ''}>-</button>
@@ -2966,6 +3046,169 @@
             await renderHallOfFame();
             } catch (error) {
                 alert(t('errorAddingPlayer') + ': ' + error.message);
+            }
+        }
+
+        // --- REMOVE PLAYER ---
+        let pendingRemovePlayer = null; // Store player data for removal confirmation
+
+        async function handleRemovePlayer(playerId) {
+            try {
+                // Fetch player data with profile information
+                const { data: player, error: playerError } = await supabase
+                    .from('table_players')
+                    .select('*, profiles(username)')
+                    .eq('id', playerId)
+                    .single();
+
+                if (playerError) {
+                    console.error('Error fetching player:', playerError);
+                    alert(t('errorFetchingPlayer') || 'Error fetching player data');
+                    return;
+                }
+
+                if (!player) {
+                    alert(t('playerNotFound') || 'Player not found');
+                    return;
+                }
+
+                // Store player data for confirmation
+                pendingRemovePlayer = player;
+
+                // Get current table buy-in for calculations
+                const { data: table } = await supabase
+                    .from('tables')
+                    .select('buy_in')
+                    .eq('id', activeTableId)
+                    .single();
+
+                const buyIn = table?.buy_in || currentTableBuyIn;
+
+                // Update modal content
+                const playerName = player.profiles?.username || t('player');
+                document.getElementById('removePlayerName').textContent = playerName;
+
+                // Check for financial data
+                const hasRebuys = (player.rebuys || 1) > 1;
+                const hasFoodCredit = player.food_credit > 0;
+                const hasFoodDebt = player.food_debt > 0;
+                const hasFinancialData = hasRebuys || hasFoodCredit || hasFoodDebt;
+
+                const warningDiv = document.getElementById('removePlayerFinancialWarning');
+                const financialDetails = document.getElementById('financialDetails');
+
+                if (hasFinancialData) {
+                    // Show financial warning
+                    warningDiv.classList.remove('hidden');
+
+                    let details = [];
+                    if (hasRebuys) {
+                        const invested = (player.rebuys || 1) * buyIn;
+                        details.push(`${t('rebuys') || 'רכישות חוזרות'}: ${player.rebuys} (${invested}₪)`);
+                    }
+                    if (hasFoodCredit) {
+                        details.push(`${t('foodCredit') || 'זיכוי אוכל'}: ${player.food_credit}₪`);
+                    }
+                    if (hasFoodDebt) {
+                        details.push(`${t('foodDebt') || 'חוב אוכל'}: ${player.food_debt}₪`);
+                    }
+
+                    financialDetails.innerHTML = details.map(d => `• ${d}`).join('<br>');
+                } else {
+                    // Hide financial warning
+                    warningDiv.classList.add('hidden');
+                }
+
+                // Open confirmation modal
+                openModal('modal-remove-player');
+
+            } catch (error) {
+                console.error('Error in handleRemovePlayer:', error);
+                alert(t('errorRemovingPlayer') || 'Error removing player: ' + error.message);
+            }
+        }
+
+        async function confirmRemovePlayer() {
+            if (!pendingRemovePlayer) {
+                closeModal('modal-remove-player');
+                return;
+            }
+
+            const playerId = pendingRemovePlayer.id;
+            const playerName = pendingRemovePlayer.profiles?.username || t('player');
+
+            try {
+                console.log('🗑️ Attempting to delete player:', playerId, playerName);
+
+                // OPTIMISTIC UI UPDATE - Remove the player row immediately
+                const playerRow = document.querySelector(`[data-player-id="${playerId}"]`);
+                if (playerRow) {
+                    playerRow.style.opacity = '0.5';
+                    playerRow.style.pointerEvents = 'none';
+                }
+
+                // Close modal immediately for better UX
+                closeModal('modal-remove-player');
+
+                // Delete player from table_players
+                const { data, error } = await supabase
+                    .from('table_players')
+                    .delete()
+                    .eq('id', playerId);
+
+                console.log('Delete result - data:', data, 'error:', error);
+
+                if (error) {
+                    console.error('❌ Delete failed:', error);
+                    console.error('Error details:', JSON.stringify(error, null, 2));
+                    // Restore the player row on error
+                    if (playerRow) {
+                        playerRow.style.opacity = '1';
+                        playerRow.style.pointerEvents = 'auto';
+                    }
+                    throw error;
+                }
+
+                console.log('✅ Player deleted successfully from database');
+
+                // Verify deletion by querying the database
+                const { data: checkPlayer, error: checkError } = await supabase
+                    .from('table_players')
+                    .select('*')
+                    .eq('id', playerId)
+                    .maybeSingle();
+
+                console.log('🔍 Verification - Player still exists in DB?', checkPlayer);
+                if (checkError) console.log('Verification error:', checkError);
+
+                // Add game log
+                await addGameLog(
+                    'player_removed',
+                    `${playerName} הוסר מהשולחן`,
+                    null,
+                    null
+                );
+
+                // Clear pending data
+                pendingRemovePlayer = null;
+
+                console.log('🔄 About to call renderTable()...');
+                // Refresh table view to recalculate pot and clean up
+                await renderTable();
+                console.log('✅ renderTable() completed');
+
+                // Refresh Hall of Fame
+                await renderHallOfFame();
+
+                // Show success message
+                showToast(currentLanguage === 'he' ? `${playerName} הוסר בהצלחה` : `${playerName} removed successfully`);
+
+            } catch (error) {
+                console.error('Error confirming player removal:', error);
+                alert(t('errorRemovingPlayer') || 'Error removing player: ' + error.message);
+
+                // Re-render to restore correct state
+                await renderTable();
             }
         }
 

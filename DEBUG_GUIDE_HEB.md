@@ -301,3 +301,8 @@ SELECT * FROM pg_trigger WHERE tgname = 'on_game_result_insert';
 
 
 
+
+
+
+
+
