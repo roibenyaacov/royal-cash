@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(start index.html)"
+      "Bash(start index.html)",
+      "Bash(python -m http.server:*)",
+      "Bash(start http://localhost:8000/index.html)"
     ],
     "deny": [],
     "ask": []

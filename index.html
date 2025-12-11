@@ -2180,8 +2180,11 @@
                 }, (payload) => {
                     console.log('💰 Settlement result inserted:', payload);
                     if (activeTableId === tableId) {
-                        // Reload settlement results for all users
-                        loadSettlementResults();
+                        // Debounce loading to avoid multiple calls
+                        clearTimeout(window.settlementLoadTimer);
+                        window.settlementLoadTimer = setTimeout(() => {
+                            loadSettlementResults();
+                        }, 300);
                     }
                 })
                 .on('postgres_changes', {
@@ -2192,12 +2195,27 @@
                 }, (payload) => {
                     console.log('🗑️ Settlement result deleted:', payload);
                     if (activeTableId === tableId) {
-                        // Clear settlement results
-                        const resDiv = document.getElementById('settleResults');
-                        if (resDiv) {
-                            resDiv.classList.add('hidden');
-                            resDiv.innerHTML = '';
-                        }
+                        // Debounce loading
+                        clearTimeout(window.settlementLoadTimer);
+                        window.settlementLoadTimer = setTimeout(() => {
+                            // Check if there are any results left
+                            loadSettlementResults().then(() => {
+                                // If no results, hide the div
+                                supabase
+                                    .from('settlement_results')
+                                    .select('id')
+                                    .eq('table_id', activeTableId)
+                                    .then(({ data }) => {
+                                        if (!data || data.length === 0) {
+                                            const resDiv = document.getElementById('settleResults');
+                                            if (resDiv) {
+                                                resDiv.classList.add('hidden');
+                                                resDiv.innerHTML = '';
+                                            }
+                                        }
+                                    });
+                            });
+                        }, 300);
                     }
                 })
                 .subscribe((status) => {
@@ -4197,13 +4215,19 @@
         // --- SETTLEMENT & LEAGUE ---
         async function startSettle() {
             try {
+                console.log('🎯 Starting settlement process for table:', activeTableId);
+
                 // Mark table as "in settlement" to notify all users
-                await supabase
+                const { error: updateError } = await supabase
                     .from('tables')
                     .update({ status: 'settling' })
                     .eq('id', activeTableId);
 
-                console.log('📢 Table marked as settling - all users will be notified');
+                if (updateError) {
+                    console.error('❌ Error updating table status:', updateError);
+                } else {
+                    console.log('✅ Table marked as settling - all users will be notified');
+                }
 
                 // Get table buy_in amount
                 const { data: tableData, error: tableError } = await supabase
@@ -4255,6 +4279,12 @@
             document.getElementById('backBtn').style.visibility = 'visible';
             document.getElementById('settleResults').classList.add('hidden');
             document.getElementById('btnFinishGame').classList.add('hidden');
+
+            // Load existing settlement results if any (for users joining late)
+            setTimeout(() => {
+                loadSettlementResults();
+            }, 500);
+
             } catch (error) {
                 console.error('Error starting settle:', error);
             }
@@ -4442,7 +4472,14 @@
          */
         async function loadSettlementResults() {
             try {
-                console.log('📊 Loading settlement results from database...');
+                console.log('📊 Loading settlement results from database for table:', activeTableId);
+
+                // Check if we're on the settlement page
+                const settleView = document.getElementById('view-settle');
+                if (!settleView || settleView.classList.contains('hidden')) {
+                    console.log('⏭️ Not on settlement page, skipping load');
+                    return;
+                }
 
                 // Get settlement results
                 const { data: results, error } = await supabase
@@ -4458,6 +4495,8 @@
                     console.error('❌ Error loading settlement results:', error);
                     return;
                 }
+
+                console.log('📊 Settlement results retrieved:', results);
 
                 if (!results || results.length === 0) {
                     console.log('ℹ️ No settlement results found');
