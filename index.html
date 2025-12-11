@@ -184,10 +184,39 @@
             cursor: pointer;
             font-size: 1.2rem;
             line-height: 1;
+            transition: all 0.2s ease;
+        }
+        .rebuy-btn:hover:not(:disabled) {
+            background: var(--gold);
+            color: var(--dark-bg);
+            transform: scale(1.1);
         }
         .rebuy-btn:disabled {
             opacity: 0.3;
             cursor: not-allowed;
+        }
+        .rebuy-input {
+            width: 50px;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: bold;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            padding: 6px;
+            background: rgba(212, 175, 55, 0.1);
+            color: var(--text-color);
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .rebuy-input:focus {
+            border-color: var(--gold);
+            background: rgba(212, 175, 55, 0.2);
+            box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+        }
+        .rebuy-input::-webkit-inner-spin-button,
+        .rebuy-input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
 
         /* --- Remove Player Button --- */
@@ -2062,7 +2091,39 @@
                 }, (payload) => {
                     console.log('🟡 UPDATE - Table player updated:', payload);
                     if (activeTableId === tableId) {
-                        renderTable();
+                        // Check if user is currently interacting (rapid clicks)
+                        const timeSinceLastInteraction = Date.now() - lastInteractionTime;
+
+                        // If user clicked recently (within 2 seconds), only update if needed
+                        if (timeSinceLastInteraction < 2000) {
+                            console.log('⚡ User is active - checking if update needed');
+                            const updatedPlayer = payload.new;
+                            if (updatedPlayer && updatedPlayer.id) {
+                                // Get current UI value
+                                const list = document.getElementById('activePlayersList');
+                                if (list) {
+                                    const playerRow = list.querySelector(`[data-player-id="${updatedPlayer.id}"]`);
+                                    if (playerRow) {
+                                        const rebuyInput = playerRow.querySelector('input.rebuy-input');
+                                        if (rebuyInput) {
+                                            const currentUIValue = parseInt(rebuyInput.value) || 1;
+                                            const serverValue = updatedPlayer.rebuys || 1;
+
+                                            // Only update if server value is higher or equal (never go down during rapid clicks)
+                                            if (serverValue >= currentUIValue) {
+                                                console.log(`✅ Updating ${updatedPlayer.id}: ${currentUIValue} → ${serverValue}`);
+                                                updateRebuyDisplay(updatedPlayer.id, serverValue);
+                                            } else {
+                                                console.log(`⏭️ Skipping update - UI ahead: ${currentUIValue} > server: ${serverValue}`);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // User is not active - safe to do full render
+                            renderTable();
+                        }
                     }
                 })
                 .on('postgres_changes', {
@@ -2084,7 +2145,17 @@
                 }, (payload) => {
                     console.log('📊 Table metadata changed:', payload);
                     if (activeTableId === tableId) {
-                        renderTable();
+                        // Check if table status changed to 'settling'
+                        if (payload.new && payload.new.status === 'settling') {
+                            console.log('💰 Game is settling - moving to settlement page');
+                            // Check if we're not already on settlement page
+                            const settleView = document.getElementById('view-settle');
+                            if (settleView && settleView.classList.contains('hidden')) {
+                                startSettle();
+                            }
+                        } else {
+                            renderTable();
+                        }
                     }
                 })
                 .on('postgres_changes', {
@@ -2099,6 +2170,34 @@
                         addLogToUI(payload.new);
                         // Also refresh the full list to be safe
                         renderGameLogs();
+                    }
+                })
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'settlement_results',
+                    filter: `table_id=eq.${tableId}`
+                }, (payload) => {
+                    console.log('💰 Settlement result inserted:', payload);
+                    if (activeTableId === tableId) {
+                        // Reload settlement results for all users
+                        loadSettlementResults();
+                    }
+                })
+                .on('postgres_changes', {
+                    event: 'DELETE',
+                    schema: 'public',
+                    table: 'settlement_results',
+                    filter: `table_id=eq.${tableId}`
+                }, (payload) => {
+                    console.log('🗑️ Settlement result deleted:', payload);
+                    if (activeTableId === tableId) {
+                        // Clear settlement results
+                        const resDiv = document.getElementById('settleResults');
+                        if (resDiv) {
+                            resDiv.classList.add('hidden');
+                            resDiv.innerHTML = '';
+                        }
                     }
                 })
                 .subscribe((status) => {
@@ -2984,7 +3083,11 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                                 <button class="rebuy-btn" onclick="removeRebuy('${p.id}')" ${(p.rebuys || 1) <= 1 ? 'disabled' : ''}>-</button>
-                                <span class="rebuy-count" style="font-size:0.9rem;">${p.rebuys || 1}</span>
+                                <input type="number" class="rebuy-input" min="1" value="${p.rebuys || 1}"
+                                    onchange="handleRebuyInputChange('${p.id}', this.value)"
+                                    onclick="this.select()"
+                                    onfocus="pauseSort()"
+                                    onblur="resumeSort()">
                                 <button class="rebuy-btn" onclick="addRebuy('${p.id}')">+</button>
                     </div>
                 `;
@@ -3297,261 +3400,204 @@
         }
 
         async function addRebuy(playerId) {
-            let oldRebuys = null;
-            let newRebuys = null;
-            let playerName = null;
-            let amountAdded = 0;
-            
-            try {
-                // Step 1: Get current value from UI (optimistic) - allows rapid clicks
-                const list = document.getElementById('activePlayersList');
-                let currentRebuysFromUI = null;
-                if (list) {
-                    const playerRow = list.querySelector(`[data-player-id="${playerId}"]`);
-                    if (playerRow) {
-                        const rebuySpan = playerRow.querySelector('span.rebuy-count');
-                        if (rebuySpan) {
-                            currentRebuysFromUI = parseInt(rebuySpan.textContent) || 1;
-                        }
+            // Update interaction time to prevent disruptive sorting
+            lastInteractionTime = Date.now();
+
+            // STEP 1: INSTANT UI UPDATE - Read current value from UI
+            const list = document.getElementById('activePlayersList');
+            let currentRebuys = 1;
+            if (list) {
+                const playerRow = list.querySelector(`[data-player-id="${playerId}"]`);
+                if (playerRow) {
+                    const rebuyInput = playerRow.querySelector('input.rebuy-input');
+                    if (rebuyInput) {
+                        currentRebuys = parseInt(rebuyInput.value) || 1;
                     }
                 }
-                
-                // Step 2: Get player name from database (needed for log)
-                const { data: player, error: fetchError } = await supabase
-                    .from('table_players')
-                    .select('rebuys, profiles(username)')
-                    .eq('id', playerId)
-                    .single();
+            }
 
-                if (fetchError) {
-                    console.error('Error fetching player data:', fetchError);
-                    throw fetchError;
-                }
+            const newRebuys = currentRebuys + 1;
 
-                // Use UI value if available (for rapid clicks), otherwise use database value
-                oldRebuys = currentRebuysFromUI !== null ? currentRebuysFromUI : (player.rebuys || 1);
-                newRebuys = oldRebuys + 1;
-                playerName = player.profiles?.username || 'שחקן';
-                
-                console.log(`🔄 Adding rebuy: ${oldRebuys} → ${newRebuys} for player ${playerId}`);
+            // Update UI IMMEDIATELY - no waiting!
+            updateRebuyDisplay(playerId, newRebuys);
+            console.log(`⚡ INSTANT UI UPDATE: ${currentRebuys} → ${newRebuys} for player ${playerId}`);
 
-                // Step 2: Get table buy_in for log
-                const { data: table } = await supabase
-                    .from('tables')
-                    .select('buy_in')
-                    .eq('id', activeTableId)
-                    .single();
-
-                const buyInAmount = table?.buy_in || 0;
-                amountAdded = buyInAmount;
-
-                // Step 3: OPTIMISTIC UI: Update immediately for instant feedback
-                updateRebuyDisplay(playerId, newRebuys);
-
-                // Step 4: Update in database - allow rapid consecutive updates
-                // No optimistic locking - allow multiple rapid clicks to update sequentially
-                const { error: updateError, data: updateData } = await supabase
-                    .from('table_players')
-                    .update({ rebuys: newRebuys })
-                    .eq('id', playerId)
-                    .select();
-
-                if (updateError) {
-                    console.error('❌ Database update failed:', updateError);
-                    // Rollback UI
-                    updateRebuyDisplay(playerId, oldRebuys);
-                    throw updateError;
-                }
-
-                // Step 5: Verify update succeeded
-                if (!updateData || updateData.length === 0) {
-                    // Re-fetch actual state
-                    const { data: currentPlayer } = await supabase
-                        .from('table_players')
-                        .select('rebuys')
-                        .eq('id', playerId)
-                        .single();
-                    
-                    const actualRebuys = currentPlayer?.rebuys || oldRebuys;
-                    updateRebuyDisplay(playerId, actualRebuys);
-                    console.log(`⚠️ Update returned no data. Actual rebuys: ${actualRebuys}`);
-                    return;
-                }
-
-                const actualNewRebuys = updateData[0]?.rebuys;
-                
-                // Update UI with actual value (in case of any mismatch)
-                if (actualNewRebuys !== newRebuys) {
-                    updateRebuyDisplay(playerId, actualNewRebuys);
-                }
-
-                console.log(`✅ Database update confirmed: ${oldRebuys} → ${actualNewRebuys}`);
-
-                // Step 6: Create game log with actual values
-                try {
-                    await addGameLog(
-                        'rebuy_add',
-                        `${playerName} הוסיף ${amountAdded}₪`,
-                        oldRebuys,
-                        actualNewRebuys
-                    );
-                    console.log('✅ Game log created successfully');
-                } catch (logError) {
-                    console.warn('⚠️ Buy-in updated but log creation failed:', logError);
-                }
-
-                // Realtime will sync with other users
-                // Note: Debounced sort will trigger automatically via updateRebuyDisplay
-            } catch (error) {
-                console.error('❌ Error in addRebuy:', error);
-                // Re-fetch actual state and update UI
-                const { data: currentPlayer } = await supabase
+            // STEP 2: Background sync to database (don't await - fire and forget for speed)
+            syncRebuyToDatabase(playerId, currentRebuys, newRebuys).catch(err => {
+                console.error('❌ Background sync failed:', err);
+                // On error, check current UI value and only revert if server is higher
+                supabase
                     .from('table_players')
                     .select('rebuys')
                     .eq('id', playerId)
-                    .single();
-                
-                if (currentPlayer) {
-                    updateRebuyDisplay(playerId, currentPlayer.rebuys || 1);
-                } else {
-                    renderTable();
-                }
-                
-                // Show error only for real errors
-                if (error.message && !error.message.includes('Update conflict') && !error.message.includes('optimistic lock')) {
-                    showToast(currentLanguage === 'he' ? 'שגיאה בהוספת כניסה. נסה שוב.' : 'Error adding buy-in. Please try again.');
-                }
+                    .single()
+                    .then(({ data }) => {
+                        if (data) {
+                            const list = document.getElementById('activePlayersList');
+                            if (list) {
+                                const playerRow = list.querySelector(`[data-player-id="${playerId}"]`);
+                                if (playerRow) {
+                                    const rebuyInput = playerRow.querySelector('input.rebuy-input');
+                                    if (rebuyInput) {
+                                        const currentUIValue = parseInt(rebuyInput.value) || 1;
+                                        const serverValue = data.rebuys || 1;
+                                        // Only update if server is higher (don't go backwards)
+                                        if (serverValue >= currentUIValue) {
+                                            updateRebuyDisplay(playerId, serverValue);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+            });
+        }
+
+        // Background sync function for rebuy updates
+        async function syncRebuyToDatabase(playerId, oldRebuys, newRebuys) {
+            try {
+                // Get player name and table buy-in in parallel
+                const [playerResult, tableResult] = await Promise.all([
+                    supabase
+                        .from('table_players')
+                        .select('profiles(username)')
+                        .eq('id', playerId)
+                        .single(),
+                    supabase
+                        .from('tables')
+                        .select('buy_in')
+                        .eq('id', activeTableId)
+                        .single()
+                ]);
+
+                const playerName = playerResult.data?.profiles?.username || 'שחקן';
+                const buyInAmount = tableResult.data?.buy_in || 0;
+
+                // Update database
+                const { error: updateError } = await supabase
+                    .from('table_players')
+                    .update({ rebuys: newRebuys })
+                    .eq('id', playerId);
+
+                if (updateError) throw updateError;
+
+                // Create log
+                const amountAdded = buyInAmount;
+                await addGameLog(
+                    'rebuy_add',
+                    `${playerName} הוסיף ${amountAdded}₪`,
+                    oldRebuys,
+                    newRebuys
+                );
+
+                console.log(`✅ Background sync completed: ${oldRebuys} → ${newRebuys}`);
+            } catch (error) {
+                console.error('❌ Background sync error:', error);
+                throw error;
             }
         }
 
         async function removeRebuy(playerId) {
-            let oldRebuys = null;
-            let newRebuys = null;
-            let playerName = null;
-            let amountRemoved = 0;
-            
-            try {
-                // Step 1: Get current value from UI (optimistic) - allows rapid clicks
-                const list = document.getElementById('activePlayersList');
-                let currentRebuysFromUI = null;
-                if (list) {
-                    const playerRow = list.querySelector(`[data-player-id="${playerId}"]`);
-                    if (playerRow) {
-                        const rebuySpan = playerRow.querySelector('span.rebuy-count');
-                        if (rebuySpan) {
-                            currentRebuysFromUI = parseInt(rebuySpan.textContent) || 1;
-                        }
+            // Update interaction time to prevent disruptive sorting
+            lastInteractionTime = Date.now();
+
+            // STEP 1: INSTANT UI UPDATE - Read current value from UI
+            const list = document.getElementById('activePlayersList');
+            let currentRebuys = 1;
+            if (list) {
+                const playerRow = list.querySelector(`[data-player-id="${playerId}"]`);
+                if (playerRow) {
+                    const rebuyInput = playerRow.querySelector('input.rebuy-input');
+                    if (rebuyInput) {
+                        currentRebuys = parseInt(rebuyInput.value) || 1;
                     }
                 }
-                
-                // Step 2: Get player name from database (needed for log)
-                const { data: player, error: fetchError } = await supabase
-                    .from('table_players')
-                    .select('rebuys, profiles(username)')
-                    .eq('id', playerId)
-                    .single();
+            }
 
-                if (fetchError) {
-                    console.error('Error fetching player data:', fetchError);
-                    throw fetchError;
-                }
+            // Can't go below 1
+            if (currentRebuys <= 1) {
+                console.log('Cannot remove rebuy - already at minimum');
+                return;
+            }
 
-                // Use UI value if available (for rapid clicks), otherwise use database value
-                oldRebuys = currentRebuysFromUI !== null ? currentRebuysFromUI : (player.rebuys || 1);
-                if (oldRebuys <= 1) {
-                    console.log('Cannot remove rebuy - already at minimum');
-                    return;
-                }
+            const newRebuys = currentRebuys - 1;
 
-                newRebuys = oldRebuys - 1;
-                playerName = player.profiles?.username || 'שחקן';
-                
-                console.log(`🔄 Removing rebuy: ${oldRebuys} → ${newRebuys} for player ${playerId}`);
+            // Update UI IMMEDIATELY - no waiting!
+            updateRebuyDisplay(playerId, newRebuys);
+            console.log(`⚡ INSTANT UI UPDATE: ${currentRebuys} → ${newRebuys} for player ${playerId}`);
 
-                // Step 2: Get table buy_in for log
-                const { data: table } = await supabase
-                    .from('tables')
-                    .select('buy_in')
-                    .eq('id', activeTableId)
-                    .single();
-
-                const buyInAmount = table?.buy_in || 0;
-                amountRemoved = buyInAmount;
-
-                // Step 3: OPTIMISTIC UI: Update immediately for instant feedback
-                updateRebuyDisplay(playerId, newRebuys);
-
-                // Step 4: Update in database - allow rapid consecutive updates
-                const { error: updateError, data: updateData } = await supabase
-                    .from('table_players')
-                    .update({ rebuys: newRebuys })
-                    .eq('id', playerId)
-                    .select();
-
-                if (updateError) {
-                    console.error('❌ Database update failed:', updateError);
-                    // Rollback UI
-                    updateRebuyDisplay(playerId, oldRebuys);
-                    throw updateError;
-                }
-
-                // Step 5: Verify update succeeded
-                if (!updateData || updateData.length === 0) {
-                    // Re-fetch actual state
-                    const { data: currentPlayer } = await supabase
-                        .from('table_players')
-                        .select('rebuys')
-                        .eq('id', playerId)
-                        .single();
-                    
-                    const actualRebuys = currentPlayer?.rebuys || oldRebuys;
-                    updateRebuyDisplay(playerId, actualRebuys);
-                    console.log(`⚠️ Update conflict (silent): Actual rebuys: ${actualRebuys}, expected: ${newRebuys}`);
-                    return;
-                }
-                
-                const actualNewRebuys = updateData[0]?.rebuys;
-                if (actualNewRebuys !== newRebuys) {
-                    updateRebuyDisplay(playerId, actualNewRebuys);
-                    console.log(`⚠️ Update mismatch (silent): Expected ${newRebuys}, got ${actualNewRebuys}`);
-                }
-                
-                console.log(`✅ Database update confirmed: ${oldRebuys} → ${actualNewRebuys}`);
-
-                // Step 6: Create game log
-                try {
-                    await addGameLog(
-                        'rebuy_remove',
-                        `${playerName} הוריד ${amountRemoved}₪`,
-                        oldRebuys,
-                        actualNewRebuys
-                    );
-                    console.log('✅ Game log created successfully');
-                } catch (logError) {
-                    console.warn('⚠️ Buy-in updated but log creation failed:', logError);
-                }
-
-                // Realtime will sync with other users
-                // Note: Debounced sort will trigger automatically via updateRebuyDisplay
-            } catch (error) {
-                console.error('❌ Error in removeRebuy:', error);
-                // Re-fetch actual state and update UI
-                const { data: currentPlayer } = await supabase
+            // STEP 2: Background sync to database (don't await - fire and forget for speed)
+            syncRebuyRemoveToDatabase(playerId, currentRebuys, newRebuys).catch(err => {
+                console.error('❌ Background sync failed:', err);
+                // On error, check current UI value and only revert if server is higher
+                supabase
                     .from('table_players')
                     .select('rebuys')
                     .eq('id', playerId)
-                    .single();
-                
-                if (currentPlayer) {
-                    updateRebuyDisplay(playerId, currentPlayer.rebuys || 1);
-                } else {
-                    renderTable();
-                }
-                
-                // Show error only for real errors
-                if (error.message && !error.message.includes('Update conflict') && !error.message.includes('optimistic lock')) {
-                    showToast(currentLanguage === 'he' ? 'שגיאה בהסרת כניסה. נסה שוב.' : 'Error removing buy-in. Please try again.');
-                }
+                    .single()
+                    .then(({ data }) => {
+                        if (data) {
+                            const list = document.getElementById('activePlayersList');
+                            if (list) {
+                                const playerRow = list.querySelector(`[data-player-id="${playerId}"]`);
+                                if (playerRow) {
+                                    const rebuyInput = playerRow.querySelector('input.rebuy-input');
+                                    if (rebuyInput) {
+                                        const currentUIValue = parseInt(rebuyInput.value) || 1;
+                                        const serverValue = data.rebuys || 1;
+                                        // Only update if server is higher (don't go backwards)
+                                        if (serverValue >= currentUIValue) {
+                                            updateRebuyDisplay(playerId, serverValue);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+            });
+        }
+
+        // Background sync function for rebuy removal
+        async function syncRebuyRemoveToDatabase(playerId, oldRebuys, newRebuys) {
+            try {
+                // Get player name and table buy-in in parallel
+                const [playerResult, tableResult] = await Promise.all([
+                    supabase
+                        .from('table_players')
+                        .select('profiles(username)')
+                        .eq('id', playerId)
+                        .single(),
+                    supabase
+                        .from('tables')
+                        .select('buy_in')
+                        .eq('id', activeTableId)
+                        .single()
+                ]);
+
+                const playerName = playerResult.data?.profiles?.username || 'שחקן';
+                const buyInAmount = tableResult.data?.buy_in || 0;
+
+                // Update database
+                const { error: updateError } = await supabase
+                    .from('table_players')
+                    .update({ rebuys: newRebuys })
+                    .eq('id', playerId);
+
+                if (updateError) throw updateError;
+
+                // Create log
+                const amountRemoved = buyInAmount;
+                await addGameLog(
+                    'rebuy_remove',
+                    `${playerName} הוריד ${amountRemoved}₪`,
+                    oldRebuys,
+                    newRebuys
+                );
+
+                console.log(`✅ Background sync completed: ${oldRebuys} → ${newRebuys}`);
+            } catch (error) {
+                console.error('❌ Background sync error:', error);
+                throw error;
             }
         }
 
@@ -3562,25 +3608,33 @@
         function updateRebuyDisplay(playerId, newRebuys) {
             const list = document.getElementById('activePlayersList');
             if (!list) return;
-            
+
             const playerRows = list.querySelectorAll('.player-row');
             let foundPlayer = false;
-            
+
             playerRows.forEach(row => {
                 const buttons = row.querySelectorAll('button');
-                const span = row.querySelector('span.rebuy-count');
-                
+                const input = row.querySelector('input.rebuy-input');
+
                 // Check if this is the right player (by data attribute)
                 if (row.getAttribute('data-player-id') === playerId) {
                     foundPlayer = true;
-                    if (span) {
-                        span.textContent = newRebuys;
+                    // Update input value instead of span
+                    if (input) {
+                        input.value = newRebuys;
                     }
                     // Update data attribute for sorting
                     row.setAttribute('data-rebuys', newRebuys);
-                    
+
+                    // Update invested amount display
+                    const investedDiv = row.querySelector('[style*="color:#888"]');
+                    if (investedDiv && currentTableBuyIn > 0) {
+                        const invested = newRebuys * currentTableBuyIn;
+                        investedDiv.innerHTML = `${currentLanguage === 'he' ? 'הושקע' : 'invested'}: ${invested}₪`;
+                    }
+
                     // Update disable state for minus button
-                    const minusBtn = Array.from(buttons).find(btn => 
+                    const minusBtn = Array.from(buttons).find(btn =>
                         btn.textContent === '-' && btn.onclick && btn.onclick.toString().includes(`'${playerId}'`)
                     );
                     if (minusBtn) {
@@ -3593,13 +3647,13 @@
             if (foundPlayer && currentTableBuyIn > 0) {
                 let totalPot = 0;
                 playerRows.forEach(r => {
-                    const rebuySpan = r.querySelector('span.rebuy-count');
-                    if (rebuySpan) {
-                        const rebuys = parseInt(rebuySpan.textContent) || 1;
+                    const rebuyInput = r.querySelector('input.rebuy-input');
+                    if (rebuyInput) {
+                        const rebuys = parseInt(rebuyInput.value) || 1;
                         totalPot += rebuys * currentTableBuyIn;
                     }
                 });
-                
+
                 const potElement = document.getElementById('activePot');
                 if (potElement) {
                     potElement.innerText = totalPot + '₪';
@@ -3610,20 +3664,136 @@
             triggerDebouncedSort();
         }
 
+        // Handle manual input change for rebuy count
+        async function handleRebuyInputChange(playerId, newValue) {
+            // Update interaction time to prevent disruptive sorting
+            lastInteractionTime = Date.now();
+
+            const newRebuys = parseInt(newValue);
+
+            // Validate input
+            if (isNaN(newRebuys) || newRebuys < 1) {
+                // Reset to current value
+                const { data: player } = await supabase
+                    .from('table_players')
+                    .select('rebuys')
+                    .eq('id', playerId)
+                    .single();
+
+                if (player) {
+                    updateRebuyDisplay(playerId, player.rebuys || 1);
+                }
+                return;
+            }
+
+            try {
+                // Get player data
+                const { data: player, error: fetchError } = await supabase
+                    .from('table_players')
+                    .select('rebuys, profiles(username)')
+                    .eq('id', playerId)
+                    .single();
+
+                if (fetchError) throw fetchError;
+
+                const oldRebuys = player.rebuys || 1;
+                const playerName = player.profiles?.username || 'שחקן';
+
+                // Get table buy-in
+                const { data: table } = await supabase
+                    .from('tables')
+                    .select('buy_in')
+                    .eq('id', activeTableId)
+                    .single();
+
+                const buyInAmount = table?.buy_in || 0;
+
+                // Update optimistically
+                updateRebuyDisplay(playerId, newRebuys);
+
+                // Update database
+                const { error: updateError } = await supabase
+                    .from('table_players')
+                    .update({ rebuys: newRebuys })
+                    .eq('id', playerId);
+
+                if (updateError) {
+                    // Rollback on error
+                    updateRebuyDisplay(playerId, oldRebuys);
+                    throw updateError;
+                }
+
+                // Create log
+                const diff = newRebuys - oldRebuys;
+                const actionType = diff > 0 ? 'rebuy_add' : 'rebuy_remove';
+                const amountChange = Math.abs(diff) * buyInAmount;
+                const actionDesc = diff > 0
+                    ? `${playerName} הוסיף ${amountChange}₪`
+                    : `${playerName} הוריד ${amountChange}₪`;
+
+                await addGameLog(actionType, actionDesc, oldRebuys, newRebuys);
+
+                console.log(`✅ Manual rebuy update: ${oldRebuys} → ${newRebuys} for ${playerName}`);
+
+            } catch (error) {
+                console.error('Error updating rebuy count:', error);
+                showToast(currentLanguage === 'he' ? 'שגיאה בעדכון כניסות' : 'Error updating entries');
+
+                // Re-fetch and update to actual state
+                const { data: player } = await supabase
+                    .from('table_players')
+                    .select('rebuys')
+                    .eq('id', playerId)
+                    .single();
+
+                if (player) {
+                    updateRebuyDisplay(playerId, player.rebuys || 1);
+                }
+            }
+        }
+
         // Debounced sort timer
         let sortTimer = null;
+        let sortPaused = false;
+        let lastInteractionTime = 0;
 
-        // Debounced sort function - waits 3 seconds after last click
+        // Pause sorting while user is typing
+        function pauseSort() {
+            sortPaused = true;
+            if (sortTimer) {
+                clearTimeout(sortTimer);
+                sortTimer = null;
+            }
+        }
+
+        // Resume sorting when user finishes typing
+        function resumeSort() {
+            sortPaused = false;
+            triggerDebouncedSort();
+        }
+
+        // Debounced sort function - waits 5 seconds after last interaction
         function triggerDebouncedSort() {
+            // Don't start timer if sort is paused (user is typing)
+            if (sortPaused) return;
+
+            // Update last interaction time
+            lastInteractionTime = Date.now();
+
             // Clear existing timer
             if (sortTimer) {
                 clearTimeout(sortTimer);
             }
-            
-            // Set new timer for 3 seconds
+
+            // Set new timer for 5 seconds (increased from 3 for better UX)
             sortTimer = setTimeout(() => {
-                animateSortPlayers();
-            }, 3000);
+                // Double-check that enough time has passed since last interaction
+                const timeSinceLastInteraction = Date.now() - lastInteractionTime;
+                if (!sortPaused && timeSinceLastInteraction >= 4900) {
+                    console.log('🔄 Auto-sorting players after 5 seconds of inactivity');
+                    animateSortPlayers();
+                }
+            }, 5000);
         }
 
         // Animated sort function - smoothly reorders players by rebuys
@@ -4027,6 +4197,14 @@
         // --- SETTLEMENT & LEAGUE ---
         async function startSettle() {
             try {
+                // Mark table as "in settlement" to notify all users
+                await supabase
+                    .from('tables')
+                    .update({ status: 'settling' })
+                    .eq('id', activeTableId);
+
+                console.log('📢 Table marked as settling - all users will be notified');
+
                 // Get table buy_in amount
                 const { data: tableData, error: tableError } = await supabase
                     .from('tables')
@@ -4185,7 +4363,10 @@
                 // Step 4: Display results
                 displaySettlementResults(transactions, playerBalances, totalGamePot);
 
-                // Step 5: Store for saving
+                // Step 5: Save settlement results to database for realtime sharing
+                await saveSettlementResults(transactions);
+
+                // Step 6: Store for saving
                 window.tempSettleResults = playerBalances.map(p => ({
                     id: p.id,
                     userId: p.userId,
@@ -4254,6 +4435,129 @@
             }
 
             return transactions;
+        }
+
+        /**
+         * Load and display settlement results from database (for realtime updates)
+         */
+        async function loadSettlementResults() {
+            try {
+                console.log('📊 Loading settlement results from database...');
+
+                // Get settlement results
+                const { data: results, error } = await supabase
+                    .from('settlement_results')
+                    .select(`
+                        *,
+                        from_player:table_players!from_player_id(profiles(username)),
+                        to_player:table_players!to_player_id(profiles(username))
+                    `)
+                    .eq('table_id', activeTableId);
+
+                if (error) {
+                    console.error('❌ Error loading settlement results:', error);
+                    return;
+                }
+
+                if (!results || results.length === 0) {
+                    console.log('ℹ️ No settlement results found');
+                    return;
+                }
+
+                // Transform results into transactions format
+                const transactions = results.map(r => ({
+                    from: {
+                        id: r.from_player_id,
+                        name: r.from_player?.profiles?.username || 'Player'
+                    },
+                    to: {
+                        id: r.to_player_id,
+                        name: r.to_player?.profiles?.username || 'Player'
+                    },
+                    amount: parseFloat(r.amount)
+                }));
+
+                console.log('✅ Loaded settlement results:', transactions);
+
+                // Display results
+                displaySettlementResultsFromDB(transactions);
+
+            } catch (error) {
+                console.error('❌ Error in loadSettlementResults:', error);
+            }
+        }
+
+        /**
+         * Display settlement results from database (for other users)
+         */
+        function displaySettlementResultsFromDB(transactions) {
+            const resDiv = document.getElementById('settleResults');
+            resDiv.classList.remove('hidden');
+
+            let html = `
+                <h3 style="color:var(--gold); margin-top:0;">${currentLanguage === 'he' ? '💸 מי חייב למי?' : '💸 Who Owes Whom?'}</h3>
+                <div style="margin-top:15px;">
+            `;
+
+            if (transactions.length === 0) {
+                html += `<p style="text-align:center; color:#888;">${currentLanguage === 'he' ? 'כולם מאוזנים! אין חובות 🎉' : 'Everyone is balanced! No debts 🎉'}</p>`;
+            } else {
+                transactions.forEach(t => {
+                    html += `
+                        <div class="transfer-row">
+                            <div>
+                                <div style="font-weight:bold; color:var(--gold);">${t.from.name}</div>
+                                <div style="font-size:0.8rem; color:#888;">${currentLanguage === 'he' ? 'משלם' : 'pays'}</div>
+                            </div>
+                            <div style="font-size:1.5rem; font-weight:bold; color:var(--gold);">
+                                ${t.amount.toFixed(0)}₪
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-weight:bold; color:var(--gold);">${t.to.name}</div>
+                                <div style="font-size:0.8rem; color:#888;">${currentLanguage === 'he' ? 'מקבל' : 'receives'}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += '</div>';
+            resDiv.innerHTML = html;
+        }
+
+        /**
+         * Save settlement results to database for realtime sharing
+         */
+        async function saveSettlementResults(transactions) {
+            try {
+                // Delete old settlement results for this table
+                await supabase
+                    .from('settlement_results')
+                    .delete()
+                    .eq('table_id', activeTableId);
+
+                // Insert new settlement results
+                if (transactions.length > 0) {
+                    const settlementData = transactions.map(t => ({
+                        table_id: activeTableId,
+                        from_player_id: t.from.id,
+                        to_player_id: t.to.id,
+                        amount: t.amount
+                    }));
+
+                    const { error } = await supabase
+                        .from('settlement_results')
+                        .insert(settlementData);
+
+                    if (error) {
+                        console.error('❌ Error saving settlement results:', error);
+                    } else {
+                        console.log('✅ Settlement results saved to database for realtime sharing');
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error in saveSettlementResults:', error);
+            }
         }
 
         /**
