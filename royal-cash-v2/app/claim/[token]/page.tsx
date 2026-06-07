@@ -17,7 +17,7 @@ export default function ClaimPlayerPage({
   params: Promise<{ token: string }>
 }) {
   const router = useRouter()
-  const { user, loading: authLoading, signInWithGoogle } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [state, setState] = useState<ClaimState>('loading')
   const [playerName, setPlayerName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
@@ -28,37 +28,61 @@ export default function ClaimPlayerPage({
     params.then((p) => setToken(p.token))
   }, [params])
 
+  // Validate token via SECURITY DEFINER RPC — works for anon + authenticated
   useEffect(() => {
     if (!token) return
 
     async function checkToken() {
-      try {
-        const supabase = createClient()
-        const { data } = await supabase
-          .from('player_claim_invites')
-          .select('*, players(display_name)')
-          .eq('token', token)
-          .eq('status', 'pending')
-          .single()
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('get_claim_invite_info', {
+        claim_token: token,
+      })
 
-        if (!data) {
-          setState('error')
-          setErrorMsg(t.invites.invalidLink)
-          return
-        }
-        const player = data.players as unknown as { display_name: string } | null
-        setPlayerName(player?.display_name ?? '')
-        setState('ready')
-      } catch {
-        setState('ready')
+      if (error || !data) {
+        setState('error')
+        setErrorMsg(t.invites.invalidLink)
+        return
       }
+
+      if (data.error === 'token_expired') {
+        setState('error')
+        setErrorMsg(t.invites.expiredLink)
+        return
+      }
+
+      if (data.error) {
+        setState('error')
+        setErrorMsg(t.invites.invalidLink)
+        return
+      }
+
+      setPlayerName(data.player_name ?? '')
+      setState('ready')
     }
+
     checkToken()
   }, [token])
 
-  const handleClaim = async () => {
+  // After a successful OAuth redirect back to /claim/[token], auto-claim
+  useEffect(() => {
+    if (state !== 'ready' || !user || !token) return
+
+    // Check if we just returned from OAuth (user was null, now is set)
+    // Auto-trigger the claim so the user doesn't have to tap again
+    handleClaim()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, state, token])
+
+  async function handleClaim() {
     if (!user) {
-      signInWithGoogle()
+      // Preserve the claim token in the OAuth return URL
+      const supabase = createClient()
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/claim/${token}`)}`,
+        },
+      })
       return
     }
 
@@ -98,7 +122,7 @@ export default function ClaimPlayerPage({
             {state === 'error' && (
               <>
                 <p className="text-negative text-center">{errorMsg}</p>
-                <Button variant="secondary" onClick={() => router.push('/login')}>
+                <Button variant="secondary" onClick={() => router.push('/groups')}>
                   {t.common.back}
                 </Button>
               </>
@@ -121,11 +145,16 @@ export default function ClaimPlayerPage({
               </>
             )}
 
-            {state === 'claiming' && <Loading />}
+            {state === 'claiming' && (
+              <>
+                <Loading />
+                <p className="text-sm text-text-muted">{t.invites.claimButton}...</p>
+              </>
+            )}
 
             {state === 'success' && (
               <>
-                <p className="text-positive font-semibold text-center">
+                <p className="text-positive font-semibold text-center text-lg">
                   {t.invites.claimSuccess}
                 </p>
                 <Button fullWidth onClick={() => router.push(`/groups/${groupId}`)}>
