@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import Link from 'next/link'
 import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
@@ -9,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import { InviteLink } from '@/components/ui/invite-link'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
+import { IosListGroup, IosListRow } from '@/components/ui/ios-list'
 import { createClient } from '@/lib/supabase/client'
+import { canViewPlayerPrivateData } from '@/lib/auth/player-privacy'
 import { getGroupPlayers, getPlayerGameHistory } from '@/lib/db/players'
 import { getPlayerGroupStats } from '@/lib/db/stats'
 import { generatePlayerClaimLink } from '@/app/actions/invites'
@@ -29,6 +30,7 @@ export default function PlayerProfilePage({
   const [gameHistory, setGameHistory] = useState<Awaited<ReturnType<typeof getPlayerGameHistory>>>([])
   const [winCount, setWinCount] = useState(0)
   const [currency, setCurrency] = useState<Currency>('ILS')
+  const [canViewPrivate, setCanViewPrivate] = useState(false)
   const [loading, setLoading] = useState(true)
   const [claimUrl, setClaimUrl] = useState<string | null>(null)
   const [generatingLink, setGeneratingLink] = useState(false)
@@ -46,23 +48,31 @@ export default function PlayerProfilePage({
     const supabase = createClient()
 
     try {
-      const [playersData, statsData, history, winCounts] = await Promise.all([
-        getGroupPlayers(supabase, groupId),
+      const allowed = await canViewPlayerPrivateData(supabase, playerId)
+      setCanViewPrivate(allowed)
+
+      const playersData = await getGroupPlayers(supabase, groupId)
+      const found = playersData.find((p) => p.id === playerId) ?? null
+      setPlayer(found)
+
+      if (!allowed) {
+        setStats(null)
+        setGameHistory([])
+        setWinCount(0)
+        return
+      }
+
+      const [statsData, history, winCounts] = await Promise.all([
         getPlayerGroupStats(supabase, groupId).catch(() => []),
         getPlayerGameHistory(supabase, playerId, groupId).catch(() => []),
         getPlayerWinCounts(supabase, groupId).catch(() => new Map<string, number>()),
       ])
 
-      const found = playersData.find((p) => p.id === playerId) ?? null
-      setPlayer(found)
-
       const playerStats = statsData.find((s) => s.player_id === playerId) ?? null
       setStats(playerStats)
-
       setGameHistory(history)
       setWinCount(winCounts.get(playerId) ?? 0)
 
-      // Guess currency from history
       if (history.length > 0) setCurrency('ILS')
     } catch (err) {
       console.error('Failed to load player:', err)
@@ -122,7 +132,6 @@ export default function PlayerProfilePage({
       <PageHeader title={player.display_name} showBack />
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-5">
-        {/* Header card */}
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-bold text-text-primary">{player.display_name}</h1>
@@ -143,8 +152,13 @@ export default function PlayerProfilePage({
           )}
         </Card>
 
-        {/* Overall stats */}
-        {gamesPlayed > 0 && (
+        {!canViewPrivate && (
+          <p className="text-sm text-text-muted text-center px-2">
+            {t.players.privateStats}
+          </p>
+        )}
+
+        {canViewPrivate && gamesPlayed > 0 && (
           <section>
             <h2 className="text-base font-semibold text-text-primary mb-3">
               {t.stats.title}
@@ -180,7 +194,6 @@ export default function PlayerProfilePage({
           </section>
         )}
 
-        {/* Claim link section */}
         {!isLinked && (
           <section>
             <h2 className="text-base font-semibold text-text-primary mb-3">
@@ -191,8 +204,8 @@ export default function PlayerProfilePage({
               {claimUrl ? (
                 <InviteLink
                   url={claimUrl}
-                  title={`חיבור ${player.display_name}`}
-                  message={`היי ${player.display_name}! לחץ על הקישור כדי לחבר את חשבון ה-Google שלך ל-Royal Cash:`}
+                  title={t.invites.claimLinkTitle.replace('{name}', player.display_name)}
+                  message={t.invites.claimLinkMessage.replace('{name}', player.display_name)}
                 />
               ) : (
                 <>
@@ -211,33 +224,23 @@ export default function PlayerProfilePage({
           </section>
         )}
 
-        {/* Game history */}
-        <section>
-          <h2 className="text-base font-semibold text-text-primary mb-3">
-            {t.players.gameHistory}
-          </h2>
-          {gameHistory.length === 0 ? (
-            <EmptyState message={t.players.noGameHistory} />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {gameHistory.map((entry) => (
-                <Link
-                  key={entry.game_id}
-                  href={`/groups/${groupId}/games/${entry.game_id}/results`}
-                >
-                  <Card className="active:bg-surface-elevated transition-colors">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-text-primary truncate">
-                          {entry.game_name}
-                        </p>
-                        <p className="text-xs text-text-muted">
-                          {new Date(entry.game_date).toLocaleDateString('he-IL')}
-                        </p>
-                      </div>
+        {canViewPrivate && (
+          <section>
+            <h2 className="text-base font-semibold text-text-primary mb-3">
+              {t.players.gameHistory}
+            </h2>
+            {gameHistory.length === 0 ? (
+              <EmptyState message={t.players.noGameHistory} />
+            ) : (
+              <IosListGroup>
+                {gameHistory.map((entry) => (
+                  <IosListRow
+                    key={entry.game_id}
+                    href={`/groups/${groupId}/games/${entry.game_id}/results`}
+                    trailing={
                       <div className="text-left shrink-0" dir="ltr">
                         <p
-                          className={`font-bold text-sm ${
+                          className={`font-semibold text-sm ${
                             entry.final_balance >= 0 ? 'text-positive' : 'text-negative'
                           }`}
                         >
@@ -247,13 +250,20 @@ export default function PlayerProfilePage({
                           {symbol}{entry.total_buy_in} → {symbol}{entry.cash_out}
                         </p>
                       </div>
-                    </div>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
+                    }
+                  >
+                    <p className="font-medium text-text-primary truncate">
+                      {entry.game_name}
+                    </p>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {new Date(entry.game_date).toLocaleDateString('he-IL')}
+                    </p>
+                  </IosListRow>
+                ))}
+              </IosListGroup>
+            )}
+          </section>
+        )}
       </main>
     </>
   )

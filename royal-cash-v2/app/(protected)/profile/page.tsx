@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
@@ -17,14 +16,79 @@ const symbol = t.currency.ILS
 
 function formatSignedAmount(amount: number): string {
   const abs = Math.abs(amount)
-  if (amount > 0) return `${symbol}${abs}+`
-  if (amount < 0) return `${symbol}${abs}`
+  if (amount > 0) return `+${symbol}${abs}`
+  if (amount < 0) return `-${symbol}${abs}`
   return `${symbol}0`
 }
 
 function formatWinAmount(amount: number): string {
   if (amount <= 0) return `${symbol}0`
-  return `${symbol}${amount}+`
+  return `+${symbol}${amount}`
+}
+
+// SVG icons — outline style, 40×40
+function IconController() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+      <rect x="2" y="6" width="20" height="12" rx="3" />
+      <path d="M6 12h4M8 10v4" />
+      <circle cx="16" cy="11" r="1" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="13" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function IconChart() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+      <rect x="3" y="12" width="4" height="9" rx="1" />
+      <rect x="10" y="7" width="4" height="14" rx="1" />
+      <rect x="17" y="3" width="4" height="18" rx="1" />
+      <path d="M5 8l5-3 4 2 5-4" />
+      <path d="M17 3l3-1-1 3" />
+    </svg>
+  )
+}
+
+function IconTarget() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+    </svg>
+  )
+}
+
+function IconTrophy() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+      <path d="M6 2h12v8a6 6 0 01-12 0V2z" />
+      <path d="M6 5H3a2 2 0 000 4h3" />
+      <path d="M18 5h3a2 2 0 010 4h-3" />
+      <path d="M12 16v4" />
+      <path d="M8 20h8" />
+    </svg>
+  )
+}
+
+function IconPerson() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  )
+}
+
+function IconEdit() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
 }
 
 export default function ProfilePage() {
@@ -62,10 +126,7 @@ export default function ProfilePage() {
       await updateProfilePhoneAction(phoneDraft)
       setStats((prev) =>
         prev
-          ? {
-              ...prev,
-              profile: { ...prev.profile, phone: phoneDraft.trim() || null },
-            }
+          ? { ...prev, profile: { ...prev.profile, phone: phoneDraft.trim() || null } }
           : prev,
       )
       setEditOpen(false)
@@ -98,74 +159,76 @@ export default function ProfilePage() {
       <PageHeader title={t.profile.title} />
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
-        <Card elevated>
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <h2 className="text-base font-semibold text-accent">
-              {t.profile.personalDetails}
-            </h2>
+        {/* Personal details card */}
+        <div className="rounded-[var(--radius-card)] bg-surface-elevated border border-border overflow-hidden">
+          {/* Header row */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <button
               type="button"
               onClick={() => {
                 setPhoneDraft(profile?.phone ?? '')
                 setEditOpen(true)
               }}
-              className="flex items-center gap-1 text-sm text-text-secondary min-h-[44px] px-1"
+              className="flex items-center gap-1.5 min-h-[44px]"
             >
-              <span aria-hidden>✏️</span>
-              {t.common.edit}
+              <IconEdit />
+              <span className="text-sm text-accent">{t.common.edit}</span>
             </button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-text-primary">
+                {t.profile.personalDetails}
+              </span>
+              <IconPerson />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-lg shrink-0" aria-hidden>
-                📱
-              </span>
-              <p className="text-sm text-text-secondary">{t.profile.phoneForBit}</p>
-            </div>
+          {/* Phone row */}
+          <div className="flex items-center justify-between px-4 py-3">
             <p
-              className="text-lg font-semibold text-text-primary shrink-0"
+              className="text-sm text-text-secondary"
               dir="ltr"
             >
               {profile?.phone || t.profile.noPhone}
             </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-secondary">{t.profile.phoneForBit}</span>
+              <span className="text-accent font-bold text-base">₿</span>
+            </div>
           </div>
-        </Card>
+        </div>
 
+        {/* Not linked notice */}
         {!stats?.hasLinkedPlayers && (
-          <p className="text-sm text-text-muted text-center px-2">
+          <p className="text-sm text-text-muted text-center px-4">
             {t.profile.notLinked}
           </p>
         )}
 
+        {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           <ProfileStatCard
-            icon="🎮"
+            icon={<IconController />}
             label={t.groups.gamesPlayed}
             value={String(gamesPlayed)}
             valueClassName="text-accent"
           />
           <ProfileStatCard
-            icon="📈"
+            icon={<IconChart />}
             label={t.profile.totalProfitLoss}
             value={formatSignedAmount(totalBalance)}
-            valueClassName={
-              totalBalance >= 0 ? 'text-positive' : 'text-negative'
-            }
+            valueClassName={totalBalance >= 0 ? 'text-positive' : 'text-negative'}
           />
           <ProfileStatCard
-            icon="🏆"
-            label={t.profile.personalBest}
-            value={formatWinAmount(biggestWin)}
-            valueClassName="text-positive"
-            large
-          />
-          <ProfileStatCard
-            icon="🎯"
+            icon={<IconTarget />}
             label={t.profile.winPercent}
             value={`${winRate}%`}
             valueClassName="text-[#c084fc]"
-            large
+          />
+          <ProfileStatCard
+            icon={<IconTrophy />}
+            label={t.profile.personalBest}
+            value={formatWinAmount(biggestWin)}
+            valueClassName="text-[#22d3ee]"
           />
         </div>
       </main>
@@ -186,18 +249,10 @@ export default function ProfilePage() {
             dir="ltr"
           />
           <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => setEditOpen(false)}
-            >
+            <Button variant="secondary" className="flex-1" onClick={() => setEditOpen(false)}>
               {t.common.cancel}
             </Button>
-            <Button
-              className="flex-1"
-              onClick={handleSavePhone}
-              disabled={saving}
-            >
+            <Button className="flex-1" onClick={handleSavePhone} disabled={saving}>
               {saving ? t.common.loading : t.common.save}
             </Button>
           </div>

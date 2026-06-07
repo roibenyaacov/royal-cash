@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   createGame as dbCreateGame,
   addGamePlayer as dbAddGamePlayer,
@@ -253,6 +254,14 @@ export async function finalizeGameAction(
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('id')
+    .eq('group_id', groupId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (!membership) throw new Error('Not a group member')
+
   const game = await dbGetGame(supabase, gameId)
   if (!game) throw new Error('Game not found')
   if (game.group_id !== groupId) throw new Error('Invalid group')
@@ -273,7 +282,7 @@ export async function finalizeGameAction(
   }
 
   try {
-    await applyGameStats(supabase, groupId, gameId, results)
+    await applyGameStats(createAdminClient(), groupId, gameId, results)
   } catch (err) {
     await supabase
       .from('games')

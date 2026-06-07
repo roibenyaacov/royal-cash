@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Player } from '@/lib/domain/types'
+import { canViewPlayerPrivateData } from '@/lib/auth/player-privacy'
 
 export async function getGroupPlayers(
   supabase: SupabaseClient,
@@ -31,6 +32,9 @@ export async function getPlayerGameHistory(
   playerId: string,
   groupId: string,
 ): Promise<PlayerGameHistoryEntry[]> {
+  const allowed = await canViewPlayerPrivateData(supabase, playerId)
+  if (!allowed) return []
+
   const { data: games, error: gamesError } = await supabase
     .from('games')
     .select('id, name, date, finalized_at')

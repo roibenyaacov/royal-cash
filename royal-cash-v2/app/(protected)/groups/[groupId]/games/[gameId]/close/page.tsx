@@ -16,6 +16,7 @@ import { getGameExpenses, getExpenseParticipants } from '@/lib/db/expenses'
 import { calcAllPlayerBalances } from '@/lib/calculations/balance'
 import { calcSettlements } from '@/lib/calculations/settlement'
 import { validateGameForClose } from '@/lib/calculations/validation'
+import { translateValidationErrors } from '@/lib/i18n/translate-validation'
 import { closeGameAction } from '@/app/actions/games'
 import type {
   Game,
@@ -141,7 +142,12 @@ export default function CloseGamePage({
     )
 
     if (!validation.valid) {
-      setErrors(validation.errors)
+      setErrors(
+        translateValidationErrors(validation.errors, t, (id) => {
+          const player = players.find((p) => p.id === id)
+          return player?.display_name ?? id
+        }),
+      )
       return
     }
 
@@ -206,7 +212,10 @@ export default function CloseGamePage({
                       {player.display_name}
                     </span>
                     <span className="text-sm text-text-muted">
-                      כניסות: {symbol}{playerBuyIns}
+                      {t.close.playerBuyIns.replace(
+                        '{amount}',
+                        `${symbol}${playerBuyIns}`,
+                      )}
                     </span>
                   </div>
                   <MoneyInput
@@ -241,7 +250,7 @@ export default function CloseGamePage({
           </div>
           {difference !== 0 && (
             <div className="flex justify-between text-sm mt-1">
-              <span className="text-warning">הפרש</span>
+              <span className="text-warning">{t.close.difference}</span>
               <span className="text-warning font-mono" dir="ltr">
                 {difference > 0 ? '+' : ''}{difference}
               </span>

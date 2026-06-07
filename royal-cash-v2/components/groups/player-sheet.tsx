@@ -14,10 +14,11 @@ type Props = {
   stats?: PlayerGroupStats
   currency: Currency
   groupId: string
+  canViewPrivate: boolean
   onClose: () => void
 }
 
-export function PlayerSheet({ player, stats, currency, groupId, onClose }: Props) {
+export function PlayerSheet({ player, stats, currency, groupId, canViewPrivate, onClose }: Props) {
   const [claimUrl, setClaimUrl] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
@@ -73,8 +74,8 @@ export function PlayerSheet({ player, stats, currency, groupId, onClose }: Props
           )}
         </div>
 
-        {/* Stats */}
-        {stats && stats.games_played > 0 && (
+        {/* Stats — own linked account only */}
+        {canViewPrivate && stats && stats.games_played > 0 && (
           <div className="grid grid-cols-3 gap-2">
             <StatCell
               label={t.stats.totalBalance}
@@ -93,6 +94,10 @@ export function PlayerSheet({ player, stats, currency, groupId, onClose }: Props
           </div>
         )}
 
+        {!canViewPrivate && (
+          <p className="text-sm text-text-muted text-center">{t.players.privateStats}</p>
+        )}
+
         {/* Claim link section */}
         {!isLinked && (
           <div className="flex flex-col gap-3 border border-border rounded-xl p-4">
@@ -106,8 +111,8 @@ export function PlayerSheet({ player, stats, currency, groupId, onClose }: Props
             {claimUrl ? (
               <InviteLink
                 url={claimUrl}
-                title={`חיבור ${player.display_name}`}
-                message={`היי ${player.display_name}! לחץ על הקישור כדי לחבר את חשבון ה-Google שלך ל-Royal Cash:`}
+                title={t.invites.claimLinkTitle.replace('{name}', player.display_name)}
+                message={t.invites.claimLinkMessage.replace('{name}', player.display_name)}
               />
             ) : (
               <>
@@ -125,12 +130,13 @@ export function PlayerSheet({ player, stats, currency, groupId, onClose }: Props
           </div>
         )}
 
-        {/* View full profile */}
-        <Link href={`/groups/${groupId}/players/${player.id}`} onClick={handleClose}>
-          <Button variant="secondary" fullWidth>
-            {t.players.viewProfile} →
-          </Button>
-        </Link>
+        {canViewPrivate && (
+          <Link href={`/groups/${groupId}/players/${player.id}`} onClick={handleClose}>
+            <Button variant="secondary" fullWidth>
+              {t.players.viewProfile} →
+            </Button>
+          </Link>
+        )}
       </div>
     </BottomSheet>
   )

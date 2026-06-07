@@ -20,24 +20,38 @@ function shuffle(arr: number[]): number[] {
   return a
 }
 
+function scoreHand(hole: number[], board: number[], gameType: GameType): number {
+  if (gameType === 'omaha') return evaluateOmaha(hole, board)
+  return evaluate7([...hole, ...board])
+}
+
+/** null = deal random hole cards for that villain */
+export type VillainHole = number[] | null
+
 export function runSimulation(params: {
   heroHole: number[]
-  villainHole: number[] | null
+  /** One entry per villain; null = random hole. Defaults to one random villain. */
+  villainHoles?: VillainHole[]
   board: number[]
   gameType: GameType
   runOuts: RunOuts
   iterations?: number
 }): SimResult {
-  const { heroHole, villainHole, board, gameType, runOuts, iterations = 10000 } = params
+  const { heroHole, board, gameType, runOuts, iterations = 10000 } = params
+  const villains = params.villainHoles?.length ? params.villainHoles : [null]
 
   const holeSize = gameType === 'omaha' ? 4 : 2
   const boardNeeded = 5 - board.length
-  const villainHoleNeeded = villainHole ? 0 : holeSize
 
-  const knownSet = new Set([...heroHole, ...(villainHole ?? []), ...board])
+  const knownCards = [...heroHole, ...board]
+  for (const v of villains) {
+    if (v) knownCards.push(...v)
+  }
+  const knownSet = new Set(knownCards)
   const deck = Array.from({ length: 52 }, (_, i) => i).filter((c) => !knownSet.has(c))
 
-  const totalCardsNeeded = villainHoleNeeded + boardNeeded * runOuts
+  const randomHolesNeeded = villains.filter((v) => v === null).length * holeSize
+  const totalCardsNeeded = randomHolesNeeded + boardNeeded * runOuts
 
   let wins = 0
   let ties = 0
@@ -49,8 +63,12 @@ export function runSimulation(params: {
     const shuffled = shuffle(deck)
     let offset = 0
 
-    const vHole = villainHole ?? shuffled.slice(offset, offset + villainHoleNeeded)
-    offset += villainHoleNeeded
+    const resolvedVillains: number[][] = villains.map((v) => {
+      if (v) return v
+      const hole = shuffled.slice(offset, offset + holeSize)
+      offset += holeSize
+      return hole
+    })
 
     let runWins = 0
     let runTies = 0
@@ -59,20 +77,18 @@ export function runSimulation(params: {
     for (let run = 0; run < runOuts; run++) {
       const runBoard = [...board, ...shuffled.slice(offset + run * boardNeeded, offset + (run + 1) * boardNeeded)]
 
-      let heroScore: number
-      let villainScore: number
+      const heroScore = scoreHand(heroHole, runBoard, gameType)
+      const villainScores = resolvedVillains.map((hole) => scoreHand(hole, runBoard, gameType))
+      const bestScore = Math.max(heroScore, ...villainScores)
 
-      if (gameType === 'omaha') {
-        heroScore = evaluateOmaha(heroHole, runBoard)
-        villainScore = evaluateOmaha(vHole, runBoard)
+      if (heroScore < bestScore) {
+        runLosses++
       } else {
-        heroScore = evaluate7([...heroHole, ...runBoard])
-        villainScore = evaluate7([...vHole, ...runBoard])
+        const tiedAtBest =
+          1 + villainScores.filter((s) => s === bestScore).length
+        if (heroScore === bestScore && tiedAtBest === 1) runWins++
+        else runTies++
       }
-
-      if (heroScore > villainScore) runWins++
-      else if (heroScore === villainScore) runTies++
-      else runLosses++
     }
 
     wins += runWins / runOuts

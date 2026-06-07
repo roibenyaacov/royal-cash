@@ -41,10 +41,9 @@ export async function getGameResults(
   supabase: SupabaseClient,
   gameId: string,
 ): Promise<GameResult[]> {
-  const { data, error } = await supabase
-    .from('game_results')
-    .select('*')
-    .eq('game_id', gameId)
+  const { data, error } = await supabase.rpc('get_game_results_for_member', {
+    p_game_id: gameId,
+  })
 
   if (error) throw error
   return data ?? []
@@ -54,10 +53,9 @@ export async function getGameSettlements(
   supabase: SupabaseClient,
   gameId: string,
 ): Promise<Settlement[]> {
-  const { data, error } = await supabase
-    .from('settlements')
-    .select('*')
-    .eq('game_id', gameId)
+  const { data, error } = await supabase.rpc('get_game_settlements_for_member', {
+    p_game_id: gameId,
+  })
 
   if (error) throw error
   return data ?? []

@@ -44,7 +44,9 @@ describe('validateGameForClose', () => {
       new Map(),
     )
     expect(result.valid).toBe(false)
-    expect(result.errors.some((e) => e.includes('tamar'))).toBe(true)
+    expect(result.errors.some((e) => e.code === 'missing_cash_out' && e.params?.playerId === 'tamar')).toBe(
+      true,
+    )
   })
 
   it('fails when buy-in is not positive', () => {
@@ -56,7 +58,7 @@ describe('validateGameForClose', () => {
       new Map(),
     )
     expect(result.valid).toBe(false)
-    expect(result.errors.some((e) => e.includes('positive'))).toBe(true)
+    expect(result.errors.some((e) => e.code === 'buy_in_not_positive')).toBe(true)
   })
 
   it('fails when expense splits do not match total', () => {
@@ -83,10 +85,10 @@ describe('validateGameForClose', () => {
       new Map([['exp-1', participants]]),
     )
     expect(result.valid).toBe(false)
-    expect(result.errors.some((e) => e.includes('splits'))).toBe(true)
+    expect(result.errors.some((e) => e.code === 'expense_splits_mismatch')).toBe(true)
   })
 
-  it('fails when balances do not sum to zero', () => {
+  it('fails when cash-outs do not equal buy-ins', () => {
     const result = validateGameForClose(
       ['roi', 'tamar'],
       [makeBuyIn('roi', 100), makeBuyIn('tamar', 100)],
@@ -95,9 +97,7 @@ describe('validateGameForClose', () => {
       new Map(),
     )
     expect(result.valid).toBe(false)
-    expect(result.errors.some((e) => e.includes('must equal total buy-ins'))).toBe(
-      true,
-    )
+    expect(result.errors.some((e) => e.code === 'cash_outs_must_equal_buy_ins')).toBe(true)
   })
 
   it('passes for a balanced game with food expense', () => {

@@ -7,9 +7,26 @@ import type {
 import { calcPlayerBuyIns } from './buy-ins'
 import { calcAllPlayerBalances } from './balance'
 
+export type ValidationErrorCode =
+  | 'missing_cash_out'
+  | 'negative_cash_out'
+  | 'buy_in_not_positive'
+  | 'buy_in_not_in_roster'
+  | 'expense_not_positive'
+  | 'expense_payer_not_in_game'
+  | 'expense_splits_mismatch'
+  | 'expense_participant_not_in_game'
+  | 'cash_outs_must_equal_buy_ins'
+  | 'balances_not_zero'
+
+export type ValidationError = {
+  code: ValidationErrorCode
+  params?: Record<string, string | number>
+}
+
 export type ValidationResult = {
   valid: boolean
-  errors: string[]
+  errors: ValidationError[]
 }
 
 export function validateGameForClose(
@@ -19,57 +36,74 @@ export function validateGameForClose(
   expenses: Expense[],
   participantsByExpense: Map<string, ExpenseParticipant[]>,
 ): ValidationResult {
-  const errors: string[] = []
+  const errors: ValidationError[] = []
   const playerIdSet = new Set(playerIds)
 
   const cashOutPlayerIds = new Set(cashOuts.map((c) => c.player_id))
   for (const pid of playerIds) {
     if (!cashOutPlayerIds.has(pid)) {
-      errors.push(`Player ${pid} is missing a cash-out value`)
+      errors.push({ code: 'missing_cash_out', params: { playerId: pid } })
     }
   }
 
   for (const co of cashOuts) {
     if (co.amount < 0) {
-      errors.push(`Player ${co.player_id} has a negative cash-out`)
+      errors.push({
+        code: 'negative_cash_out',
+        params: { playerId: co.player_id },
+      })
     }
   }
 
   for (const bi of buyIns) {
     if (bi.amount <= 0) {
-      errors.push(`Buy-in for player ${bi.player_id} must be positive`)
+      errors.push({
+        code: 'buy_in_not_positive',
+        params: { playerId: bi.player_id },
+      })
     }
     if (!playerIdSet.has(bi.player_id)) {
-      errors.push(
-        `Buy-in for player ${bi.player_id} is not in the game roster`,
-      )
+      errors.push({
+        code: 'buy_in_not_in_roster',
+        params: { playerId: bi.player_id },
+      })
     }
   }
 
   for (const exp of expenses) {
     if (exp.amount <= 0) {
-      errors.push(`Expense "${exp.description}" must have a positive amount`)
+      errors.push({
+        code: 'expense_not_positive',
+        params: { description: exp.description },
+      })
     }
 
     if (!playerIdSet.has(exp.paid_by_player_id)) {
-      errors.push(
-        `Expense "${exp.description}" was paid by a player not in this game`,
-      )
+      errors.push({
+        code: 'expense_payer_not_in_game',
+        params: { description: exp.description },
+      })
     }
 
     const participants = participantsByExpense.get(exp.id) ?? []
     const totalOwed = participants.reduce((s, p) => s + p.amount_owed, 0)
     if (totalOwed !== exp.amount) {
-      errors.push(
-        `Expense "${exp.description}" splits (${totalOwed}) do not match total (${exp.amount})`,
-      )
+      errors.push({
+        code: 'expense_splits_mismatch',
+        params: {
+          description: exp.description,
+          splits: totalOwed,
+          total: exp.amount,
+        },
+      })
     }
 
     for (const p of participants) {
       if (!playerIdSet.has(p.player_id)) {
-        errors.push(
-          `Expense "${exp.description}" includes a player not in this game`,
-        )
+        errors.push({
+          code: 'expense_participant_not_in_game',
+          params: { description: exp.description },
+        })
         break
       }
     }
@@ -82,9 +116,10 @@ export function validateGameForClose(
     )
     const totalCashOut = cashOuts.reduce((s, c) => s + c.amount, 0)
     if (totalCashOut !== totalBuyIn) {
-      errors.push(
-        `Total cash-outs (${totalCashOut}) must equal total buy-ins (${totalBuyIn})`,
-      )
+      errors.push({
+        code: 'cash_outs_must_equal_buy_ins',
+        params: { cashOuts: totalCashOut, buyIns: totalBuyIn },
+      })
     }
   }
 
@@ -99,9 +134,10 @@ export function validateGameForClose(
     )
     const totalBalance = balances.reduce((s, b) => s + b.final_balance, 0)
     if (Math.abs(totalBalance) > 1) {
-      errors.push(
-        `Final balances do not sum to zero (difference: ${totalBalance})`,
-      )
+      errors.push({
+        code: 'balances_not_zero',
+        params: { difference: totalBalance },
+      })
     }
   }
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { t } from '@/lib/i18n/dictionary'
+import { useLocale } from '@/lib/i18n/locale-context'
 import {
   GroupsNavIcon,
   OddsNavIcon,
@@ -11,45 +11,44 @@ import {
   ProfileNavIcon,
 } from '@/components/layout/nav-icons'
 
-type NavItem = {
-  href: string
-  label: string
-  icon: ReactNode
-  match: (pathname: string) => boolean
-}
-
-const items: NavItem[] = [
-  {
-    href: '/groups',
-    label: t.groups.myGroups,
-    icon: <GroupsNavIcon />,
-    match: (p) => p.startsWith('/groups'),
-  },
-  {
-    href: '/tools/odds',
-    label: t.tools.oddsNav,
-    icon: <OddsNavIcon />,
-    match: (p) => p.startsWith('/tools/odds'),
-  },
-  {
-    href: '/tools/preflop',
-    label: t.tools.preflopNav,
-    icon: <PreflopNavIcon />,
-    match: (p) => p.startsWith('/tools/preflop'),
-  },
-  {
-    href: '/profile',
-    label: t.profile.title,
-    icon: <ProfileNavIcon />,
-    match: (p) => p.startsWith('/profile'),
-  },
-]
-
 export function BottomNav() {
   const pathname = usePathname()
   const [mounted, setMounted] = useState(false)
+  const { t } = useLocale()
 
   useEffect(() => setMounted(true), [])
+
+  const items: {
+    href: string
+    label: string
+    icon: ReactNode
+    match: (pathname: string) => boolean
+  }[] = [
+    {
+      href: '/groups',
+      label: t.groups.myGroups,
+      icon: <GroupsNavIcon />,
+      match: (p) => p.startsWith('/groups'),
+    },
+    {
+      href: '/tools/odds',
+      label: t.tools.oddsNav,
+      icon: <OddsNavIcon />,
+      match: (p) => p.startsWith('/tools/odds'),
+    },
+    {
+      href: '/tools/preflop',
+      label: t.tools.preflopNav,
+      icon: <PreflopNavIcon />,
+      match: (p) => p.startsWith('/tools/preflop'),
+    },
+    {
+      href: '/profile',
+      label: t.profile.title,
+      icon: <ProfileNavIcon />,
+      match: (p) => p.startsWith('/profile'),
+    },
+  ]
 
   return (
     <nav

@@ -18,7 +18,7 @@ export const POSITION_LABELS: Record<Position, string> = {
   UTG: 'UTG',
   HJ: 'HJ',
   CO: 'CO',
-  BTN: 'BTN (דילר)',
+  BTN: 'BTN',
   SB: 'SB',
 }
 

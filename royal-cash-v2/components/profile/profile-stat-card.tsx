@@ -1,9 +1,8 @@
 type ProfileStatCardProps = {
-  icon: string
+  icon: React.ReactNode
   label: string
   value: string
   valueClassName?: string
-  large?: boolean
 }
 
 export function ProfileStatCard({
@@ -11,24 +10,17 @@ export function ProfileStatCard({
   label,
   value,
   valueClassName = 'text-text-primary',
-  large = false,
 }: ProfileStatCardProps) {
   return (
-    <div className="rounded-[var(--radius-card)] bg-surface-elevated border border-border p-4 flex flex-col min-h-[120px]">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-base leading-none">{icon}</span>
-        <span className="text-sm text-text-secondary">{label}</span>
-      </div>
-      <div className="flex-1 flex items-center justify-center">
-        <p
-          className={`font-bold font-mono text-center ${
-            large ? 'text-3xl' : 'text-2xl'
-          } ${valueClassName}`}
-          dir="ltr"
-        >
-          {value}
-        </p>
-      </div>
+    <div className="rounded-[var(--radius-card)] bg-surface-elevated border border-border p-5 flex flex-col items-center gap-3 min-h-[160px] justify-center">
+      <div className="opacity-80">{icon}</div>
+      <p className="text-sm text-text-secondary text-center">{label}</p>
+      <p
+        className={`font-bold text-3xl text-center ${valueClassName}`}
+        dir="ltr"
+      >
+        {value}
+      </p>
     </div>
   )
 }

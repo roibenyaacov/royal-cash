@@ -129,11 +129,11 @@ function formatGroupedText(
 
   switch (entry.event_type) {
     case 'buy_in_added':
-      return `${playerName} — ${t.game.eventBuyInAdded} ${symbol}${amount}`
+      return `${playerName} - ${t.game.eventBuyInAdded} ${symbol}${amount}`
     case 'buy_in_removed':
-      return `${playerName} — ${t.game.eventBuyInRemoved} ${symbol}${amount}`
+      return `${playerName} - ${t.game.eventBuyInRemoved} ${symbol}${amount}`
     case 'expense_added':
-      return `${playerName} — ${t.game.eventExpenseAdded} ${symbol}${amount}${entry.description ? `: ${entry.description}` : ''}`
+      return `${playerName} - ${t.game.eventExpenseAdded} ${symbol}${amount}${entry.description ? `: ${entry.description}` : ''}`
     default:
       return ''
   }

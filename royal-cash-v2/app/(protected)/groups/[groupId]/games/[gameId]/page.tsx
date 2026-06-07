@@ -8,10 +8,10 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { PlayerCard } from '@/components/games/player-card'
-import { BuyInSheet } from '@/components/games/buy-in-sheet'
 import { ExpenseSheet } from '@/components/expenses/expense-sheet'
 import { GameActivityLog } from '@/components/games/game-activity-log'
 import { Loading } from '@/components/ui/loading'
+import { IosListGroup, IosListRow } from '@/components/ui/ios-list'
 import { createClient } from '@/lib/supabase/client'
 import { getGame, getGamePlayers } from '@/lib/db/games'
 import { getGroupPlayers } from '@/lib/db/players'
@@ -19,7 +19,6 @@ import { getGameBuyIns } from '@/lib/db/buy-ins'
 import { getGameExpenses, getExpenseParticipants } from '@/lib/db/expenses'
 import { getGameEvents } from '@/lib/db/game-events'
 import {
-  addBuyInAction,
   addDefaultBuyInAction,
   removeDefaultBuyInAction,
   setPlayerBuyInCountAction,
@@ -51,7 +50,6 @@ export default function ActiveGamePage({
   const [expenseParticipants, setExpenseParticipants] = useState<ExpenseParticipant[]>([])
   const [events, setEvents] = useState<GameEvent[]>([])
   const [loading, setLoading] = useState(true)
-  const [buyInPlayer, setBuyInPlayer] = useState<Player | null>(null)
   const [showExpense, setShowExpense] = useState(false)
   const [showAddPlayer, setShowAddPlayer] = useState(false)
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null)
@@ -155,16 +153,6 @@ export default function ActiveGamePage({
     }
   }
 
-  const handleAddBuyIn = async (playerId: string, amount: number, note?: string) => {
-    if (!gameId) return
-    try {
-      await addBuyInAction(gameId, playerId, amount, note)
-      await refreshAfterMutation()
-    } catch (err) {
-      console.error('Failed to add buy-in:', err)
-    }
-  }
-
   const handleAddExpense = async (
     paidByPlayerId: string,
     amount: number,
@@ -227,7 +215,7 @@ export default function ActiveGamePage({
         </div>
 
         {/* Player cards */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
           {players.map((player) => (
             <PlayerCard
               key={player.id}
@@ -238,7 +226,6 @@ export default function ActiveGamePage({
               onAddDefault={() => handleAddDefaultBuyIn(player.id)}
               onRemoveDefault={() => handleRemoveDefaultBuyIn(player.id)}
               onSetCount={(count) => handleSetBuyInCount(player.id, count)}
-              onCustomBuyIn={() => setBuyInPlayer(player)}
             />
           ))}
         </div>
@@ -277,15 +264,6 @@ export default function ActiveGamePage({
         </div>
       </main>
 
-      <BuyInSheet
-        open={!!buyInPlayer}
-        onClose={() => setBuyInPlayer(null)}
-        player={buyInPlayer}
-        defaultAmount={game.default_buy_in}
-        currency={game.currency}
-        onSubmit={handleAddBuyIn}
-      />
-
       <ExpenseSheet
         open={showExpense}
         onClose={() => setShowExpense(false)}
@@ -302,35 +280,31 @@ export default function ActiveGamePage({
       >
         <div className="flex flex-col gap-2">
           <p className="text-sm text-text-secondary mb-2">
-            {t.players.selectToAdd} (כניסה ראשונית: {symbol}{game.default_buy_in})
+            {t.players.selectToAdd} ({t.players.initialBuyIn.replace('{amount}', `${symbol}${game.default_buy_in}`)})
           </p>
           {playersNotInGame.length === 0 ? (
             <p className="text-sm text-text-muted text-center py-4">
               {t.players.noPlayersToAdd}
             </p>
           ) : (
-            playersNotInGame.map((player) => (
-              <button
-                key={player.id}
-                type="button"
-                onClick={() => handleAddPlayerToGame(player.id)}
-                disabled={addingPlayer === player.id}
-                className="w-full text-right"
-              >
-                <Card className="active:bg-surface-elevated transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-text-primary">
-                      {player.display_name}
-                    </span>
-                    {addingPlayer === player.id ? (
-                      <span className="text-xs text-text-muted">מוסיף...</span>
+            <IosListGroup>
+              {playersNotInGame.map((player) => (
+                <IosListRow
+                  key={player.id}
+                  onClick={() => handleAddPlayerToGame(player.id)}
+                  showChevron={false}
+                  trailing={
+                    addingPlayer === player.id ? (
+                      <span className="text-xs text-text-muted shrink-0">{t.players.addingPlayer}</span>
                     ) : (
-                      <span className="text-accent text-sm font-medium">+ הוסף</span>
-                    )}
-                  </div>
-                </Card>
-              </button>
-            ))
+                      <span className="text-accent text-[15px] font-medium shrink-0">{t.players.addPlayerShort}</span>
+                    )
+                  }
+                >
+                  <span className="font-medium text-text-primary">{player.display_name}</span>
+                </IosListRow>
+              ))}
+            </IosListGroup>
           )}
         </div>
       </BottomSheet>

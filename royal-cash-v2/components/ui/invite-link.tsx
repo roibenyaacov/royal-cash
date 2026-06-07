@@ -35,21 +35,19 @@ export function InviteLink({ url, title, message }: InviteLinkProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" fullWidth onClick={handleShare}>
+      <div className="flex flex-row flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="flex-1 min-w-[120px]" onClick={handleShare}>
             {copied ? t.invites.linkCopied : t.invites.copyLink}
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setShowQR(true)}>
+          <Button variant="secondary" size="sm" className="shrink-0" onClick={() => setShowQR(true)}>
             QR
           </Button>
+          <a href={waUrl} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-[120px]">
+            <Button variant="secondary" size="sm" fullWidth>
+              {t.invites.sendWhatsApp}
+            </Button>
+          </a>
         </div>
-        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="block">
-          <Button variant="secondary" size="sm" fullWidth>
-            {t.invites.sendWhatsApp} 💬
-          </Button>
-        </a>
-      </div>
 
       <BottomSheet
         open={showQR}

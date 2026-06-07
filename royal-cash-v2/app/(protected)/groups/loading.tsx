@@ -1,7 +1,9 @@
 import { Loading } from '@/components/ui/loading'
-import { t } from '@/lib/i18n/dictionary'
+import { getTranslations } from '@/lib/i18n/get-translations'
 
-export default function GroupsLoading() {
+export default async function GroupsLoading() {
+  const t = await getTranslations()
+
   return (
     <div className="flex-1">
       <Loading message={t.common.loading} />

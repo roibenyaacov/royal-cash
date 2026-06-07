@@ -1,14 +1,102 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect, useMemo } from 'react'
 import { t } from '@/lib/i18n/dictionary'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { RANKS, SUITS, cardRank, cardSuit, makeCard } from '@/lib/poker/evaluator'
 import { runSimulation, type GameType, type RunOuts, type SimResult } from '@/lib/poker/simulation'
 
+const MAX_VILLAINS = 4
+const CARD_ASPECT = 68 / 48
+const CARD_MAX_W = 48
+const CARD_MIN_W = 28
+const CARD_GAP = 4
+const VILLAIN_GAP = 10
+
+type CardSize = {
+  w: number
+  h: number
+  rankClass: string
+  suitClass: string
+  plusSize: number
+}
+
+function defaultCardSize(): CardSize {
+  return { w: 48, h: 68, rankClass: 'text-xl', suitClass: 'text-lg', plusSize: 24 }
+}
+
+function computeVillainLayout(
+  villainCount: number,
+  holeSize: number,
+  containerWidth: number,
+): { card: CardSize; perRow: number } {
+  if (villainCount === 0) return { card: defaultCardSize(), perRow: 0 }
+
+  const available = Math.max(containerWidth - 8, 160)
+
+  for (let perRow = villainCount; perRow >= 1; perRow--) {
+    const cardGaps = perRow * Math.max(holeSize - 1, 0) * CARD_GAP
+    const villainGaps = Math.max(perRow - 1, 0) * VILLAIN_GAP
+    const cardW = (available - cardGaps - villainGaps) / (perRow * holeSize)
+
+    if (cardW >= CARD_MIN_W) {
+      const w = Math.min(CARD_MAX_W, Math.floor(cardW))
+      const h = Math.round(w * CARD_ASPECT)
+      return {
+        perRow,
+        card: {
+          w,
+          h,
+          rankClass: w >= 42 ? 'text-xl' : w >= 36 ? 'text-base' : w >= 32 ? 'text-sm' : 'text-xs',
+          suitClass: w >= 42 ? 'text-lg' : w >= 36 ? 'text-sm' : 'text-xs',
+          plusSize: w >= 42 ? 24 : w >= 36 ? 20 : 16,
+        },
+      }
+    }
+  }
+
+  const w = CARD_MIN_W
+  const h = Math.round(w * CARD_ASPECT)
+  const groupWidth = holeSize * w + Math.max(holeSize - 1, 0) * CARD_GAP
+  const perRow = Math.max(
+    1,
+    Math.min(
+      villainCount,
+      Math.floor((available + VILLAIN_GAP) / (groupWidth + VILLAIN_GAP)),
+    ),
+  )
+
+  return {
+    perRow,
+    card: {
+      w,
+      h,
+      rankClass: 'text-xs',
+      suitClass: 'text-xs',
+      plusSize: 14,
+    },
+  }
+}
+
+function chunkIndices(count: number, perRow: number): number[][] {
+  const rows: number[][] = []
+  for (let i = 0; i < count; i += perRow) {
+    rows.push(Array.from({ length: Math.min(perRow, count - i) }, (_, j) => i + j))
+  }
+  return rows
+}
+
 // ─── Playing card ────────────────────────────────────────────────────────────
 
-function FilledCard({ card, onRemove }: { card: number; onRemove: () => void }) {
+function FilledCard({
+  card,
+  onRemove,
+  size = defaultCardSize(),
+}: {
+  card: number
+  onRemove: () => void
+  size?: CardSize
+}) {
   const rank = cardRank(card)
   const suit = cardSuit(card)
   const isRed = suit === 1 || suit === 2
@@ -17,8 +105,8 @@ function FilledCard({ card, onRemove }: { card: number; onRemove: () => void }) 
     <button
       type="button"
       onClick={onRemove}
-      className="relative active:scale-90 transition-transform"
-      style={{ width: 48, height: 68, flexShrink: 0 }}
+      className="relative active:scale-90 transition-transform shrink-0"
+      style={{ width: size.w, height: size.h }}
     >
       <div
         className="absolute inset-0 rounded flex flex-col items-center justify-center"
@@ -28,28 +116,33 @@ function FilledCard({ card, onRemove }: { card: number; onRemove: () => void }) 
           color: isRed ? '#dc2626' : '#111111',
         }}
       >
-        <span className="text-xl font-bold leading-none">{RANKS[rank]}</span>
-        <span className="text-lg leading-none mt-0.5">{SUITS[suit]}</span>
+        <span className={`${size.rankClass} font-bold leading-none`}>{RANKS[rank]}</span>
+        <span className={`${size.suitClass} leading-none mt-0.5`}>{SUITS[suit]}</span>
       </div>
     </button>
   )
 }
 
-function EmptySlot({ onTap }: { onTap: () => void }) {
+function EmptySlot({
+  onTap,
+  size = defaultCardSize(),
+}: {
+  onTap: () => void
+  size?: CardSize
+}) {
   return (
     <button
       type="button"
       onClick={onTap}
-      className="active:scale-90 transition-transform flex items-center justify-center"
+      className="active:scale-90 transition-transform flex items-center justify-center shrink-0"
       style={{
-        width: 48,
-        height: 68,
-        flexShrink: 0,
+        width: size.w,
+        height: size.h,
         borderRadius: 4,
         border: '1.5px dashed rgba(255,255,255,0.25)',
         background: 'rgba(255,255,255,0.04)',
         color: 'rgba(255,255,255,0.35)',
-        fontSize: 24,
+        fontSize: size.plusSize,
         fontWeight: 300,
       }}
     >
@@ -69,14 +162,12 @@ function CardGrid({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      {/* Rank header */}
       <div className="flex gap-1 ps-7">
         {RANKS.slice().reverse().map((r) => (
           <div key={r} className="flex-1 text-center text-[10px] text-text-muted">{r}</div>
         ))}
       </div>
 
-      {/* Suit rows: ♠ ♥ ♦ ♣ */}
       {[3, 2, 1, 0].map((suit) => (
         <div key={suit} className="flex items-center gap-1">
           <span
@@ -155,30 +246,58 @@ function ResultsPanel({ result }: { result: SimResult }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-type SlotRef = { section: 'hero' | 'board' | 'villain'; index: number }
+type SlotRef =
+  | { section: 'hero' | 'board'; index: number }
+  | { section: 'villain'; villainIndex: number; index: number }
+
+function emptyVillainRow(holeSize: number): (number | null)[] {
+  return Array(holeSize).fill(null)
+}
 
 export function OddsCalculator() {
   const [gameType, setGameType] = useState<GameType>('holdem')
   const [runOuts, setRunOuts] = useState<RunOuts>(1)
-  const [showVillain, setShowVillain] = useState(false)
 
   const holeSize = gameType === 'omaha' ? 4 : 2
 
   const [heroSlots, setHeroSlots] = useState<(number | null)[]>([null, null])
   const [boardSlots, setBoardSlots] = useState<(number | null)[]>([null, null, null, null, null])
-  const [villainSlots, setVillainSlots] = useState<(number | null)[]>([null, null])
+  const [villains, setVillains] = useState<(number | null)[][]>([])
 
   const [activeSlot, setActiveSlot] = useState<SlotRef | null>(null)
   const [result, setResult] = useState<SimResult | null>(null)
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
+  const villainsContainerRef = useRef<HTMLDivElement>(null)
+  const [villainsWidth, setVillainsWidth] = useState(320)
 
-  // Sync slot arrays when game type changes
+  useEffect(() => {
+    const el = villainsContainerRef.current
+    if (!el) return
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (width) setVillainsWidth(width)
+    })
+    observer.observe(el)
+    setVillainsWidth(el.clientWidth)
+    return () => observer.disconnect()
+  }, [])
+
+  const villainLayout = useMemo(
+    () => computeVillainLayout(villains.length, holeSize, villainsWidth),
+    [villains.length, holeSize, villainsWidth],
+  )
+  const villainRows = useMemo(
+    () => chunkIndices(villains.length, villainLayout.perRow || 1),
+    [villains.length, villainLayout.perRow],
+  )
+
   function switchGameType(gt: GameType) {
     setGameType(gt)
     const newHole = gt === 'omaha' ? 4 : 2
     setHeroSlots(Array(newHole).fill(null))
-    setVillainSlots(Array(newHole).fill(null))
+    setVillains(villains.map(() => emptyVillainRow(newHole)))
     setResult(null)
     setError('')
   }
@@ -186,37 +305,62 @@ export function OddsCalculator() {
   const allUsed = new Set<number>([
     ...heroSlots.filter((c): c is number => c !== null),
     ...boardSlots.filter((c): c is number => c !== null),
-    ...villainSlots.filter((c): c is number => c !== null),
+    ...villains.flatMap((v) => v.filter((c): c is number => c !== null)),
   ])
 
-  function getSlotsFor(section: 'hero' | 'board' | 'villain') {
-    if (section === 'hero') return heroSlots
-    if (section === 'board') return boardSlots
-    return villainSlots
+  function addVillain() {
+    if (villains.length >= MAX_VILLAINS) return
+    setVillains([...villains, emptyVillainRow(holeSize)])
+    setResult(null)
   }
 
-  function setSlots(section: 'hero' | 'board' | 'villain', slots: (number | null)[]) {
-    if (section === 'hero') setHeroSlots(slots)
-    else if (section === 'board') setBoardSlots(slots)
-    else setVillainSlots(slots)
+  function removeVillain(villainIndex: number) {
+    setVillains(villains.filter((_, i) => i !== villainIndex))
+    setResult(null)
   }
 
-  function openPicker(section: 'hero' | 'board' | 'villain', index: number) {
-    setActiveSlot({ section, index })
+  function openPicker(section: SlotRef['section'], index: number, villainIndex?: number) {
+    if (section === 'villain' && villainIndex !== undefined) {
+      setActiveSlot({ section: 'villain', villainIndex, index })
+    } else if (section === 'hero' || section === 'board') {
+      setActiveSlot({ section, index })
+    }
   }
 
-  function removeCard(section: 'hero' | 'board' | 'villain', index: number) {
-    const slots = [...getSlotsFor(section)]
-    slots[index] = null
-    setSlots(section, slots)
+  function removeCard(ref: SlotRef) {
+    if (ref.section === 'hero') {
+      const slots = [...heroSlots]
+      slots[ref.index] = null
+      setHeroSlots(slots)
+    } else if (ref.section === 'board') {
+      const slots = [...boardSlots]
+      slots[ref.index] = null
+      setBoardSlots(slots)
+    } else if (ref.section === 'villain') {
+      const rows = villains.map((row) => [...row])
+      rows[ref.villainIndex][ref.index] = null
+      setVillains(rows)
+    }
     setResult(null)
   }
 
   function placeCard(card: number) {
     if (!activeSlot) return
-    const slots = [...getSlotsFor(activeSlot.section)]
-    slots[activeSlot.index] = card
-    setSlots(activeSlot.section, slots)
+
+    if (activeSlot.section === 'hero') {
+      const slots = [...heroSlots]
+      slots[activeSlot.index] = card
+      setHeroSlots(slots)
+    } else if (activeSlot.section === 'board') {
+      const slots = [...boardSlots]
+      slots[activeSlot.index] = card
+      setBoardSlots(slots)
+    } else if (activeSlot.section === 'villain') {
+      const rows = villains.map((row) => [...row])
+      rows[activeSlot.villainIndex][activeSlot.index] = card
+      setVillains(rows)
+    }
+
     setActiveSlot(null)
     setResult(null)
     setError('')
@@ -225,7 +369,7 @@ export function OddsCalculator() {
   function clearAll() {
     setHeroSlots(Array(holeSize).fill(null))
     setBoardSlots(Array(5).fill(null))
-    setVillainSlots(Array(holeSize).fill(null))
+    setVillains([])
     setResult(null)
     setError('')
   }
@@ -240,12 +384,17 @@ export function OddsCalculator() {
 
     startTransition(() => {
       const boardCards = boardSlots.filter((c): c is number => c !== null)
-      const villainCards = villainSlots.filter((c): c is number => c !== null)
-      const vHole = showVillain && villainCards.length === holeSize ? villainCards : null
+      const villainHoles =
+        villains.length > 0
+          ? villains.map((row) => {
+              const cards = row.filter((c): c is number => c !== null)
+              return cards.length === holeSize ? cards : null
+            })
+          : undefined
 
       const res = runSimulation({
         heroHole: heroCards,
-        villainHole: vHole,
+        villainHoles,
         board: boardCards,
         gameType,
         runOuts,
@@ -255,18 +404,30 @@ export function OddsCalculator() {
     })
   }
 
-  function renderSlotRow(
+  function renderHeroOrBoardRow(
     slots: (number | null)[],
-    section: 'hero' | 'board' | 'villain',
+    section: 'hero' | 'board',
     maxCount: number,
   ) {
-    return slots.slice(0, maxCount).map((card, i) =>
-      card !== null ? (
-        <FilledCard key={i} card={card} onRemove={() => removeCard(section, i)} />
+    return slots.slice(0, maxCount).map((card, i) => {
+      const ref: SlotRef = { section, index: i }
+      return card !== null ? (
+        <FilledCard key={i} card={card} onRemove={() => removeCard(ref)} />
       ) : (
         <EmptySlot key={i} onTap={() => openPicker(section, i)} />
-      ),
-    )
+      )
+    })
+  }
+
+  function renderVillainRow(villainSlots: (number | null)[], villainIndex: number, size: CardSize) {
+    return villainSlots.slice(0, holeSize).map((card, i) => {
+      const ref: SlotRef = { section: 'villain', villainIndex, index: i }
+      return card !== null ? (
+        <FilledCard key={i} card={card} size={size} onRemove={() => removeCard(ref)} />
+      ) : (
+        <EmptySlot key={i} size={size} onTap={() => openPicker('villain', i, villainIndex)} />
+      )
+    })
   }
 
   return (
@@ -316,7 +477,7 @@ export function OddsCalculator() {
 
       {/* Poker table */}
       <div
-        className="w-full flex flex-col items-center justify-between py-6 px-4 gap-4"
+        className="w-full flex flex-col items-center justify-between py-5 px-4 gap-3"
         style={{
           borderRadius: 80,
           background: 'radial-gradient(ellipse at center, #1e1e1e 0%, #0a0a0a 100%)',
@@ -325,66 +486,96 @@ export function OddsCalculator() {
           minHeight: 300,
         }}
       >
-        {/* Villain / Opponent */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted uppercase tracking-widest">יריב</span>
-            {!showVillain ? (
+        {/* Villains */}
+        <div ref={villainsContainerRef} className="flex flex-col items-center gap-2 w-full">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <span className="text-xs text-text-muted uppercase tracking-widest">{t.tools.villainCards}</span>
+            {villains.length < MAX_VILLAINS && (
               <button
                 type="button"
-                onClick={() => setShowVillain(true)}
+                onClick={addVillain}
                 className="text-[10px] text-accent border border-accent/40 rounded-full px-2 py-0.5"
               >
-                + הוסף
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { setShowVillain(false); setVillainSlots(Array(holeSize).fill(null)) }}
-                className="text-[10px] text-text-muted"
-              >
-                הסר
+                + {t.tools.addVillain}
               </button>
             )}
+            {villains.length > 0 && (
+              <span className="text-[10px] text-text-muted">
+                {villains.length}/{MAX_VILLAINS}
+              </span>
+            )}
           </div>
-          <div className="flex gap-2">
-            {showVillain
-              ? renderSlotRow(villainSlots, 'villain', holeSize)
-              : Array(holeSize).fill(null).map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      width: 48, height: 68, flexShrink: 0,
-                      borderRadius: 4,
-                      border: '1px dashed rgba(255,255,255,0.08)',
-                      background: 'rgba(255,255,255,0.02)',
-                    }}
-                  />
-                ))}
-          </div>
+
+          {villains.length === 0 ? (
+            <div className="flex gap-2">
+              {Array(holeSize).fill(null).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 48,
+                    height: 68,
+                    flexShrink: 0,
+                    borderRadius: 4,
+                    border: '1px dashed rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.02)',
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 w-full">
+              {villainRows.map((row, rowIndex) => (
+                <div
+                  key={rowIndex}
+                  className="flex flex-row items-end justify-center w-full"
+                  style={{ gap: VILLAIN_GAP }}
+                >
+                  {row.map((villainIndex) => (
+                    <div key={villainIndex} className="flex flex-col items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <span className="text-[9px] text-text-muted uppercase tracking-wide">
+                          {t.tools.villainNumber} {villainIndex + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeVillain(villainIndex)}
+                          className="text-[9px] text-text-muted hover:text-negative transition-colors leading-none"
+                          aria-label={t.tools.removeVillain}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="flex" style={{ gap: CARD_GAP }}>
+                        {renderVillainRow(villains[villainIndex], villainIndex, villainLayout.card)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Board */}
         <div className="flex flex-col items-center gap-2">
-          <span className="text-xs text-text-muted uppercase tracking-widest">לוח</span>
+          <span className="text-xs text-text-muted uppercase tracking-widest">{t.tools.boardCards}</span>
           <div className="flex gap-1.5">
-            {/* Flop: slots 0-2 */}
             <div className="flex gap-1.5">
-              {renderSlotRow(boardSlots, 'board', 3)}
+              {renderHeroOrBoardRow(boardSlots, 'board', 3)}
             </div>
-            {/* Turn + River */}
             <div
               className="w-px self-stretch mx-0.5"
               style={{ background: 'rgba(255,255,255,0.08)' }}
             />
             <div className="flex gap-1.5">
-              {boardSlots.slice(3).map((card, i) =>
-                card !== null ? (
-                  <FilledCard key={i + 3} card={card} onRemove={() => removeCard('board', i + 3)} />
+              {boardSlots.slice(3).map((card, i) => {
+                const ref: SlotRef = { section: 'board', index: i + 3 }
+                return card !== null ? (
+                  <FilledCard key={i + 3} card={card} onRemove={() => removeCard(ref)} />
                 ) : (
                   <EmptySlot key={i + 3} onTap={() => openPicker('board', i + 3)} />
-                ),
-              )}
+                )
+              })}
             </div>
           </div>
         </div>
@@ -392,21 +583,18 @@ export function OddsCalculator() {
         {/* Hero hand */}
         <div className="flex flex-col items-center gap-2">
           <div className="flex gap-2">
-            {renderSlotRow(heroSlots, 'hero', holeSize)}
+            {renderHeroOrBoardRow(heroSlots, 'hero', holeSize)}
           </div>
           <span className="text-xs uppercase tracking-widest" style={{ color: 'var(--color-accent)' }}>
-            הקלפים שלי
+            {t.tools.myCards}
           </span>
         </div>
       </div>
 
-      {/* Error */}
       {error && <p className="text-sm text-negative text-center">{error}</p>}
 
-      {/* Results */}
       {result && <ResultsPanel result={result} />}
 
-      {/* Actions */}
       <button
         type="button"
         onClick={calculate}
@@ -428,16 +616,12 @@ export function OddsCalculator() {
         {t.tools.clearAll}
       </button>
 
-      {/* Card picker sheet */}
       <BottomSheet
         open={activeSlot !== null}
         onClose={() => setActiveSlot(null)}
         title={t.tools.selectCards}
       >
-        <CardGrid
-          selected={allUsed}
-          onSelect={placeCard}
-        />
+        <CardGrid selected={allUsed} onSelect={placeCard} />
         <p className="text-xs text-text-muted text-center mt-3">{t.tools.iterations}</p>
       </BottomSheet>
     </div>
