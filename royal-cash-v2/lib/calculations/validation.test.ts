@@ -100,6 +100,31 @@ describe('validateGameForClose', () => {
     expect(result.errors.some((e) => e.code === 'cash_outs_must_equal_buy_ins')).toBe(true)
   })
 
+  it('passes with personal expense', () => {
+    const expense: Expense = {
+      id: 'exp-1',
+      game_id: 'g1',
+      paid_by_player_id: 'roi',
+      amount: 80,
+      description: 'Beer',
+      split_type: 'personal',
+      created_by: 'host',
+      created_at: '',
+    }
+    const participants: ExpenseParticipant[] = [
+      { id: '1', expense_id: 'exp-1', player_id: 'tamar', amount_owed: 80 },
+    ]
+
+    const result = validateGameForClose(
+      ['roi', 'tamar'],
+      [makeBuyIn('roi', 100), makeBuyIn('tamar', 100)],
+      [makeCashOut('roi', 180), makeCashOut('tamar', 20)],
+      [expense],
+      new Map([['exp-1', participants]]),
+    )
+    expect(result.valid).toBe(true)
+  })
+
   it('passes for a balanced game with food expense', () => {
     const expense: Expense = {
       id: 'exp-1',

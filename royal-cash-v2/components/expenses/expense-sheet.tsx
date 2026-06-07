@@ -1,11 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { t } from '@/lib/i18n/dictionary'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import {
+  buildExpenseParticipants,
+  sumCustomAmounts,
+} from '@/lib/calculations/expense-split'
 import type { Currency, ExpenseSplitType, Player } from '@/lib/domain/types'
 
 type ExpenseSheetProps = {
@@ -22,6 +26,12 @@ type ExpenseSheetProps = {
   ) => void
 }
 
+function fill(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) =>
+    key in vars ? String(vars[key]) : `{${key}}`,
+  )
+}
+
 export function ExpenseSheet({
   open,
   onClose,
@@ -36,14 +46,32 @@ export function ExpenseSheet({
   const [participantIds, setParticipantIds] = useState<Set<string>>(
     new Set(players.map((p) => p.id)),
   )
+  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
+  const [personalOwerId, setPersonalOwerId] = useState<string>('')
+  const [error, setError] = useState('')
 
-  const amountNum = parseInt(amount) || 0
+  const amountNum = parseInt(amount, 10) || 0
+  const symbol = t.currency[currency]
+
   const perPerson = useMemo(() => {
     if (splitType !== 'equal_split' || participantIds.size === 0) return 0
     return Math.floor(amountNum / participantIds.size)
   }, [amountNum, participantIds.size, splitType])
 
+  const customSum = useMemo(
+    () => sumCustomAmounts([...participantIds], customAmounts),
+    [participantIds, customAmounts],
+  )
+
+  useEffect(() => {
+    if (splitType === 'personal' && paidBy && !personalOwerId) {
+      const first = players.find((p) => p.id !== paidBy)
+      if (first) setPersonalOwerId(first.id)
+    }
+  }, [splitType, paidBy, personalOwerId, players])
+
   const toggleParticipant = (id: string) => {
+    if (splitType === 'personal') return
     setParticipantIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -52,27 +80,57 @@ export function ExpenseSheet({
     })
   }
 
-  const handleSubmit = () => {
-    if (!paidBy || !amountNum || !description.trim() || participantIds.size === 0) return
-
-    let parts: { playerId: string; amountOwed: number }[]
-
-    if (splitType === 'equal_split') {
-      const base = Math.floor(amountNum / participantIds.size)
-      const remainder = amountNum - base * participantIds.size
-      const ids = [...participantIds]
-      parts = ids.map((id, i) => ({
-        playerId: id,
-        amountOwed: base + (i < remainder ? 1 : 0),
-      }))
+  const handleSplitTypeChange = (type: ExpenseSplitType) => {
+    setSplitType(type)
+    setError('')
+    if (type === 'personal') {
+      setParticipantIds(new Set())
+      const first = players.find((p) => p.id !== paidBy)
+      setPersonalOwerId(first?.id ?? '')
     } else {
-      parts = [...participantIds].map((id) => ({
-        playerId: id,
-        amountOwed: amountNum,
-      }))
+      setParticipantIds(new Set(players.map((p) => p.id)))
+      setPersonalOwerId('')
+    }
+  }
+
+  const handleSubmit = () => {
+    setError('')
+    if (!paidBy || !amountNum || !description.trim()) return
+
+    if (splitType === 'personal') {
+      if (!personalOwerId) return
+    } else if (participantIds.size === 0) {
+      return
     }
 
-    onSubmit(paidBy, amountNum, description.trim(), splitType, parts)
+    const customParsed: Record<string, number> = {}
+    if (splitType === 'custom_split') {
+      for (const id of participantIds) {
+        customParsed[id] = parseInt(customAmounts[id] ?? '0', 10) || 0
+      }
+    }
+
+    const result = buildExpenseParticipants({
+      splitType,
+      amount: amountNum,
+      participantIds: [...participantIds],
+      customAmounts: splitType === 'custom_split' ? customParsed : undefined,
+      personalOwerId: splitType === 'personal' ? personalOwerId : undefined,
+    })
+
+    if (!result.ok) {
+      if (result.error === 'split_sum_mismatch') {
+        setError(
+          fill(t.expenses.splitSumMismatch, {
+            current: customSum,
+            total: amountNum,
+          }),
+        )
+      }
+      return
+    }
+
+    onSubmit(paidBy, amountNum, description.trim(), splitType, result.participants)
     resetForm()
     onClose()
   }
@@ -83,20 +141,30 @@ export function ExpenseSheet({
     setDescription('')
     setSplitType('equal_split')
     setParticipantIds(new Set(players.map((p) => p.id)))
+    setCustomAmounts({})
+    setPersonalOwerId('')
+    setError('')
   }
 
-  const symbol = t.currency[currency]
+  const canSubmit =
+    paidBy &&
+    amountNum > 0 &&
+    description.trim() &&
+    (splitType === 'personal'
+      ? !!personalOwerId
+      : participantIds.size > 0 &&
+        (splitType !== 'custom_split' || customSum === amountNum))
 
   return (
     <BottomSheet open={open} onClose={onClose} title={t.expenses.title}>
       <div className="flex flex-col gap-4">
-        {/* Who paid */}
         <div>
           <p className="text-sm text-text-secondary mb-2">{t.expenses.whoPaid}</p>
           <div className="flex flex-wrap gap-2">
             {players.map((p) => (
               <button
                 key={p.id}
+                type="button"
                 onClick={() => setPaidBy(p.id)}
                 className={`rounded-full px-3 py-1.5 text-sm border min-h-[36px] transition-colors ${
                   paidBy === p.id
@@ -121,22 +189,23 @@ export function ExpenseSheet({
           label={t.expenses.whatFor}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="פיצה"
+          placeholder={t.expenses.descriptionPlaceholder}
         />
 
-        {/* Split type */}
-        <div>
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2 flex-wrap">
             {(
               [
                 ['equal_split', t.expenses.equalSplit],
                 ['custom_split', t.expenses.customSplit],
+                ['personal', t.expenses.personalExpense],
               ] as const
             ).map(([type, label]) => (
               <button
                 key={type}
-                onClick={() => setSplitType(type)}
-                className={`flex-1 rounded-[var(--radius-button)] px-2 py-2 text-xs border min-h-[36px] transition-colors ${
+                type="button"
+                onClick={() => handleSplitTypeChange(type)}
+                className={`flex-1 min-w-[90px] rounded-[var(--radius-button)] px-2 py-2 text-xs border min-h-[36px] transition-colors ${
                   splitType === type
                     ? 'bg-accent/20 border-accent text-accent'
                     : 'bg-surface-elevated border-border text-text-secondary'
@@ -148,36 +217,87 @@ export function ExpenseSheet({
           </div>
         </div>
 
-        {/* Participants */}
-        <div>
-          <p className="text-sm text-text-secondary mb-2">{t.expenses.whoParticipates}</p>
-          <div className="flex flex-wrap gap-2">
-            {players.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => toggleParticipant(p.id)}
-                className={`rounded-full px-3 py-1.5 text-sm border min-h-[36px] transition-colors ${
-                  participantIds.has(p.id)
-                    ? 'bg-accent/20 border-accent text-accent'
-                    : 'bg-surface-elevated border-border text-text-muted'
-                }`}
-              >
-                {p.display_name}
-              </button>
-            ))}
+        {splitType === 'personal' ? (
+          <div>
+            <p className="text-sm text-text-secondary mb-2">{t.expenses.whoOwes}</p>
+            <div className="flex flex-wrap gap-2">
+              {players.filter((p) => p.id !== paidBy).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPersonalOwerId(p.id)}
+                  className={`rounded-full px-3 py-1.5 text-sm border min-h-[36px] transition-colors ${
+                    personalOwerId === p.id
+                      ? 'bg-accent/20 border-accent text-accent'
+                      : 'bg-surface-elevated border-border text-text-secondary'
+                  }`}
+                >
+                  {p.display_name}
+                </button>
+              ))}
+            </div>
           </div>
-          {splitType === 'equal_split' && amountNum > 0 && participantIds.size > 0 && (
-            <p className="text-xs text-text-muted mt-2">
-              {symbol}{perPerson} לאדם
-            </p>
-          )}
-        </div>
+        ) : (
+          <div>
+            <p className="text-sm text-text-secondary mb-2">{t.expenses.whoParticipates}</p>
+            <div className="flex flex-wrap gap-2">
+              {players.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => toggleParticipant(p.id)}
+                  className={`rounded-full px-3 py-1.5 text-sm border min-h-[36px] transition-colors ${
+                    participantIds.has(p.id)
+                      ? 'bg-accent/20 border-accent text-accent'
+                      : 'bg-surface-elevated border-border text-text-muted'
+                  }`}
+                >
+                  {p.display_name}
+                </button>
+              ))}
+            </div>
 
-        <Button
-          fullWidth
-          onClick={handleSubmit}
-          disabled={!paidBy || !amountNum || !description.trim() || participantIds.size === 0}
-        >
+            {splitType === 'equal_split' && amountNum > 0 && participantIds.size > 0 && (
+              <p className="text-xs text-text-muted mt-2">
+                {fill(t.expenses.perPerson, { amount: `${symbol}${perPerson}` })}
+              </p>
+            )}
+
+            {splitType === 'custom_split' && participantIds.size > 0 && (
+              <div className="flex flex-col gap-3 mt-3">
+                {[...participantIds].map((id) => {
+                  const player = players.find((p) => p.id === id)
+                  if (!player) return null
+                  return (
+                    <MoneyInput
+                      key={id}
+                      label={player.display_name}
+                      value={customAmounts[id] ?? ''}
+                      onChange={(e) =>
+                        setCustomAmounts((prev) => ({
+                          ...prev,
+                          [id]: e.target.value,
+                        }))
+                      }
+                      currency={currency}
+                    />
+                  )
+                })}
+                {amountNum > 0 && customSum !== amountNum && (
+                  <p className="text-xs text-warning">
+                    {fill(t.expenses.customSplitRemaining, {
+                      amount: `${symbol}${amountNum - customSum}`,
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {error && <p className="text-sm text-negative">{error}</p>}
+
+        <Button fullWidth onClick={handleSubmit} disabled={!canSubmit}>
           {t.expenses.saveExpense}
         </Button>
       </div>

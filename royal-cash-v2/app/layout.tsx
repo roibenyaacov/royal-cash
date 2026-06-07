@@ -6,6 +6,14 @@ import { getLocale, localeMeta } from '@/lib/i18n/get-translations'
 export const metadata: Metadata = {
   title: 'Royal Cash',
   description: 'Close the night without the headache',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Royal Cash',
+  },
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export const viewport: Viewport = {

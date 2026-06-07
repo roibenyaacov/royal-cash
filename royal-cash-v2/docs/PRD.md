@@ -1466,3 +1466,208 @@ that +150 counts toward Roi's stats.
 It does not matter whether Tamar paid Roi directly
 or whether several players paid Roi through settlements.
 ```
+
+---
+
+## 19. What Is In Scope For The First Build
+
+The app should be planned for the full product, but implementation should start with the core product flow.
+
+In scope for the first build:
+
+1. Clean project structure.
+2. Hebrew-first mobile UI foundation.
+3. RTL support from the beginning.
+4. Domain TypeScript types.
+5. Pure calculation modules.
+6. Example data for testing calculations.
+7. Local state flow for the core game experience.
+8. Create group flow.
+9. Add group players.
+10. Create game flow.
+11. Select players for a game.
+12. Add buy-ins and re-buys.
+13. Add expenses under the Hebrew feature name "היינו רעבים".
+14. Support equal split, custom split, and personal expense.
+15. Enter cash-outs.
+16. Calculate final balances.
+17. Generate optimized settlements.
+18. Share summary text.
+19. Prepare Supabase schema.
+20. Prepare Google Auth integration.
+21. Prepare database structure for future stats.
+
+The first build should feel like a real product, but implementation should still happen in controlled phases.
+
+---
+
+## 20. What Is Out Of Scope For The First Build
+
+Do not implement these in the first build:
+
+- Real money payment processing
+- Bit payment integration
+- Internal wallet
+- Public club marketplace
+- Public leaderboard
+- Chat
+- Poker odds calculator
+- Poker hand calculator
+- Live decision assistance
+- Preflop chart tool
+- Native mobile app
+- Complex multi-role permissions UI
+- Advanced analytics dashboard
+
+These may be considered later only after the core app is stable.
+
+The core app must remain focused on:
+
+```text
+Groups
+Players
+Games
+Buy-ins
+Expenses
+Cash-outs
+Final balances
+Settlements
+History
+```
+
+---
+
+## 21. Future Tools Area
+
+Royal Cash may later include a separate tools area for educational poker-related utilities such as preflop reference charts or hand review tools.
+
+These tools are not part of the core settlement flow.
+
+They should not affect the architecture of:
+
+- Groups
+- Games
+- Buy-ins
+- Expenses
+- Cash-outs
+- Settlements
+
+Do not implement poker hand calculators, odds calculators, live decision tools, or preflop charts in the first build.
+
+Prepare only a future navigation area if needed, but do not build these tools now.
+
+---
+
+## 22. Development Principles
+
+Cursor should follow these rules:
+
+- Do not create huge files.
+- Do not mix UI, database, and calculation logic.
+- Do not place settlement logic inside React components.
+- Do not add features that are not requested.
+- Do not over-engineer.
+- Keep types clear.
+- Keep files small.
+- Prefer simple readable code.
+- Use English for code, file names, and internal naming.
+- Use Hebrew for the first user-facing UI.
+- Support RTL layout.
+- Keep business logic reusable.
+- Implement in phases.
+- Explain major architectural decisions before coding.
+- Do not modify unrelated files.
+- When generating code, clearly state which files are being created or changed.
+
+---
+
+## 23. Recommended Build Order
+
+The recommended build order is:
+
+1. Create clean folder structure.
+2. Configure RTL and Hebrew-first UI foundation.
+3. Create domain types.
+4. Create calculation modules.
+5. Create calculation examples/tests.
+6. Create mobile-first UI shell.
+7. Build local game flow:
+   - create group
+   - add players
+   - create game
+   - select players
+   - add buy-ins
+   - add expenses through "היינו רעבים"
+   - enter cash-outs
+   - calculate results
+   - generate settlements
+   - share summary
+8. Add Supabase schema.
+9. Add Supabase Auth with Google.
+10. Add database integration for groups, players, and games.
+11. Add Row Level Security.
+12. Add Realtime.
+13. Add Vercel deployment.
+14. Add PWA polish.
+15. Add statistics screens.
+16. Consider future tools area only after the core app is stable.
+
+---
+
+## 24. Cursor Planning Request
+
+Before writing code, Cursor should read this PRD and produce a technical implementation plan.
+
+Cursor should return:
+
+1. Recommended folder structure.
+2. Core TypeScript domain models.
+3. Calculation modules.
+4. Supabase database schema plan.
+5. Authentication plan with Google login.
+6. RLS/security plan.
+7. iPhone-first screen flow.
+8. Hebrew-first and RTL implementation plan.
+9. How to integrate design references from Stitch.
+10. Development phases.
+11. First exact files to create.
+12. Risks that could make the codebase messy.
+13. How to avoid those risks.
+
+Cursor must not write code until the plan is approved.
+
+## Player Account Linking and Invites
+
+Players and authenticated users are separate entities.
+
+A player can exist without a registered user account. This allows the host to add manual players during a game.
+
+A player may later be linked to an authenticated user account through a secure claim invite flow.
+
+Manual players should have:
+
+- display_name
+- optional phone
+- linked_user_id = null
+
+When the player connects their Google account through a valid invite link, the app sets:
+
+- linked_user_id = authenticated user id
+
+The app must prevent users from claiming the wrong player.
+
+Player claim links should:
+
+- be token-based
+- be unique
+- expire after a defined period
+- be usable only once
+- record who used them and when
+
+The app should support invite links and QR codes for:
+
+1. Joining a group.
+2. Linking a manual player to a user account.
+3. Opening an active game when the user has permission.
+
+QR codes should encode secure invite URLs.

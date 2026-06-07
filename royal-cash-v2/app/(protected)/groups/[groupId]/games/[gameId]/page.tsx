@@ -11,6 +11,10 @@ import { PlayerCard } from '@/components/games/player-card'
 import { ExpenseSheet } from '@/components/expenses/expense-sheet'
 import { GameActivityLog } from '@/components/games/game-activity-log'
 import { Loading } from '@/components/ui/loading'
+import { InviteLink } from '@/components/ui/invite-link'
+import { HeaderIconButton } from '@/components/ui/header-icon-button'
+import { generateGameAccessLink } from '@/app/actions/invites'
+import { useGameRealtime } from '@/hooks/use-game-realtime'
 import { IosListGroup, IosListRow } from '@/components/ui/ios-list'
 import { createClient } from '@/lib/supabase/client'
 import { getGame, getGamePlayers } from '@/lib/db/games'
@@ -52,6 +56,9 @@ export default function ActiveGamePage({
   const [loading, setLoading] = useState(true)
   const [showExpense, setShowExpense] = useState(false)
   const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const [gameAccessUrl, setGameAccessUrl] = useState('')
+  const [generatingShare, setGeneratingShare] = useState(false)
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null)
 
   useEffect(() => {
@@ -107,6 +114,8 @@ export default function ActiveGamePage({
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useGameRealtime(gameId || null, fetchData)
 
   const refreshAfterMutation = useCallback(async () => {
     await fetchData()
@@ -187,6 +196,26 @@ export default function ActiveGamePage({
     router.push(`/groups/${groupId}/games/${gameId}/close`)
   }
 
+  async function handleGenerateGameLink() {
+    if (!gameId) return
+    setGeneratingShare(true)
+    try {
+      const { token } = await generateGameAccessLink(gameId)
+      setGameAccessUrl(`${window.location.origin}/game/${token}`)
+    } catch (err) {
+      console.error('Failed to generate game link:', err)
+    } finally {
+      setGeneratingShare(false)
+    }
+  }
+
+  function handleOpenShare() {
+    setShowShare(true)
+    if (!gameAccessUrl) {
+      void handleGenerateGameLink()
+    }
+  }
+
   if (loading || !game) {
     return (
       <>
@@ -204,7 +233,15 @@ export default function ActiveGamePage({
 
   return (
     <>
-      <PageHeader title={game.name} showBack />
+      <PageHeader
+        title={game.name}
+        showBack
+        action={
+          <HeaderIconButton label={t.invites.shareGameLink} onClick={handleOpenShare}>
+            <LinkIcon />
+          </HeaderIconButton>
+        }
+      />
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
         {/* Summary row */}
@@ -308,7 +345,50 @@ export default function ActiveGamePage({
           )}
         </div>
       </BottomSheet>
+
+      <BottomSheet
+        open={showShare}
+        onClose={() => setShowShare(false)}
+        title={t.invites.shareGameLink}
+      >
+        <div className="flex flex-col gap-4">
+          {generatingShare ? (
+            <div className="flex justify-center py-4">
+              <Loading />
+            </div>
+          ) : gameAccessUrl ? (
+            <InviteLink
+              url={gameAccessUrl}
+              title={t.invites.viewGame}
+              message={t.invites.viewGame}
+            />
+          ) : (
+            <Button fullWidth onClick={handleGenerateGameLink}>
+              {t.invites.generateGameLink}
+            </Button>
+          )}
+        </div>
+      </BottomSheet>
     </>
+  )
+}
+
+function LinkIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      className="w-[18px] h-[18px] shrink-0"
+      aria-hidden
+    >
+      <path d="M6.5 9.5 9.5 6.5" />
+      <path d="M8.5 3.5h4v4" />
+      <path d="M12.5 3.5 6.5 9.5" />
+      <path d="M3.5 6.5v6h6" />
+    </svg>
   )
 }
 
