@@ -8,7 +8,7 @@ export const he = {
     loggingIn: 'מתחבר...',
   },
   groups: {
-    myGroups: 'חבורות',
+    myGroups: 'החבורות שלי',
     createGroup: 'צור חבורה חדשה',
     noGroups: 'אין לך עדיין חבורות',
     groupName: 'שם החבורה',
@@ -258,6 +258,10 @@ export const he = {
     noData: 'אין נתונים',
     tryAgain: 'נסה שוב',
     somethingWentWrong: 'משהו השתבש. נסה שוב.',
+    language: 'שפה',
+    chooseLanguage: 'בחר שפה',
+    hebrew: 'עברית',
+    english: 'English',
   },
   validation: {
     missingCashOut: 'ל-{name} חסר סכום יציאה',

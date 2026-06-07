@@ -10,7 +10,7 @@ export const en = {
     loggingIn: 'Signing in...',
   },
   groups: {
-    myGroups: 'Groups',
+    myGroups: 'My groups',
     createGroup: 'Create Group',
     noGroups: "You don't have any groups yet",
     groupName: 'Group name',
@@ -260,6 +260,10 @@ export const en = {
     noData: 'No data',
     tryAgain: 'Try again',
     somethingWentWrong: 'Something went wrong. Please try again.',
+    language: 'Language',
+    chooseLanguage: 'Choose language',
+    hebrew: 'עברית',
+    english: 'English',
   },
   validation: {
     missingCashOut: '{name} is missing a cash-out amount',
