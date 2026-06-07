@@ -1,0 +1,242 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS Variables */
+:root {
+  --bg-color: #121212;
+  --card-bg: #1e1e1e;
+  --text-main: #F5F5DC;
+  --gold: #D4AF37;
+  --green: #2ecc71;
+  --red: #e74c3c;
+  --gray: #888;
+  --bit-blue: #0066CC;
+}
+
+/* Base Styles */
+body {
+  @apply bg-bg-dark text-text-main min-h-screen;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* RTL Support */
+html[dir="rtl"] {
+  text-align: right;
+}
+
+html[dir="ltr"] {
+  text-align: left;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D4AF37;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #E5C158;
+}
+
+/* Input Styling */
+input, select {
+  @apply w-full p-3 bg-black border border-gray-700 text-white rounded-lg;
+  box-sizing: border-box;
+}
+
+input:focus, select:focus {
+  @apply outline-none border-gold;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+input::placeholder {
+  @apply text-muted;
+}
+
+/* Number input - remove spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Utility Classes */
+@layer components {
+  .btn-gold {
+    @apply bg-gold text-black font-bold py-3 px-4 rounded-lg w-full;
+    @apply transition-all duration-200 hover:bg-gold-light active:scale-95;
+  }
+
+  .btn-outline {
+    @apply bg-transparent border border-gold text-gold py-3 px-4 rounded-lg w-full;
+    @apply transition-all duration-200 hover:bg-gold hover:text-black;
+  }
+
+  .btn-danger {
+    @apply bg-danger text-white font-bold py-3 px-4 rounded-lg w-full;
+    @apply transition-all duration-200 hover:bg-red-600 active:scale-95;
+  }
+
+  .btn-bit {
+    @apply bg-bit-blue text-white font-bold py-2 px-4 rounded-lg;
+    @apply transition-all duration-200 hover:bg-blue-700;
+  }
+
+  .card {
+    @apply bg-card-bg border border-gray-800 rounded-xl p-4 mb-4;
+  }
+
+  .card-gold {
+    @apply bg-card-bg border border-gold rounded-xl p-4 mb-4;
+  }
+
+  .player-row {
+    @apply flex justify-between items-center bg-card-hover p-3 rounded-lg mb-2;
+    @apply border-l-4 border-gold transition-all duration-300;
+  }
+
+  .player-row:hover {
+    @apply bg-opacity-80;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/90 z-50 flex justify-center items-center p-4;
+  }
+
+  .modal-box {
+    @apply bg-card-bg border border-gold rounded-xl p-5 w-full max-w-sm max-h-[90vh] overflow-y-auto;
+  }
+
+  .hof-stat {
+    @apply bg-card-hover p-4 rounded-lg border-l-4 border-gold;
+  }
+
+  .transfer-row {
+    @apply flex justify-between items-center p-4 bg-card-hover rounded-lg mb-3;
+  }
+
+  .toast {
+    @apply fixed bottom-5 right-5 bg-gold text-black px-5 py-4 rounded-lg shadow-lg z-50;
+    @apply animate-slide-in;
+  }
+
+  .game-log-item {
+    @apply p-2 border-b border-gray-800 text-sm;
+  }
+
+  .game-log-item:last-child {
+    @apply border-b-0;
+  }
+
+  /* Auth Tabs */
+  .auth-tab {
+    @apply flex-1 py-3 text-center bg-card-bg border border-gray-700 cursor-pointer;
+    @apply transition-all duration-200;
+  }
+
+  .auth-tab:first-child {
+    @apply rounded-l-lg;
+  }
+
+  .auth-tab:last-child {
+    @apply rounded-r-lg;
+  }
+
+  .auth-tab.active {
+    @apply bg-gold text-black font-bold;
+  }
+
+  /* League Table */
+  .league-table {
+    @apply w-full border-collapse mt-3;
+  }
+
+  .league-table th {
+    @apply text-right text-muted p-2 border-b border-gray-700 font-normal;
+  }
+
+  .league-table td {
+    @apply p-3 border-b border-gray-800;
+  }
+
+  /* Profit/Loss Colors */
+  .profit {
+    @apply text-success;
+  }
+
+  .loss {
+    @apply text-danger;
+  }
+
+  /* Rebuy Controls */
+  .rebuy-btn {
+    @apply w-8 h-8 rounded-full bg-transparent border border-gold text-gold;
+    @apply flex items-center justify-center text-lg cursor-pointer;
+    @apply transition-all duration-200 hover:bg-gold hover:text-black;
+    @apply disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gold;
+  }
+
+  .rebuy-input {
+    @apply w-14 text-center font-bold border-2 border-transparent rounded-lg p-2;
+    @apply bg-gold/10 text-text-main transition-all duration-200;
+  }
+
+  .rebuy-input:focus {
+    @apply border-gold bg-gold/20;
+    box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+  }
+
+  /* Remove Player Button */
+  .remove-player-btn {
+    @apply w-7 h-7 rounded-full bg-danger/10 border border-danger text-danger;
+    @apply flex items-center justify-center text-sm cursor-pointer opacity-70;
+    @apply transition-all duration-200 hover:opacity-100 hover:bg-danger/20;
+  }
+
+  /* Toggle Container */
+  .toggle-container {
+    @apply flex bg-black rounded-full border border-gray-700 overflow-hidden;
+  }
+
+  .toggle-btn {
+    @apply flex-1 py-2 text-center cursor-pointer text-sm text-muted;
+    @apply transition-all duration-200;
+  }
+
+  .toggle-btn.active {
+    @apply bg-gold text-black font-bold;
+  }
+
+  /* Skeleton Loading */
+  .skeleton {
+    @apply bg-gray-800 animate-pulse rounded;
+  }
+}
+
+/* LTR Adjustments */
+html[dir="ltr"] .league-table th {
+  @apply text-left;
+}
+
+html[dir="ltr"] .player-row {
+  @apply border-l-0 border-r-4;
+}
+
+html[dir="ltr"] .hof-stat {
+  @apply border-l-0 border-r-4;
+}

@@ -1,0 +1,165 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { t } from '@/lib/i18n/dictionary'
+import { BottomSheet } from '@/components/ui/bottom-sheet'
+import { Button } from '@/components/ui/button'
+import { InviteLink } from '@/components/ui/invite-link'
+import { generatePlayerClaimLink } from '@/app/actions/invites'
+import type { Player, PlayerGroupStats, Currency } from '@/lib/domain/types'
+
+type Props = {
+  player: Player | null
+  stats?: PlayerGroupStats
+  currency: Currency
+  groupId: string
+  onClose: () => void
+}
+
+export function PlayerSheet({ player, stats, currency, groupId, onClose }: Props) {
+  const [claimUrl, setClaimUrl] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
+
+  const symbol = t.currency[currency]
+
+  async function handleGenerateLink() {
+    if (!player) return
+    setGenerating(true)
+    setError('')
+    try {
+      const { token } = await generatePlayerClaimLink(player.id, 168) // 7 days
+      setClaimUrl(`${window.location.origin}/claim/${token}`)
+    } catch {
+      setError(t.common.error)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  function handleClose() {
+    setClaimUrl(null)
+    setError('')
+    onClose()
+  }
+
+  if (!player) return null
+
+  const isLinked = !!player.linked_user_id
+
+  return (
+    <BottomSheet open={!!player} onClose={handleClose} title={player.display_name}>
+      <div className="flex flex-col gap-5">
+        {/* Linked status */}
+        <div className="flex items-center justify-between">
+          <span
+            className={`text-sm font-medium px-2.5 py-1 rounded-full ${
+              isLinked
+                ? 'bg-positive/15 text-positive'
+                : 'bg-border text-text-muted'
+            }`}
+          >
+            {isLinked ? t.players.linked : t.players.notLinked}
+          </span>
+          {player.phone && (
+            <a
+              href={`tel:${player.phone}`}
+              className="text-sm text-accent"
+              dir="ltr"
+            >
+              {player.phone}
+            </a>
+          )}
+        </div>
+
+        {/* Stats */}
+        {stats && stats.games_played > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            <StatCell
+              label={t.stats.totalBalance}
+              value={`${symbol}${stats.total_balance}`}
+              positive={stats.total_balance >= 0}
+            />
+            <StatCell
+              label={t.stats.gamesPlayed}
+              value={String(stats.games_played)}
+            />
+            <StatCell
+              label={t.stats.averagePerGame}
+              value={`${symbol}${Math.round(stats.total_balance / stats.games_played)}`}
+              positive={stats.total_balance >= 0}
+            />
+          </div>
+        )}
+
+        {/* Claim link section */}
+        {!isLinked && (
+          <div className="flex flex-col gap-3 border border-border rounded-xl p-4">
+            <div>
+              <p className="text-sm font-medium text-text-primary mb-1">
+                {t.players.generateClaimLink}
+              </p>
+              <p className="text-xs text-text-muted">{t.players.claimLinkDesc}</p>
+            </div>
+
+            {claimUrl ? (
+              <InviteLink
+                url={claimUrl}
+                title={`חיבור ${player.display_name}`}
+                message={`היי ${player.display_name}! לחץ על הקישור כדי לחבר את חשבון ה-Google שלך ל-Royal Cash:`}
+              />
+            ) : (
+              <>
+                {error && <p className="text-xs text-negative">{error}</p>}
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  onClick={handleGenerateLink}
+                  disabled={generating}
+                >
+                  {generating ? t.players.generatingLink : t.players.generateClaimLink}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* View full profile */}
+        <Link href={`/groups/${groupId}/players/${player.id}`} onClick={handleClose}>
+          <Button variant="secondary" fullWidth>
+            {t.players.viewProfile} →
+          </Button>
+        </Link>
+      </div>
+    </BottomSheet>
+  )
+}
+
+function StatCell({
+  label,
+  value,
+  positive,
+}: {
+  label: string
+  value: string
+  positive?: boolean
+}) {
+  return (
+    <div className="bg-surface-elevated rounded-lg p-2 text-center">
+      <p className="text-[10px] text-text-muted mb-0.5">{label}</p>
+      <p
+        className={`text-sm font-bold ${
+          positive === undefined
+            ? 'text-text-primary'
+            : positive
+            ? 'text-positive'
+            : 'text-negative'
+        }`}
+        dir="ltr"
+      >
+        {value}
+      </p>
+    </div>
+  )
+}
