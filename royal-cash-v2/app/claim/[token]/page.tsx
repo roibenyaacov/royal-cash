@@ -12,6 +12,7 @@ import {
   markClaimAfterAuth,
 } from '@/lib/auth/redirect-flags'
 import { createClient } from '@/lib/supabase/client'
+import { getSupabaseAnonKey } from '@/lib/supabase/config'
 import { getAuthCallbackUrl } from '@/lib/site-url'
 
 type ClaimState = 'loading' | 'ready' | 'claiming' | 'success' | 'error'
@@ -126,6 +127,7 @@ export default function ClaimPlayerPage({
         provider: 'google',
         options: {
           redirectTo: getAuthCallbackUrl(`/claim/${token}`),
+          queryParams: { apikey: getSupabaseAnonKey() },
         },
       })
       return

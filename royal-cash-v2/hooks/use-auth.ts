@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { hasSupabasePublicConfig } from '@/lib/supabase/config'
+import { getSupabaseAnonKey, hasSupabasePublicConfig } from '@/lib/supabase/config'
 import { getAuthCallbackUrl } from '@/lib/site-url'
 import type { User } from '@supabase/supabase-js'
 
@@ -40,7 +40,12 @@ export function useAuth() {
     const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: getAuthCallbackUrl(nextPath) },
+      options: {
+        redirectTo: getAuthCallbackUrl(nextPath),
+        // Kong gateway requires apikey even for browser-initiated OAuth flows.
+        // The anon key is already public (NEXT_PUBLIC_*) so this is safe.
+        queryParams: { apikey: getSupabaseAnonKey() },
+      },
     })
 
     if (error) throw error
