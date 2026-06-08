@@ -4,23 +4,42 @@ function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, '')
 }
 
+function isSupabaseProjectUrl(url: string): boolean {
+  try {
+    return new URL(url).hostname.endsWith('.supabase.co')
+  } catch {
+    return false
+  }
+}
+
+function isValidSiteUrl(url: string): boolean {
+  return Boolean(url) && !isSupabaseProjectUrl(url)
+}
+
 function resolveSiteUrl(): string {
+  // In the browser, always prefer the current app origin.
+  if (typeof window !== 'undefined') {
+    const origin = normalizeBaseUrl(window.location.origin)
+    if (isValidSiteUrl(origin)) {
+      return origin
+    }
+  }
+
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
-  if (fromEnv) {
+  if (fromEnv && isValidSiteUrl(fromEnv)) {
     return normalizeBaseUrl(fromEnv)
   }
 
   const vercelUrl = process.env.VERCEL_URL?.trim()
   if (vercelUrl) {
-    return `https://${normalizeBaseUrl(vercelUrl)}`
+    const candidate = `https://${normalizeBaseUrl(vercelUrl)}`
+    if (isValidSiteUrl(candidate)) {
+      return candidate
+    }
   }
 
   if (process.env.NODE_ENV === 'development') {
     return DEV_SITE_URL
-  }
-
-  if (typeof window !== 'undefined') {
-    return normalizeBaseUrl(window.location.origin)
   }
 
   return DEV_SITE_URL
