@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getAuthCallbackUrl } from '@/lib/site-url'
 import type { User } from '@supabase/supabase-js'
 
 export function useAuth() {
@@ -25,11 +26,11 @@ export function useAuth() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (nextPath?: string) => {
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: getAuthCallbackUrl(nextPath) },
     })
   }
 

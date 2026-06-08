@@ -8,6 +8,8 @@ export const en = {
     loginWithGoogle: 'Sign in with Google',
     tagline: 'Close the night without the headache',
     loggingIn: 'Signing in...',
+    signOut: 'Sign out',
+    signingOut: 'Signing out...',
   },
   groups: {
     myGroups: 'My groups',
@@ -142,6 +144,7 @@ export const en = {
     winPercent: 'Win rate',
     winsCount: 'wins',
     notLinked: 'Link your account to a player in a group to see stats',
+    linkedAsTitle: 'You appear as',
   },
   stats: {
     title: 'Statistics',
@@ -211,6 +214,7 @@ export const en = {
   invites: {
     claimPlayer: 'Link your account',
     claimDescription: 'Sign in with Google to link your account to this player',
+    claimConfirm: 'Link your account to player {name}?',
     claimSuccess: 'Account linked successfully!',
     claimButton: 'Link account',
     generateClaimLink: 'Create claim link',
@@ -238,6 +242,7 @@ export const en = {
     invalidLink: 'This link is invalid or expired',
     expiredLink: 'Link expired',
     playerAlreadyLinked: 'This player is already linked to another account',
+    userAlreadyLinkedInGroup: 'You are already linked to another player in this group',
     expiresIn: 'Expires',
     hours24: '24 hours',
     hours48: '48 hours',

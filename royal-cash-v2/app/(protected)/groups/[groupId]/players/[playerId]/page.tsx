@@ -14,6 +14,7 @@ import { canViewPlayerPrivateData } from '@/lib/auth/player-privacy'
 import { getGroupPlayers, getPlayerGameHistory } from '@/lib/db/players'
 import { getPlayerGroupStats } from '@/lib/db/stats'
 import { generatePlayerClaimLink } from '@/app/actions/invites'
+import { getClaimInviteUrl } from '@/lib/site-url'
 import { calcWinRatePercent, calcAveragePerGame } from '@/lib/calculations/stats'
 import { getPlayerWinCounts } from '@/lib/db/stats'
 import type { Player, PlayerGroupStats, Currency } from '@/lib/domain/types'
@@ -90,7 +91,7 @@ export default function PlayerProfilePage({
     setLinkError('')
     try {
       const { token } = await generatePlayerClaimLink(playerId, 168)
-      setClaimUrl(`${window.location.origin}/claim/${token}`)
+      setClaimUrl(getClaimInviteUrl(token))
     } catch {
       setLinkError(t.common.error)
     } finally {

@@ -10,6 +10,19 @@ import type {
 // Player Claim Invites
 // ============================================
 
+export async function revokePendingPlayerClaimInvites(
+  supabase: SupabaseClient,
+  playerId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('player_claim_invites')
+    .update({ status: 'revoked' })
+    .eq('player_id', playerId)
+    .eq('status', 'pending')
+
+  if (error) throw error
+}
+
 export async function createPlayerClaimInvite(
   supabase: SupabaseClient,
   playerId: string,

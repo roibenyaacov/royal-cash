@@ -18,6 +18,7 @@ import { getGroup } from '@/lib/db/groups'
 import { getGroupPlayers } from '@/lib/db/players'
 import { createPlayerAction } from '@/app/actions/players'
 import { generateGroupInviteLink } from '@/app/actions/invites'
+import { getGroupInviteUrl } from '@/lib/site-url'
 import { getGroupGames } from '@/lib/db/games'
 import { getPlayerGroupStats, getGroupWinRecords } from '@/lib/db/stats'
 import type {
@@ -140,7 +141,7 @@ export default function GroupDetailPage({
     setGeneratingInvite(true)
     try {
       const { token } = await generateGroupInviteLink(groupId, { role: 'member' })
-      setInviteUrl(`${window.location.origin}/invite/group/${token}`)
+      setInviteUrl(getGroupInviteUrl(token))
     } catch (err) {
       console.error('Failed to generate invite:', err)
     } finally {

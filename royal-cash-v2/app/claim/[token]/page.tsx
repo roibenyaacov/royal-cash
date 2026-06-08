@@ -1,15 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Loading } from '@/components/ui/loading'
 import { useAuth } from '@/hooks/use-auth'
+import {
+  consumeClaimAfterAuth,
+  markClaimAfterAuth,
+} from '@/lib/auth/redirect-flags'
 import { createClient } from '@/lib/supabase/client'
+import { getAuthCallbackUrl } from '@/lib/site-url'
 
 type ClaimState = 'loading' | 'ready' | 'claiming' | 'success' | 'error'
+
+function fill(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) =>
+    key in vars ? vars[key] : `{${key}}`,
+  )
+}
 
 export default function ClaimPlayerPage({
   params,
@@ -23,12 +34,12 @@ export default function ClaimPlayerPage({
   const [errorMsg, setErrorMsg] = useState('')
   const [groupId, setGroupId] = useState('')
   const [token, setToken] = useState('')
+  const autoClaimAttempted = useRef(false)
 
   useEffect(() => {
     params.then((p) => setToken(p.token))
   }, [params])
 
-  // Validate token via SECURITY DEFINER RPC — works for anon + authenticated
   useEffect(() => {
     if (!token) return
 
@@ -50,6 +61,18 @@ export default function ClaimPlayerPage({
         return
       }
 
+      if (data.error === 'player_already_linked') {
+        setState('error')
+        setErrorMsg(t.invites.playerAlreadyLinked)
+        return
+      }
+
+      if (data.error === 'user_already_linked_in_group') {
+        setState('error')
+        setErrorMsg(t.invites.userAlreadyLinkedInGroup)
+        return
+      }
+
       if (data.error) {
         setState('error')
         setErrorMsg(t.invites.invalidLink)
@@ -63,28 +86,8 @@ export default function ClaimPlayerPage({
     checkToken()
   }, [token])
 
-  // After a successful OAuth redirect back to /claim/[token], auto-claim
-  useEffect(() => {
-    if (state !== 'ready' || !user || !token) return
-
-    // Check if we just returned from OAuth (user was null, now is set)
-    // Auto-trigger the claim so the user doesn't have to tap again
-    handleClaim()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, state, token])
-
-  async function handleClaim() {
-    if (!user) {
-      // Preserve the claim token in the OAuth return URL
-      const supabase = createClient()
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(`/claim/${token}`)}`,
-        },
-      })
-      return
-    }
+  const executeClaim = useCallback(async () => {
+    if (!token) return
 
     setState('claiming')
     const supabase = createClient()
@@ -94,6 +97,9 @@ export default function ClaimPlayerPage({
       setState('error')
       if (data.error === 'token_expired') setErrorMsg(t.invites.expiredLink)
       else if (data.error === 'player_already_linked') setErrorMsg(t.invites.playerAlreadyLinked)
+      else if (data.error === 'user_already_linked_in_group') {
+        setErrorMsg(t.invites.userAlreadyLinkedInGroup)
+      } else if (data.error === 'not_authenticated') setErrorMsg(t.invites.invalidLink)
       else setErrorMsg(t.invites.invalidLink)
       return
     }
@@ -102,6 +108,30 @@ export default function ClaimPlayerPage({
       setState('success')
       setGroupId(data.group_id)
     }
+  }, [token])
+
+  useEffect(() => {
+    if (state !== 'ready' || !user || !token || autoClaimAttempted.current) return
+    if (!consumeClaimAfterAuth(token)) return
+
+    autoClaimAttempted.current = true
+    void executeClaim()
+  }, [user, state, token, executeClaim])
+
+  async function handleClaim() {
+    if (!user) {
+      markClaimAfterAuth(token)
+      const supabase = createClient()
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: getAuthCallbackUrl(`/claim/${token}`),
+        },
+      })
+      return
+    }
+
+    await executeClaim()
   }
 
   if (authLoading || state === 'loading') {
@@ -137,7 +167,9 @@ export default function ClaimPlayerPage({
                   <p className="text-xl font-bold text-text-primary">{playerName}</p>
                 )}
                 <p className="text-sm text-text-secondary text-center">
-                  {t.invites.claimDescription}
+                  {user
+                    ? fill(t.invites.claimConfirm, { name: playerName })
+                    : t.invites.claimDescription}
                 </p>
                 <Button fullWidth size="lg" onClick={handleClaim}>
                   {user ? t.invites.claimButton : t.auth.loginWithGoogle}

@@ -6,6 +6,7 @@ import {
   createPlayerClaimInvite,
   createGroupInvite,
   createGameAccessLink,
+  revokePendingPlayerClaimInvites,
 } from '@/lib/db/invites'
 import type { GameAccessLevel } from '@/lib/domain/types'
 
@@ -20,6 +21,7 @@ export async function generatePlayerClaimLink(
   const token = generateToken()
   const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000)
 
+  await revokePendingPlayerClaimInvites(supabase, playerId)
   await createPlayerClaimInvite(supabase, playerId, token, user.id, expiresAt)
 
   return { token }

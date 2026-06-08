@@ -1,12 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Loading } from '@/components/ui/loading'
 import { useAuth } from '@/hooks/use-auth'
+import {
+  consumeGroupInviteAfterAuth,
+  markGroupInviteAfterAuth,
+} from '@/lib/auth/redirect-flags'
 import { createClient } from '@/lib/supabase/client'
 
 type InviteState = 'loading' | 'ready' | 'joining' | 'success' | 'error'
@@ -22,6 +26,7 @@ export default function GroupInvitePage({
   const [errorMsg, setErrorMsg] = useState('')
   const [groupId, setGroupId] = useState('')
   const [token, setToken] = useState('')
+  const autoJoinAttempted = useRef(false)
 
   useEffect(() => {
     params.then((p) => {
@@ -30,11 +35,8 @@ export default function GroupInvitePage({
     })
   }, [params])
 
-  const handleJoin = async () => {
-    if (!user) {
-      signInWithGoogle()
-      return
-    }
+  const performJoin = useCallback(async () => {
+    if (!token) return
 
     setState('joining')
     const supabase = createClient()
@@ -58,6 +60,24 @@ export default function GroupInvitePage({
         router.push(`/groups/${data.group_id}`)
       }
     }
+  }, [token, router])
+
+  useEffect(() => {
+    if (state !== 'ready' || !user || !token || autoJoinAttempted.current) return
+    if (!consumeGroupInviteAfterAuth(token)) return
+
+    autoJoinAttempted.current = true
+    void performJoin()
+  }, [user, state, token, performJoin])
+
+  const handleJoin = async () => {
+    if (!user) {
+      markGroupInviteAfterAuth(token)
+      await signInWithGoogle(`/invite/group/${token}`)
+      return
+    }
+
+    await performJoin()
   }
 
   if (authLoading || state === 'loading') {

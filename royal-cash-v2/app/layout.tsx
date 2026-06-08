@@ -3,16 +3,53 @@ import './globals.css'
 import { LocaleShell } from '@/components/layout/locale-shell'
 import { getLocale, localeMeta } from '@/lib/i18n/get-translations'
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? 'http://localhost:3000'
+
+const siteName = 'Royal Cash'
+const title =
+  'Royal Cash | קופה משותפת לפוקר — סוגרים את הערב בלי כאב ראש'
+const description =
+  'Royal Cash — אפליקציה לניהול קופה משותפת בערבי פוקר עם החבורה. עוקבים אחרי כניסות, הוצאות וחלוקות, וסוגרים את הערב בלי כאב ראש — מהטלפון, בזמן אמת.'
+const ogDescription =
+  'קופה משותפת לפוקר עם החבורה: כניסות, הוצאות וסגירת ערב הוגנת. סוגרים את הערב בלי כאב ראש — מהטלפון, בזמן אמת.'
+const imageAlt = 'Royal Cash — סוגרים את הערב בלי כאב ראש'
+
 export const metadata: Metadata = {
-  title: 'Royal Cash',
-  description: 'Close the night without the headache',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: title,
+    template: '%s | Royal Cash',
+  },
+  description,
+  applicationName: siteName,
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'Royal Cash',
+    title: siteName,
   },
-  icons: {
-    apple: '/apple-touch-icon.png',
+  openGraph: {
+    title,
+    description: ogDescription,
+    siteName,
+    locale: 'he_IL',
+    type: 'website',
+    url: '/',
+    images: [
+      {
+        url: '/opengraph-image.png',
+        width: 1200,
+        height: 630,
+        alt: imageAlt,
+        type: 'image/png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description: ogDescription,
+    images: ['/twitter-image.png'],
   },
 }
 

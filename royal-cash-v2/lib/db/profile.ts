@@ -2,6 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { calcWinRatePercent } from '@/lib/calculations/stats'
 import type { User } from '@/lib/domain/types'
 
+export type LinkedPlayerIdentity = {
+  displayName: string
+  groupName: string
+}
+
 export type PersonalStats = {
   profile: Pick<User, 'full_name' | 'email' | 'avatar_url' | 'phone'>
   gamesPlayed: number
@@ -11,6 +16,7 @@ export type PersonalStats = {
   winCount: number
   winRatePercent: number
   hasLinkedPlayers: boolean
+  linkedIdentities: LinkedPlayerIdentity[]
 }
 
 export async function getProfile(
@@ -60,17 +66,27 @@ export async function getPersonalStats(
     winCount: 0,
     winRatePercent: 0,
     hasLinkedPlayers: false,
+    linkedIdentities: [],
   }
 
   if (!profile) return empty
 
   const { data: linkedPlayers, error: playersError } = await supabase
     .from('players')
-    .select('id')
+    .select('id, display_name, groups(name)')
     .eq('linked_user_id', userId)
 
   if (playersError) throw playersError
   if (!linkedPlayers?.length) return empty
+
+  const linkedIdentities: LinkedPlayerIdentity[] = linkedPlayers.map((row) => {
+    const group = row.groups as { name: string } | { name: string }[] | null
+    const groupName = Array.isArray(group) ? group[0]?.name : group?.name
+    return {
+      displayName: row.display_name,
+      groupName: groupName ?? '',
+    }
+  })
 
   const playerIds = linkedPlayers.map((p) => p.id)
 
@@ -95,7 +111,7 @@ export async function getPersonalStats(
 
   if (resultsError) throw resultsError
   if (!results?.length) {
-    return { ...empty, hasLinkedPlayers: true, gamesPlayed, totalBalance }
+    return { ...empty, hasLinkedPlayers: true, gamesPlayed, totalBalance, linkedIdentities }
   }
 
   const gameIds = [...new Set(results.map((r) => r.game_id))]
@@ -134,5 +150,6 @@ export async function getPersonalStats(
     winCount,
     winRatePercent: calcWinRatePercent(winCount, gamesPlayed),
     hasLinkedPlayers: true,
+    linkedIdentities,
   }
 }

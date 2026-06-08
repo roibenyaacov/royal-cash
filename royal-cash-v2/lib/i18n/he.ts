@@ -6,6 +6,8 @@ export const he = {
     loginWithGoogle: 'כניסה עם Google',
     tagline: 'סוגרים את הערב בלי כאב ראש',
     loggingIn: 'מתחבר...',
+    signOut: 'התנתקות',
+    signingOut: 'מתנתק...',
   },
   groups: {
     myGroups: 'החבורות שלי',
@@ -140,6 +142,7 @@ export const he = {
     winPercent: 'אחוז ניצחון',
     winsCount: 'ניצחונות',
     notLinked: 'חבר את החשבון שלך לשחקן בחבורה כדי לראות סטטיסטיקות',
+    linkedAsTitle: 'בחבורות אתה מופיע/ה כ',
   },
   stats: {
     title: 'סטטיסטיקות',
@@ -209,6 +212,7 @@ export const he = {
   invites: {
     claimPlayer: 'חבר את החשבון שלך',
     claimDescription: 'התחבר עם Google כדי לחבר את החשבון שלך לשחקן הזה',
+    claimConfirm: 'לחבר את החשבון שלך לשחקן {name}?',
     claimSuccess: 'החשבון חובר בהצלחה!',
     claimButton: 'חבר חשבון',
     generateClaimLink: 'צור קישור חיבור',
@@ -236,6 +240,7 @@ export const he = {
     invalidLink: 'הקישור לא תקין או שפג תוקפו',
     expiredLink: 'פג תוקף הקישור',
     playerAlreadyLinked: 'השחקן הזה כבר מחובר לחשבון אחר',
+    userAlreadyLinkedInGroup: 'כבר מחובר/ת לשחקן אחר בחבורה הזו',
     expiresIn: 'תוקף',
     hours24: '24 שעות',
     hours48: '48 שעות',

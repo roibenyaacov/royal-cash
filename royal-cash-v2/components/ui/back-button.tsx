@@ -12,17 +12,17 @@ export function BackButton({ className = '', ...props }: BackButtonProps) {
   return (
     <button
       type="button"
+      aria-label={t.common.back}
       className={`
-        inline-flex items-center gap-0.5
-        text-accent text-[17px] leading-none font-normal
-        min-h-[44px] px-1 -ms-1
+        inline-flex items-center justify-center
+        text-accent
+        min-h-[44px] min-w-[44px] px-1 -ms-1
         active:opacity-50 transition-opacity
         ${className}
       `}
       {...props}
     >
       <ChevronBack className={dir === 'ltr' ? 'scale-x-[-1]' : ''} />
-      <span>{t.common.back}</span>
     </button>
   )
 }

@@ -7,6 +7,7 @@ import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Button } from '@/components/ui/button'
 import { InviteLink } from '@/components/ui/invite-link'
 import { generatePlayerClaimLink } from '@/app/actions/invites'
+import { getClaimInviteUrl } from '@/lib/site-url'
 import type { Player, PlayerGroupStats, Currency } from '@/lib/domain/types'
 
 type Props = {
@@ -31,7 +32,7 @@ export function PlayerSheet({ player, stats, currency, groupId, canViewPrivate, 
     setError('')
     try {
       const { token } = await generatePlayerClaimLink(player.id, 168) // 7 days
-      setClaimUrl(`${window.location.origin}/claim/${token}`)
+      setClaimUrl(getClaimInviteUrl(token))
     } catch {
       setError(t.common.error)
     } finally {

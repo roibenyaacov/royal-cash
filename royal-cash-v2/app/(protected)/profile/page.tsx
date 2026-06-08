@@ -204,6 +204,25 @@ export default function ProfilePage() {
           </p>
         )}
 
+        {stats?.linkedIdentities && stats.linkedIdentities.length > 0 && (
+          <div className="rounded-[var(--radius-card)] bg-surface border border-border px-4 py-3">
+            <p className="text-sm text-text-secondary mb-2">{t.profile.linkedAsTitle}</p>
+            <ul className="flex flex-col gap-1.5">
+              {stats.linkedIdentities.map((identity) => (
+                <li
+                  key={`${identity.groupName}-${identity.displayName}`}
+                  className="text-sm text-text-primary"
+                >
+                  <span className="font-medium">{identity.displayName}</span>
+                  {identity.groupName && (
+                    <span className="text-text-muted"> · {identity.groupName}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           <ProfileStatCard
