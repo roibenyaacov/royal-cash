@@ -1,4 +1,5 @@
 const DEV_SITE_URL = 'http://localhost:3000'
+const PRODUCTION_SITE_URL = 'https://royalcash.app'
 
 function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, '')
@@ -16,18 +17,30 @@ function isValidSiteUrl(url: string): boolean {
   return Boolean(url) && !isSupabaseProjectUrl(url)
 }
 
+function stripWwwOrigin(url: string): string {
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname.startsWith('www.')) {
+      parsed.hostname = parsed.hostname.slice(4)
+    }
+    return normalizeBaseUrl(parsed.origin)
+  } catch {
+    return url
+  }
+}
+
 function resolveSiteUrl(): string {
-  // In the browser, always prefer the current app origin.
+  // Always prefer explicit env — keeps OAuth redirectTo on the apex domain.
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  if (fromEnv && isValidSiteUrl(fromEnv)) {
+    return stripWwwOrigin(normalizeBaseUrl(fromEnv))
+  }
+
   if (typeof window !== 'undefined') {
-    const origin = normalizeBaseUrl(window.location.origin)
+    const origin = stripWwwOrigin(normalizeBaseUrl(window.location.origin))
     if (isValidSiteUrl(origin)) {
       return origin
     }
-  }
-
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
-  if (fromEnv && isValidSiteUrl(fromEnv)) {
-    return normalizeBaseUrl(fromEnv)
   }
 
   const vercelUrl = process.env.VERCEL_URL?.trim()
@@ -38,8 +51,8 @@ function resolveSiteUrl(): string {
     }
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    return DEV_SITE_URL
+  if (process.env.NODE_ENV === 'production') {
+    return PRODUCTION_SITE_URL
   }
 
   return DEV_SITE_URL

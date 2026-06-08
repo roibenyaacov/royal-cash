@@ -12,6 +12,7 @@ export async function updateSession(request: NextRequest) {
     {
       cookieOptions: getSupabaseCookieOptions(
         request.nextUrl.protocol === 'https:',
+        request.nextUrl.hostname,
       ),
       cookies: {
         getAll() {

@@ -8,12 +8,13 @@ export async function createClient() {
   const headerStore = await headers()
   const isSecure =
     headerStore.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'https'
+  const hostname = headerStore.get('host')?.split(':')[0]
 
   return createServerClient(
     getSupabaseUrl(),
     getSupabaseAnonKey(),
     {
-      cookieOptions: getSupabaseCookieOptions(isSecure),
+      cookieOptions: getSupabaseCookieOptions(isSecure, hostname),
       cookies: {
         getAll() {
           return cookieStore.getAll()
