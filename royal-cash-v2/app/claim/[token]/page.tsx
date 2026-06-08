@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth'
 import {
   consumeClaimAfterAuth,
   markClaimAfterAuth,
+  shouldResumeAfterAuth,
 } from '@/lib/auth/redirect-flags'
 import { createClient } from '@/lib/supabase/client'
 import { startGoogleOAuth } from '@/lib/auth/google-oauth'
@@ -29,6 +30,7 @@ export default function ClaimPlayerPage({
   params: Promise<{ token: string }>
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const [state, setState] = useState<ClaimState>('loading')
   const [playerName, setPlayerName] = useState('')
@@ -113,11 +115,22 @@ export default function ClaimPlayerPage({
 
   useEffect(() => {
     if (state !== 'ready' || !user || !token || autoClaimAttempted.current) return
-    if (!consumeClaimAfterAuth(token)) return
+    if (
+      !shouldResumeAfterAuth(
+        token,
+        searchParams.get('resume'),
+        consumeClaimAfterAuth,
+      )
+    ) {
+      return
+    }
 
     autoClaimAttempted.current = true
+    if (searchParams.get('resume') === '1') {
+      router.replace(`/claim/${token}`)
+    }
     void executeClaim()
-  }, [user, state, token, executeClaim])
+  }, [user, state, token, executeClaim, searchParams, router])
 
   async function handleClaim() {
     if (!user) {

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { GoogleIcon } from '@/components/ui/google-icon'
 import { useAuth } from '@/hooks/use-auth'
@@ -26,10 +27,24 @@ function LockIcon() {
 }
 
 export default function LoginPage() {
-  const { signInWithGoogle } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user, loading: authLoading, signInWithGoogle } = useAuth()
   const { t } = useLocale()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (searchParams.get('error') === 'auth') {
+      setError(t.auth.loginFailed)
+    }
+  }, [searchParams, t.auth.loginFailed])
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/groups')
+    }
+  }, [authLoading, user, router])
 
   async function handleGoogleSignIn() {
     setError('')

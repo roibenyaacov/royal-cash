@@ -30,3 +30,11 @@ export function consumeGroupInviteAfterAuth(expectedToken: string): boolean {
   }
   return false
 }
+
+export function shouldResumeAfterAuth(
+  token: string,
+  resumeFromUrl: string | null,
+  storageCheck: (token: string) => boolean,
+): boolean {
+  return resumeFromUrl === '1' || storageCheck(token)
+}

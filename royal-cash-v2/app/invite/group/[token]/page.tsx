@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth'
 import {
   consumeGroupInviteAfterAuth,
   markGroupInviteAfterAuth,
+  shouldResumeAfterAuth,
 } from '@/lib/auth/redirect-flags'
 import { createClient } from '@/lib/supabase/client'
 
@@ -21,6 +22,7 @@ export default function GroupInvitePage({
   params: Promise<{ token: string }>
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading, signInWithGoogle } = useAuth()
   const [state, setState] = useState<InviteState>('loading')
   const [errorMsg, setErrorMsg] = useState('')
@@ -64,11 +66,22 @@ export default function GroupInvitePage({
 
   useEffect(() => {
     if (state !== 'ready' || !user || !token || autoJoinAttempted.current) return
-    if (!consumeGroupInviteAfterAuth(token)) return
+    if (
+      !shouldResumeAfterAuth(
+        token,
+        searchParams.get('resume'),
+        consumeGroupInviteAfterAuth,
+      )
+    ) {
+      return
+    }
 
     autoJoinAttempted.current = true
+    if (searchParams.get('resume') === '1') {
+      router.replace(`/invite/group/${token}`)
+    }
     void performJoin()
-  }, [user, state, token, performJoin])
+  }, [user, state, token, performJoin, searchParams, router])
 
   const handleJoin = async () => {
     if (!user) {
