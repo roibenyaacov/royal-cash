@@ -2,18 +2,19 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { LocaleShell } from '@/components/layout/locale-shell'
 import { getLocale, localeMeta } from '@/lib/i18n/get-translations'
+import { absoluteUrl, getSiteUrl } from '@/lib/site-url'
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? 'http://localhost:3000'
+const siteUrl = getSiteUrl()
 
 const siteName = 'Royal Cash'
-const title =
-  'Royal Cash | קופה משותפת לפוקר — סוגרים את הערב בלי כאב ראש'
+const title = 'Royal Cash | סוגרים את הערב בלי כאב ראש'
 const description =
-  'Royal Cash — אפליקציה לניהול קופה משותפת בערבי פוקר עם החבורה. עוקבים אחרי כניסות, הוצאות וחלוקות, וסוגרים את הערב בלי כאב ראש — מהטלפון, בזמן אמת.'
+  'Royal Cash — אפליקציה לניהול קופה בערבי פוקר עם החבורה. עוקבים אחרי כניסות, הוצאות וחלוקות, וסוגרים את הערב בלי כאב ראש — מהטלפון, בזמן אמת.'
 const ogDescription =
-  'קופה משותפת לפוקר עם החבורה: כניסות, הוצאות וסגירת ערב הוגנת. סוגרים את הערב בלי כאב ראש — מהטלפון, בזמן אמת.'
+  'עוקבים אחרי כניסות, הוצאות וסגירת ערב הוגנת עם החבורה. סוגרים את הערב בלי כאב ראש — מהטלפון, בזמן אמת.'
 const imageAlt = 'Royal Cash — סוגרים את הערב בלי כאב ראש'
+const ogImageUrl = absoluteUrl('/opengraph-image.png')
+const twitterImageUrl = absoluteUrl('/twitter-image.png')
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -37,7 +38,7 @@ export const metadata: Metadata = {
     url: '/',
     images: [
       {
-        url: '/opengraph-image.png',
+        url: ogImageUrl,
         width: 1200,
         height: 630,
         alt: imageAlt,
@@ -49,7 +50,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description: ogDescription,
-    images: ['/twitter-image.png'],
+    images: [twitterImageUrl],
   },
 }
 

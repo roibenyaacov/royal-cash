@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
 import { GoogleIcon } from '@/components/ui/google-icon'
 import { useAuth } from '@/hooks/use-auth'
 import { useLocale } from '@/lib/i18n/locale-context'
+import { hasSupabasePublicConfig } from '@/lib/supabase/config'
 
 function LockIcon() {
   return (
@@ -26,6 +28,25 @@ function LockIcon() {
 export default function LoginPage() {
   const { signInWithGoogle } = useAuth()
   const { t } = useLocale()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleGoogleSignIn() {
+    setError('')
+    if (!hasSupabasePublicConfig()) {
+      setError(t.auth.loginConfigError)
+      return
+    }
+
+    setLoading(true)
+    try {
+      await signInWithGoogle()
+    } catch (err) {
+      console.error('Google sign-in failed:', err)
+      setError(t.auth.loginFailed)
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-[#0c0c0e]">
@@ -57,13 +78,17 @@ export default function LoginPage() {
         </div>
 
         <div className="w-full rounded-2xl border border-accent/10 bg-surface/60 p-7 shadow-2xl backdrop-blur-md sm:p-8">
+          {error ? (
+            <p className="mb-4 text-center text-sm text-negative">{error}</p>
+          ) : null}
           <button
             type="button"
-            onClick={() => signInWithGoogle()}
-            className="flex h-[60px] w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-br from-[#f2ca50] via-[#d4af37] to-[#b8860b] text-lg font-bold text-black shadow-[0_4px_15px_rgba(212,175,55,0.22)] transition-transform active:scale-[0.98]"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="flex h-[60px] w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-br from-[#f2ca50] via-[#d4af37] to-[#b8860b] text-lg font-bold text-black shadow-[0_4px_15px_rgba(212,175,55,0.22)] transition-transform active:scale-[0.98] disabled:opacity-60"
           >
             <GoogleIcon className="h-5 w-5 text-black" />
-            <span>{t.auth.loginWithGoogle}</span>
+            <span>{loading ? t.auth.loggingIn : t.auth.loginWithGoogle}</span>
           </button>
         </div>
       </main>

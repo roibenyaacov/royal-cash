@@ -10,6 +10,8 @@ export const en = {
     loggingIn: 'Signing in...',
     signOut: 'Sign out',
     signingOut: 'Signing out...',
+    loginFailed: 'Sign-in failed. Please try again or refresh the page.',
+    loginConfigError: 'Server configuration is missing. Contact the app admin.',
   },
   groups: {
     myGroups: 'My groups',

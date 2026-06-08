@@ -4,11 +4,15 @@ function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, '')
 }
 
-/** Canonical app origin for links, OAuth redirects, and QR codes. */
-export function getSiteUrl(): string {
+function resolveSiteUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim()
   if (fromEnv) {
     return normalizeBaseUrl(fromEnv)
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim()
+  if (vercelUrl) {
+    return `https://${normalizeBaseUrl(vercelUrl)}`
   }
 
   if (process.env.NODE_ENV === 'development') {
@@ -20,6 +24,11 @@ export function getSiteUrl(): string {
   }
 
   return DEV_SITE_URL
+}
+
+/** Canonical app origin for links, OAuth redirects, and QR codes. */
+export function getSiteUrl(): string {
+  return resolveSiteUrl()
 }
 
 export function absoluteUrl(path: string): string {

@@ -8,6 +8,8 @@ export const he = {
     loggingIn: 'מתחבר...',
     signOut: 'התנתקות',
     signingOut: 'מתנתק...',
+    loginFailed: 'ההתחברות נכשלה. נסה שוב או רענן את הדף.',
+    loginConfigError: 'הגדרות השרת חסרות. פנה למנהל המערכת.',
   },
   groups: {
     myGroups: 'החבורות שלי',
