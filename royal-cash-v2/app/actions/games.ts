@@ -16,6 +16,10 @@ import { upsertCashOut as dbUpsertCashOut } from '@/lib/db/cashouts'
 import { saveGameResults as dbSaveGameResults, getGameResults } from '@/lib/db/results'
 import { applyGameStats } from '@/lib/db/stats'
 import { addGameEvent } from '@/lib/db/game-events'
+import {
+  assertPlayerInActiveGame,
+  authorizeActiveGameMutation,
+} from '@/lib/server/authorize-game'
 import type {
   Game,
   BuyIn,
@@ -49,21 +53,19 @@ export async function createGameAction(
     created_by: user.id,
   })
 
+  const db = createAdminClient()
+
   await Promise.all(
-    playerIds.map((id) => dbAddGamePlayer(supabase, game.id, id)),
+    playerIds.map((id) => dbAddGamePlayer(db, game.id, id)),
   )
 
   for (const playerId of playerIds) {
-    await dbAddBuyIn(supabase, game.id, playerId, defaultBuyIn, user.id)
-    try {
-      await addGameEvent(supabase, game.id, 'buy_in_added', user.id, {
-        playerId,
-        amount: defaultBuyIn,
-        description: 'כניסה ראשונית',
-      })
-    } catch {
-      // game_events table may not exist yet
-    }
+    await dbAddBuyIn(db, game.id, playerId, defaultBuyIn, user.id)
+    await addGameEvent(db, game.id, 'buy_in_added', user.id, {
+      playerId,
+      amount: defaultBuyIn,
+      description: 'כניסה ראשונית',
+    })
   }
 
   return game
@@ -74,20 +76,16 @@ export async function addPlayerToGameAction(
   playerId: string,
   buyInAmount: number,
 ): Promise<void> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const { userId, db } = await authorizeActiveGameMutation(gameId)
 
-  await dbAddGamePlayer(supabase, gameId, playerId)
-  await dbAddBuyIn(supabase, gameId, playerId, buyInAmount, user.id)
+  await dbAddGamePlayer(db, gameId, playerId)
+  await dbAddBuyIn(db, gameId, playerId, buyInAmount, userId)
 
-  try {
-    await addGameEvent(supabase, gameId, 'buy_in_added', user.id, {
-      playerId,
-      amount: buyInAmount,
-      description: 'הצטרפות למשחק',
-    })
-  } catch {}
+  await addGameEvent(db, gameId, 'buy_in_added', userId, {
+    playerId,
+    amount: buyInAmount,
+    description: 'הצטרפות למשחק',
+  })
 }
 
 export async function addBuyInAction(
@@ -96,21 +94,16 @@ export async function addBuyInAction(
   amount: number,
   note?: string,
 ): Promise<BuyIn> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  await assertPlayerInActiveGame(db, gameId, playerId)
 
-  const buyIn = await dbAddBuyIn(supabase, gameId, playerId, amount, user.id, note)
+  const buyIn = await dbAddBuyIn(db, gameId, playerId, amount, userId, note)
 
-  try {
-    await addGameEvent(supabase, gameId, 'buy_in_added', user.id, {
-      playerId,
-      amount,
-      description: note ?? undefined,
-    })
-  } catch {
-    // game_events table may not exist yet
-  }
+  await addGameEvent(db, gameId, 'buy_in_added', userId, {
+    playerId,
+    amount,
+    description: note ?? undefined,
+  })
 
   return buyIn
 }
@@ -128,26 +121,21 @@ export async function removeDefaultBuyInAction(
   playerId: string,
   defaultAmount: number,
 ): Promise<BuyIn | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  await assertPlayerInActiveGame(db, gameId, playerId)
 
   const removed = await removeLatestBuyIn(
-    supabase,
+    db,
     gameId,
     playerId,
     defaultAmount,
   )
   if (!removed) return null
 
-  try {
-    await addGameEvent(supabase, gameId, 'buy_in_removed', user.id, {
-      playerId,
-      amount: removed.amount,
-    })
-  } catch {
-    // game_events table may not exist yet
-  }
+  await addGameEvent(db, gameId, 'buy_in_removed', userId, {
+    playerId,
+    amount: removed.amount,
+  })
 
   return removed
 }
@@ -160,11 +148,10 @@ export async function setPlayerBuyInCountAction(
 ): Promise<void> {
   if (targetCount < 0) return
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const { db } = await authorizeActiveGameMutation(gameId)
+  await assertPlayerInActiveGame(db, gameId, playerId)
 
-  const { data: buyIns, error } = await supabase
+  const { data: buyIns, error } = await db
     .from('buy_ins')
     .select('*')
     .eq('game_id', gameId)
@@ -196,30 +183,29 @@ export async function addExpenseAction(
   splitType: ExpenseSplitType,
   participants: { playerId: string; amountOwed: number }[],
 ): Promise<Expense> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  await assertPlayerInActiveGame(db, gameId, paidByPlayerId)
+
+  for (const participant of participants) {
+    await assertPlayerInActiveGame(db, gameId, participant.playerId)
+  }
 
   const expense = await dbAddExpense(
-    supabase,
+    db,
     gameId,
     paidByPlayerId,
     amount,
     description,
     splitType,
-    user.id,
+    userId,
     participants,
   )
 
-  try {
-    await addGameEvent(supabase, gameId, 'expense_added', user.id, {
-      playerId: paidByPlayerId,
-      amount,
-      description,
-    })
-  } catch {
-    // game_events table may not exist yet
-  }
+  await addGameEvent(db, gameId, 'expense_added', userId, {
+    playerId: paidByPlayerId,
+    amount,
+    description: description.trim() || undefined,
+  })
 
   return expense
 }
