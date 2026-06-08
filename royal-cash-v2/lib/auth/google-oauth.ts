@@ -1,10 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ensureAuthorizeApiKey } from '@/lib/supabase/config'
 
+function buildOAuthRedirectTo(nextPath?: string): string {
+  const origin = window.location.origin
+  if (nextPath) {
+    return `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+  }
+  return `${origin}/auth/callback`
+}
+
 export async function startGoogleOAuth(
   supabase: SupabaseClient,
-  redirectTo: string,
+  nextPath?: string,
 ): Promise<void> {
+  const redirectTo = buildOAuthRedirectTo(nextPath)
+  console.log('[oauth] starting signInWithOAuth', { redirectTo })
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {

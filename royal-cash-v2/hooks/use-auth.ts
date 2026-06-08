@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { hasSupabasePublicConfig } from '@/lib/supabase/config'
 import { startGoogleOAuth } from '@/lib/auth/google-oauth'
-import { getAuthCallbackUrl } from '@/lib/site-url'
 import type { User } from '@supabase/supabase-js'
 
 export function useAuth() {
@@ -38,8 +37,13 @@ export function useAuth() {
       throw new Error('Missing Supabase public configuration')
     }
 
+    console.log('[oauth] signInWithGoogle clicked', {
+      origin: window.location.origin,
+      nextPath,
+    })
+
     const supabase = createClient()
-    await startGoogleOAuth(supabase, getAuthCallbackUrl(nextPath))
+    await startGoogleOAuth(supabase, nextPath)
   }
 
   const signOut = async () => {

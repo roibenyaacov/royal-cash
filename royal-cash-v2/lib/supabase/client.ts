@@ -13,8 +13,9 @@ export function createClient() {
   return createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookieOptions: getSupabaseCookieOptions(isSecure, hostname),
     auth: {
-      // Callback is handled server-side in app/auth/callback/route.ts.
-      detectSessionInUrl: false,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
       flowType: 'pkce',
     },
   })
