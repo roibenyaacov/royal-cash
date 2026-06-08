@@ -13,8 +13,6 @@ import {
   shouldResumeAfterAuth,
 } from '@/lib/auth/redirect-flags'
 import { createClient } from '@/lib/supabase/client'
-import { startGoogleOAuth } from '@/lib/auth/google-oauth'
-import { getAuthCallbackUrl } from '@/lib/site-url'
 
 type ClaimState = 'loading' | 'ready' | 'claiming' | 'success' | 'error'
 
@@ -31,7 +29,7 @@ export default function ClaimPlayerPage({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, signInWithGoogle } = useAuth()
   const [state, setState] = useState<ClaimState>('loading')
   const [playerName, setPlayerName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
@@ -135,8 +133,7 @@ export default function ClaimPlayerPage({
   async function handleClaim() {
     if (!user) {
       markClaimAfterAuth(token)
-      const supabase = createClient()
-      await startGoogleOAuth(supabase, getAuthCallbackUrl(`/claim/${token}`))
+      await signInWithGoogle(`/claim/${token}`)
       return
     }
 
