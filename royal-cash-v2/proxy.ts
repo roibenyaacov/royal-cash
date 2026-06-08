@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/supabase/config'
+import { updateSession } from '@/lib/supabase/proxy'
 
 const PUBLIC_PATHS = ['/login', '/auth/callback', '/claim', '/invite', '/game']
 
@@ -11,43 +10,26 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request })
   }
 
-  let response = NextResponse.next({ request })
-
-  const supabase = createServerClient(
-    getSupabaseUrl(),
-    getSupabaseAnonKey(),
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value)
-            response.cookies.set(name, value, options)
-          })
-        },
-      },
-    },
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { response, isAuthenticated } = await updateSession(request)
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
 
-  if (!user && !isPublic && pathname !== '/') {
+  if (!isAuthenticated && !isPublic && pathname !== '/') {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  if (user && pathname === '/login') {
+  if (isAuthenticated && pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/groups'
     return NextResponse.redirect(url)
   }
+
+  response.headers.set(
+    'Cache-Control',
+    'private, no-store, no-cache, must-revalidate',
+  )
 
   return response
 }

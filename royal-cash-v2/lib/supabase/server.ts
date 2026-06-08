@@ -1,14 +1,19 @@
 import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { getSupabaseCookieOptions } from '@/lib/supabase/cookie-options'
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/supabase/config'
 
 export async function createClient() {
   const cookieStore = await cookies()
+  const headerStore = await headers()
+  const isSecure =
+    headerStore.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'https'
 
   return createServerClient(
     getSupabaseUrl(),
     getSupabaseAnonKey(),
     {
+      cookieOptions: getSupabaseCookieOptions(isSecure),
       cookies: {
         getAll() {
           return cookieStore.getAll()

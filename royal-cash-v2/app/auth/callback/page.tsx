@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Loading } from '@/components/ui/loading'
 
@@ -25,7 +25,6 @@ function withResumeParam(path: string): string {
 }
 
 export default function AuthCallbackPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const handled = useRef(false)
 
@@ -37,17 +36,17 @@ export default function AuthCallbackPage() {
     const next = withResumeParam(safeNextPath(searchParams.get('next')))
 
     if (!code) {
-      router.replace('/login?error=auth')
+      window.location.replace('/login?error=auth')
       return
     }
 
     async function finishAuth() {
       const supabase = createClient()
-      const { error } = await supabase.auth.exchangeCodeForSession(code!)
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code!)
 
-      if (error) {
-        console.error('OAuth callback failed:', error.message)
-        router.replace('/login?error=auth')
+      if (error || !data.session) {
+        console.error('OAuth callback failed:', error?.message ?? 'No session')
+        window.location.replace('/login?error=auth')
         return
       }
 
@@ -71,11 +70,12 @@ export default function AuthCallbackPage() {
         }
       }
 
-      router.replace(next)
+      // Full navigation ensures session cookies reach the server proxy on HTTPS.
+      window.location.replace(next)
     }
 
     void finishAuth()
-  }, [router, searchParams])
+  }, [searchParams])
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-bg">
