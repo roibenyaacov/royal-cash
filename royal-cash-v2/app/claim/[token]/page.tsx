@@ -12,7 +12,7 @@ import {
   markClaimAfterAuth,
 } from '@/lib/auth/redirect-flags'
 import { createClient } from '@/lib/supabase/client'
-import { getSupabaseAnonKey } from '@/lib/supabase/config'
+import { startGoogleOAuth } from '@/lib/auth/google-oauth'
 import { getAuthCallbackUrl } from '@/lib/site-url'
 
 type ClaimState = 'loading' | 'ready' | 'claiming' | 'success' | 'error'
@@ -123,13 +123,7 @@ export default function ClaimPlayerPage({
     if (!user) {
       markClaimAfterAuth(token)
       const supabase = createClient()
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: getAuthCallbackUrl(`/claim/${token}`),
-          queryParams: { apikey: getSupabaseAnonKey() },
-        },
-      })
+      await startGoogleOAuth(supabase, getAuthCallbackUrl(`/claim/${token}`))
       return
     }
 
