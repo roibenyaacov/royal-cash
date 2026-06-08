@@ -42,32 +42,32 @@ export default function AuthCallbackPage() {
 
     async function finishAuth() {
       const supabase = createClient()
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code!)
 
-      if (error || !data.session) {
-        console.error('OAuth callback failed:', error?.message ?? 'No session')
+      // The browser client (detectSessionInUrl=true) automatically exchanges the
+      // PKCE code during initialization. getUser() awaits that initializePromise,
+      // so by the time it returns the code has been exchanged and the session is set.
+      // Calling exchangeCodeForSession manually here would fail because the PKCE
+      // verifier is already consumed by the auto-init.
+      const { data: { user }, error } = await supabase.auth.getUser()
+
+      if (error || !user) {
+        console.error('OAuth callback failed:', error?.message ?? 'No user after code exchange')
         window.location.replace('/login?error=auth')
         return
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const { error: profileError } = await supabase.from('profiles').upsert(
+        {
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name ?? user.email,
+          avatar_url: user.user_metadata?.avatar_url ?? null,
+        },
+        { onConflict: 'id' },
+      )
 
-      if (user) {
-        const { error: profileError } = await supabase.from('profiles').upsert(
-          {
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata?.full_name ?? user.email,
-            avatar_url: user.user_metadata?.avatar_url ?? null,
-          },
-          { onConflict: 'id' },
-        )
-
-        if (profileError) {
-          console.error('Profile upsert failed:', profileError.message)
-        }
+      if (profileError) {
+        console.error('Profile upsert failed:', profileError.message)
       }
 
       // Full navigation ensures session cookies reach the server proxy on HTTPS.
