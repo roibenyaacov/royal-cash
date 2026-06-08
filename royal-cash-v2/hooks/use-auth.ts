@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { hasSupabasePublicConfig } from '@/lib/supabase/config'
 import { getAuthCallbackUrl } from '@/lib/site-url'
 import type { User } from '@supabase/supabase-js'
 
@@ -10,6 +11,11 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!hasSupabasePublicConfig()) {
+      setLoading(false)
+      return
+    }
+
     const supabase = createClient()
 
     supabase.auth.getUser().then(({ data }) => {
@@ -27,6 +33,10 @@ export function useAuth() {
   }, [])
 
   const signInWithGoogle = async (nextPath?: string) => {
+    if (!hasSupabasePublicConfig()) {
+      throw new Error('Missing Supabase public configuration')
+    }
+
     const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -38,6 +48,8 @@ export function useAuth() {
   }
 
   const signOut = async () => {
+    if (!hasSupabasePublicConfig()) return
+
     const supabase = createClient()
     await supabase.auth.signOut()
   }

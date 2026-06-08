@@ -1,17 +1,17 @@
-function readEnv(name: string): string {
-  const value = process.env[name]?.trim()
+export function getSupabaseUrl(): string {
+  const value = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
   if (!value) {
-    throw new Error(`Missing environment variable: ${name}`)
+    throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_URL')
   }
   return value
 }
 
-export function getSupabaseUrl(): string {
-  return readEnv('NEXT_PUBLIC_SUPABASE_URL')
-}
-
 export function getSupabaseAnonKey(): string {
-  return readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  const value = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+  if (!value) {
+    throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  }
+  return value
 }
 
 export function hasSupabasePublicConfig(): boolean {
