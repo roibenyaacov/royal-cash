@@ -30,6 +30,27 @@ export async function getExpenseParticipants(
   return data ?? []
 }
 
+export async function getGameExpensesWithParticipants(
+  supabase: SupabaseClient,
+  gameId: string,
+): Promise<{ expenses: Expense[]; participants: ExpenseParticipant[] }> {
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('*, expense_participants(*)')
+    .eq('game_id', gameId)
+    .order('created_at')
+
+  if (error) throw error
+  const rows = data ?? []
+
+  const expenses: Expense[] = rows.map(({ expense_participants: _ep, ...e }) => e as Expense)
+  const participants: ExpenseParticipant[] = rows.flatMap(
+    (r) => (r.expense_participants as ExpenseParticipant[]) ?? [],
+  )
+
+  return { expenses, participants }
+}
+
 export async function addExpense(
   supabase: SupabaseClient,
   gameId: string,
