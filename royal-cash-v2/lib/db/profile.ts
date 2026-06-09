@@ -46,6 +46,19 @@ export async function updateProfilePhone(
   if (error) throw error
 }
 
+export async function updateProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  fields: { full_name?: string | null; phone?: string | null },
+): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update(fields)
+    .eq('id', userId)
+
+  if (error) throw error
+}
+
 export async function getPersonalStats(
   supabase: SupabaseClient,
   userId: string,

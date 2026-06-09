@@ -22,6 +22,10 @@ export const he = {
     podiumEmpty: 'עדיין אין שיאים. מי ישבור ראשון?',
     totalBalance: 'מאזן כולל',
     gamesPlayed: 'משחקים',
+    archiveGroup: 'מחיקת חבורה',
+    archiveGroupWarning: 'פעולה זו לא ניתנת לביטול בקלות. הקלד את שם החבורה לאישור:',
+    archiveGroupConfirm: 'כן, מחק חבורה',
+    archiveGroupSuccess: 'החבורה נמחקה',
   },
   players: {
     players: 'שחקנים',
@@ -46,6 +50,10 @@ export const he = {
     noGameHistory: 'אין היסטוריית משחקים',
     privateStats: 'הסטטיסטיקות וההיסטוריה זמינות רק לבעל החשבון המקושר',
     joinedGame: 'הצטרפות למשחק',
+    removePlayer: 'הסר שחקן',
+    removePlayerWarning: 'פעולה זו תסיר את השחקן מהחבורה. היסטוריית המשחקים תישמר.',
+    removePlayerConfirm: 'כן, הסר שחקן',
+    removingPlayer: 'מסיר...',
   },
   game: {
     newGame: 'משחק חדש',
@@ -132,6 +140,7 @@ export const he = {
     shareAndClose: 'שתף וסגור',
     backToGroup: 'חזור לשולחן',
     savingGame: 'שומר משחק...',
+    shareWhatsApp: 'שתף בוואטסאפ',
   },
   profile: {
     title: 'פרופיל',
@@ -145,6 +154,10 @@ export const he = {
     winsCount: 'ניצחונות',
     notLinked: 'חבר את החשבון שלך לשחקן בחבורה כדי לראות סטטיסטיקות',
     linkedAsTitle: 'בחבורות אתה מופיע/ה כ',
+    editDetails: 'עריכת פרטים',
+    fullName: 'שם מלא',
+    noName: 'לא הוגדר שם',
+    greeting: 'שלום',
   },
   stats: {
     title: 'סטטיסטיקות',

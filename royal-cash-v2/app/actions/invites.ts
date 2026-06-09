@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { generateToken } from '@/lib/utils/tokens'
 import {
   createPlayerClaimInvite,
@@ -8,7 +9,63 @@ import {
   createGameAccessLink,
   revokePendingPlayerClaimInvites,
 } from '@/lib/db/invites'
+import { createPlayer } from '@/lib/db/players'
 import type { GameAccessLevel } from '@/lib/domain/types'
+
+type JoinGroupResult =
+  | { success: true; groupId: string; alreadyMember: boolean }
+  | { success: false; error: 'token_expired' | 'max_uses_reached' | 'unknown' }
+
+export async function joinGroupAction(token: string): Promise<JoinGroupResult> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data, error: rpcError } = await supabase.rpc('accept_group_invite', {
+    invite_token: token,
+  })
+
+  if (rpcError || !data?.success) {
+    const err = data?.error ?? 'unknown'
+    return {
+      success: false,
+      error: err === 'token_expired' || err === 'max_uses_reached' ? err : 'unknown',
+    }
+  }
+
+  const groupId: string = data.group_id
+
+  if (data.already_member) {
+    return { success: true, groupId, alreadyMember: true }
+  }
+
+  // Check if this user already has a linked player in the group
+  const { data: existingPlayer } = await supabase
+    .from('players')
+    .select('id')
+    .eq('group_id', groupId)
+    .eq('linked_user_id', user.id)
+    .maybeSingle()
+
+  if (!existingPlayer) {
+    // Resolve best display name from profile or auth metadata
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const displayName =
+      profile?.full_name?.trim() ||
+      (user.user_metadata?.full_name as string | undefined)?.trim() ||
+      (profile?.email ?? user.email ?? '').split('@')[0]
+
+    const adminClient = createAdminClient()
+    await createPlayer(adminClient, groupId, displayName, undefined, user.id)
+  }
+
+  return { success: true, groupId, alreadyMember: false }
+}
 
 export async function generatePlayerClaimLink(
   playerId: string,

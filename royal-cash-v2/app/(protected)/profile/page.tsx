@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Loading } from '@/components/ui/loading'
 import { ProfileStatCard } from '@/components/profile/profile-stat-card'
-import { updateProfilePhoneAction } from '@/app/actions/profile'
+import { updateProfileAction } from '@/app/actions/profile'
 import { createClient } from '@/lib/supabase/client'
 import { getPersonalStats, type PersonalStats } from '@/lib/db/profile'
 
@@ -96,6 +96,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [phoneDraft, setPhoneDraft] = useState('')
+  const [nameDraft, setNameDraft] = useState('')
   const [saving, setSaving] = useState(false)
 
   const loadProfile = useCallback(async () => {
@@ -109,6 +110,7 @@ export default function ProfilePage() {
       const data = await getPersonalStats(supabase, user.id)
       setStats(data)
       setPhoneDraft(data.profile.phone ?? '')
+      setNameDraft(data.profile.full_name ?? user.user_metadata?.full_name ?? '')
     } catch (err) {
       console.error('Failed to load profile:', err)
     } finally {
@@ -120,18 +122,18 @@ export default function ProfilePage() {
     loadProfile()
   }, [loadProfile])
 
-  async function handleSavePhone() {
+  async function handleSaveDetails() {
     setSaving(true)
     try {
-      await updateProfilePhoneAction(phoneDraft)
+      await updateProfileAction({ full_name: nameDraft, phone: phoneDraft })
       setStats((prev) =>
         prev
-          ? { ...prev, profile: { ...prev.profile, phone: phoneDraft.trim() || null } }
+          ? { ...prev, profile: { ...prev.profile, phone: phoneDraft.trim() || null, full_name: nameDraft.trim() || '' } }
           : prev,
       )
       setEditOpen(false)
     } catch (err) {
-      console.error('Failed to update phone:', err)
+      console.error('Failed to update profile:', err)
     } finally {
       setSaving(false)
     }
@@ -149,6 +151,7 @@ export default function ProfilePage() {
   }
 
   const profile = stats?.profile
+  const resolvedName = profile?.full_name || profile?.email?.split('@')[0] || ''
   const gamesPlayed = stats?.gamesPlayed ?? 0
   const totalBalance = stats?.totalBalance ?? 0
   const biggestWin = stats?.biggestWin ?? 0
@@ -159,6 +162,13 @@ export default function ProfilePage() {
       <PageHeader title={t.profile.title} />
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
+        {/* Greeting */}
+        {resolvedName && (
+          <p className="text-xl font-bold text-text-primary text-center pt-1">
+            {t.profile.greeting}, {resolvedName}
+          </p>
+        )}
+
         {/* Personal details card */}
         <div className="rounded-[var(--radius-card)] bg-surface-elevated border border-border overflow-hidden">
           {/* Header row */}
@@ -167,6 +177,7 @@ export default function ProfilePage() {
               type="button"
               onClick={() => {
                 setPhoneDraft(profile?.phone ?? '')
+                setNameDraft(profile?.full_name ?? '')
                 setEditOpen(true)
               }}
               className="flex items-center gap-1.5 min-h-[44px]"
@@ -180,6 +191,14 @@ export default function ProfilePage() {
               </span>
               <IconPerson />
             </div>
+          </div>
+
+          {/* Name row */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <p className="text-sm text-text-secondary">
+              {profile?.full_name || t.profile.noName}
+            </p>
+            <span className="text-sm text-text-secondary">{t.profile.fullName}</span>
           </div>
 
           {/* Phone row */}
@@ -255,9 +274,16 @@ export default function ProfilePage() {
       <BottomSheet
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        title={t.profile.editPhone}
+        title={t.profile.editDetails}
       >
         <div className="px-4 pb-6 flex flex-col gap-4">
+          <Input
+            label={t.profile.fullName}
+            type="text"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            placeholder={t.profile.noName}
+          />
           <Input
             label={t.profile.phoneForBit}
             type="tel"
@@ -271,7 +297,7 @@ export default function ProfilePage() {
             <Button variant="secondary" className="flex-1" onClick={() => setEditOpen(false)}>
               {t.common.cancel}
             </Button>
-            <Button className="flex-1" onClick={handleSavePhone} disabled={saving}>
+            <Button className="flex-1" onClick={handleSaveDetails} disabled={saving}>
               {saving ? t.common.loading : t.common.save}
             </Button>
           </div>

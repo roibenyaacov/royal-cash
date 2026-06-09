@@ -70,11 +70,24 @@ export async function getPlayerGameHistory(
   })
 }
 
+export async function removePlayer(
+  supabase: SupabaseClient,
+  playerId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('players')
+    .update({ is_active: false, removed_at: new Date().toISOString() })
+    .eq('id', playerId)
+
+  if (error) throw error
+}
+
 export async function createPlayer(
   supabase: SupabaseClient,
   groupId: string,
   displayName: string,
   phone?: string,
+  linkedUserId?: string,
 ): Promise<Player> {
   const { data, error } = await supabase
     .from('players')
@@ -82,6 +95,7 @@ export async function createPlayer(
       group_id: groupId,
       display_name: displayName,
       phone: phone ?? null,
+      linked_user_id: linkedUserId ?? null,
     })
     .select()
     .single()

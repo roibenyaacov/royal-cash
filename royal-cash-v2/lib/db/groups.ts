@@ -25,6 +25,18 @@ export async function getGroup(
   return data
 }
 
+export async function archiveGroup(
+  supabase: SupabaseClient,
+  groupId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('groups')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', groupId)
+
+  if (error) throw error
+}
+
 export async function createGroup(
   supabase: SupabaseClient,
   name: string,

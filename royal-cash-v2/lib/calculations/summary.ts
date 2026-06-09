@@ -1,6 +1,30 @@
 import type { Game, GameResult } from '@/lib/domain/types'
 import type { SettlementTransfer } from './settlement'
 
+const CURRENCY_SYMBOLS: Record<string, string> = { ILS: '₪', USD: '$', EUR: '€' }
+
+export function generateWhatsAppSettlementText(
+  game: Pick<Game, 'name' | 'currency'>,
+  settlements: SettlementTransfer[],
+  playerNames: Map<string, string>,
+): string {
+  const symbol = CURRENCY_SYMBOLS[game.currency] ?? '₪'
+  const lines: string[] = ['Royal Cash - סיכום שולחן', game.name, '']
+
+  if (settlements.length === 0) {
+    lines.push('קיזוזים: אין')
+  } else {
+    for (const s of settlements) {
+      const from = playerNames.get(s.from) ?? s.from
+      const to = playerNames.get(s.to) ?? s.to
+      lines.push(`${from} מעביר ל${to} ${s.amount}${symbol}`)
+    }
+  }
+
+  lines.push('', '!נתראה בערב הבא')
+  return lines.join('\n')
+}
+
 type PlayerNameMap = Map<string, string>
 
 export function generateSummaryText(

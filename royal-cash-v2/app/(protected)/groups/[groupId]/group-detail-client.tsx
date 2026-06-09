@@ -6,6 +6,7 @@ import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
+import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { Input } from '@/components/ui/input'
 import { InviteLink } from '@/components/ui/invite-link'
 import { IosListGroup, IosListRow } from '@/components/ui/ios-list'
@@ -15,6 +16,7 @@ import { WinPodium } from '@/components/groups/win-podium'
 import { Loading } from '@/components/ui/loading'
 import { createPlayerAction } from '@/app/actions/players'
 import { generateGroupInviteLink } from '@/app/actions/invites'
+import { archiveGroupAction } from '@/app/actions/groups'
 import { getGroupInviteUrl } from '@/lib/site-url'
 import type {
   Player,
@@ -63,6 +65,9 @@ export default function GroupDetailClient({
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
   const [showInvite, setShowInvite] = useState(false)
   const [generatingInvite, setGeneratingInvite] = useState(false)
+  const [showArchive, setShowArchive] = useState(false)
+
+  const isOwner = currentUserId === group.owner_id
 
   const statsByPlayer = useMemo(
     () => new Map(playerStats.map((s) => [s.player_id, s])),
@@ -110,6 +115,11 @@ export default function GroupDetailClient({
     }
   }
 
+  async function handleArchiveGroup() {
+    await archiveGroupAction(groupId)
+    router.push('/groups')
+  }
+
   return (
     <>
       <PageHeader title={group.name} showBack />
@@ -140,6 +150,15 @@ export default function GroupDetailClient({
               style={{ background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96a 50%, #c9a84c 100%)' }}
             >
               {t.game.newGame}
+            </button>
+          )}
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => setShowArchive(true)}
+              className="col-span-2 py-3 rounded-[10px] border border-negative/30 bg-negative/5 text-[14px] font-medium text-negative active:bg-negative/10 transition-colors min-h-[44px]"
+            >
+              {t.groups.archiveGroup}
             </button>
           )}
         </section>
@@ -270,6 +289,16 @@ export default function GroupDetailClient({
         groupId={groupId}
         canViewPrivate={selectedPlayerCanViewPrivate}
         onClose={() => setSelectedPlayer(null)}
+      />
+
+      <ConfirmSheet
+        open={showArchive}
+        onClose={() => setShowArchive(false)}
+        title={t.groups.archiveGroup}
+        message={t.groups.archiveGroupWarning}
+        confirmLabel={t.groups.archiveGroupConfirm}
+        onConfirm={handleArchiveGroup}
+        requireTyping={group.name}
       />
     </>
   )

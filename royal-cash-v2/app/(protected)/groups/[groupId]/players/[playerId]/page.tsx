@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { InviteLink } from '@/components/ui/invite-link'
 import { Loading } from '@/components/ui/loading'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -14,6 +16,7 @@ import { canViewPlayerPrivateData } from '@/lib/auth/player-privacy'
 import { getGroupPlayers, getPlayerGameHistory } from '@/lib/db/players'
 import { getPlayerGroupStats } from '@/lib/db/stats'
 import { generatePlayerClaimLink } from '@/app/actions/invites'
+import { removePlayerAction } from '@/app/actions/players'
 import { getClaimInviteUrl } from '@/lib/site-url'
 import { calcWinRatePercent, calcAveragePerGame } from '@/lib/calculations/stats'
 import { getPlayerWinCounts } from '@/lib/db/stats'
@@ -24,6 +27,7 @@ export default function PlayerProfilePage({
 }: {
   params: Promise<{ groupId: string; playerId: string }>
 }) {
+  const router = useRouter()
   const [groupId, setGroupId] = useState('')
   const [playerId, setPlayerId] = useState('')
   const [player, setPlayer] = useState<Player | null>(null)
@@ -32,10 +36,12 @@ export default function PlayerProfilePage({
   const [winCount, setWinCount] = useState(0)
   const [currency, setCurrency] = useState<Currency>('ILS')
   const [canViewPrivate, setCanViewPrivate] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [claimUrl, setClaimUrl] = useState<string | null>(null)
   const [generatingLink, setGeneratingLink] = useState(false)
   const [linkError, setLinkError] = useState('')
+  const [showRemove, setShowRemove] = useState(false)
 
   useEffect(() => {
     params.then((p) => {
@@ -49,6 +55,17 @@ export default function PlayerProfilePage({
     const supabase = createClient()
 
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: membership } = await supabase
+          .from('group_members')
+          .select('role')
+          .eq('group_id', groupId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+        setIsAdmin(!!membership && ['owner', 'manager'].includes(membership.role))
+      }
+
       const allowed = await canViewPlayerPrivateData(supabase, playerId)
       setCanViewPrivate(allowed)
 
@@ -97,6 +114,11 @@ export default function PlayerProfilePage({
     } finally {
       setGeneratingLink(false)
     }
+  }
+
+  async function handleRemovePlayer() {
+    await removePlayerAction(groupId, playerId)
+    router.push(`/groups/${groupId}`)
   }
 
   if (loading) {
@@ -265,7 +287,28 @@ export default function PlayerProfilePage({
             )}
           </section>
         )}
+
+        {isAdmin && (
+          <div className="mt-auto pt-4 pb-2">
+            <Button
+              variant="danger"
+              fullWidth
+              onClick={() => setShowRemove(true)}
+            >
+              {t.players.removePlayer}
+            </Button>
+          </div>
+        )}
       </main>
+
+      <ConfirmSheet
+        open={showRemove}
+        onClose={() => setShowRemove(false)}
+        title={t.players.removePlayer}
+        message={t.players.removePlayerWarning}
+        confirmLabel={t.players.removePlayerConfirm}
+        onConfirm={handleRemovePlayer}
+      />
     </>
   )
 }

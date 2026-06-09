@@ -6,7 +6,7 @@ import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { generateSummaryText } from '@/lib/calculations/summary'
+import { generateSummaryText, generateWhatsAppSettlementText } from '@/lib/calculations/summary'
 import { finalizeGameAction } from '@/app/actions/games'
 import type { Game, Player, GameResult, Settlement } from '@/lib/domain/types'
 
@@ -57,6 +57,16 @@ export default function ResultsClient({
       setFinalizing(false)
     }
   }, [gameId, groupId, finalizing, router])
+
+  const handleWhatsAppShare = useCallback(() => {
+    const settlementTransfers = settlements.map((s) => ({
+      from: s.from_player_id,
+      to: s.to_player_id,
+      amount: s.amount,
+    }))
+    const text = generateWhatsAppSettlementText(game, settlementTransfers, playerNames)
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
+  }, [game, settlements, playerNames])
 
   const handleShareAndClose = useCallback(async () => {
     if (finalizing) return
@@ -213,6 +223,16 @@ export default function ResultsClient({
         )}
 
         <div className="flex flex-col gap-3 mt-auto pt-4">
+          {settlements.length > 0 && (
+            <Button
+              variant="secondary"
+              fullWidth
+              size="lg"
+              onClick={handleWhatsAppShare}
+            >
+              {t.results.shareWhatsApp}
+            </Button>
+          )}
           <Button
             fullWidth
             size="lg"

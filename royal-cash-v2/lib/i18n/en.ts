@@ -24,6 +24,10 @@ export const en = {
     podiumEmpty: 'No records yet. Who will set the first one?',
     totalBalance: 'Total balance',
     gamesPlayed: 'Games',
+    archiveGroup: 'Delete group',
+    archiveGroupWarning: 'This action cannot be easily undone. Type the group name to confirm:',
+    archiveGroupConfirm: 'Yes, delete group',
+    archiveGroupSuccess: 'Group deleted',
   },
   players: {
     players: 'Players',
@@ -48,6 +52,10 @@ export const en = {
     noGameHistory: 'No game history',
     privateStats: 'Stats and history are only visible to the linked account owner',
     joinedGame: 'Joined game',
+    removePlayer: 'Remove player',
+    removePlayerWarning: 'This will remove the player from the group. Game history will be preserved.',
+    removePlayerConfirm: 'Yes, remove player',
+    removingPlayer: 'Removing...',
   },
   game: {
     newGame: 'New game',
@@ -134,6 +142,7 @@ export const en = {
     shareAndClose: 'Share & close',
     backToGroup: 'Back to group',
     savingGame: 'Saving game...',
+    shareWhatsApp: 'Share on WhatsApp',
   },
   profile: {
     title: 'Profile',
@@ -147,6 +156,10 @@ export const en = {
     winsCount: 'wins',
     notLinked: 'Link your account to a player in a group to see stats',
     linkedAsTitle: 'You appear as',
+    editDetails: 'Edit details',
+    fullName: 'Full name',
+    noName: 'No name set',
+    greeting: 'Hello',
   },
   stats: {
     title: 'Statistics',

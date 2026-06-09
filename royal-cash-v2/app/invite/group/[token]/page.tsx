@@ -12,7 +12,7 @@ import {
   markGroupInviteAfterAuth,
   shouldResumeAfterAuth,
 } from '@/lib/auth/redirect-flags'
-import { createClient } from '@/lib/supabase/client'
+import { joinGroupAction } from '@/app/actions/invites'
 
 type InviteState = 'loading' | 'ready' | 'joining' | 'success' | 'error'
 
@@ -41,26 +41,20 @@ export default function GroupInvitePage({
     if (!token) return
 
     setState('joining')
-    const supabase = createClient()
-    const { data } = await supabase.rpc('accept_group_invite', {
-      invite_token: token,
-    })
+    const result = await joinGroupAction(token)
 
-    if (data?.error) {
+    if (!result.success) {
       setState('error')
-      if (data.error === 'token_expired') setErrorMsg(t.invites.expiredLink)
-      else if (data.error === 'max_uses_reached') setErrorMsg(t.invites.invalidLink)
+      if (result.error === 'token_expired') setErrorMsg(t.invites.expiredLink)
       else setErrorMsg(t.invites.invalidLink)
       return
     }
 
-    if (data?.success) {
-      setState('success')
-      setGroupId(data.group_id)
+    setState('success')
+    setGroupId(result.groupId)
 
-      if (data.already_member) {
-        router.push(`/groups/${data.group_id}`)
-      }
+    if (result.alreadyMember) {
+      router.push(`/groups/${result.groupId}`)
     }
   }, [token, router])
 
