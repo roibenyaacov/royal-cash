@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
@@ -98,32 +98,29 @@ export default function ProfilePage() {
   const [phoneDraft, setPhoneDraft] = useState('')
   const [nameDraft, setNameDraft] = useState('')
   const [saving, setSaving] = useState(false)
-
-  const loadProfile = useCallback(async () => {
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-
-    try {
-      const data = await getPersonalStats(supabase, user.id)
-      setStats(data)
-      setPhoneDraft(data.profile.phone ?? '')
-      setNameDraft(data.profile.full_name ?? user.user_metadata?.full_name ?? '')
-    } catch (err) {
-      console.error('Failed to load profile:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
-    loadProfile()
-  }, [loadProfile])
+    let cancelled = false
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || cancelled) return
+      getPersonalStats(supabase, user.id)
+        .then((data) => {
+          if (cancelled) return
+          setStats(data)
+          setPhoneDraft(data.profile.phone ?? '')
+          setNameDraft(data.profile.full_name ?? (user.user_metadata?.full_name as string | undefined) ?? '')
+        })
+        .catch((err) => console.error('Failed to load profile:', err))
+        .finally(() => { if (!cancelled) setLoading(false) })
+    })
+    return () => { cancelled = true }
+  }, [])
 
   async function handleSaveDetails() {
     setSaving(true)
+    setSaveError('')
     try {
       await updateProfileAction({ full_name: nameDraft, phone: phoneDraft })
       setStats((prev) =>
@@ -133,6 +130,8 @@ export default function ProfilePage() {
       )
       setEditOpen(false)
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'שגיאה בשמירה'
+      setSaveError(msg)
       console.error('Failed to update profile:', err)
     } finally {
       setSaving(false)
@@ -293,6 +292,9 @@ export default function ProfilePage() {
             placeholder="0501234567"
             dir="ltr"
           />
+          {saveError && (
+            <p className="text-sm text-negative text-center">{saveError}</p>
+          )}
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setEditOpen(false)}>
               {t.common.cancel}

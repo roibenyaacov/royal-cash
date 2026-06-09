@@ -99,9 +99,8 @@ export default function PlayerProfilePage({
     }
   }, [groupId, playerId])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void fetchData() }, [fetchData])
 
   async function handleGenerateLink() {
     setGeneratingLink(true)
