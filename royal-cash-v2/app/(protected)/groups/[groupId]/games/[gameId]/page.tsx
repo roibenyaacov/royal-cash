@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getGame, getGamePlayers } from '@/lib/db/games'
+import { getGame, getGameRosterPlayers } from '@/lib/db/games'
 import { getGroupPlayers } from '@/lib/db/players'
 import { getGameBuyIns } from '@/lib/db/buy-ins'
 import { getGameExpensesWithParticipants } from '@/lib/db/expenses'
@@ -16,10 +16,10 @@ export default async function ActiveGamePage({
   const { groupId, gameId } = await params
   const supabase = await createClient()
 
-  const [game, gamePlayersData, allGroupPlayers, buyIns, { expenses, participants }, events] =
+  const [game, gamePlayers, allGroupPlayers, buyIns, { expenses, participants }, events] =
     await Promise.all([
       getGame(supabase, gameId),
-      getGamePlayers(supabase, gameId),
+      getGameRosterPlayers(supabase, gameId),
       getGroupPlayers(supabase, groupId),
       getGameBuyIns(supabase, gameId),
       getGameExpensesWithParticipants(supabase, gameId),
@@ -27,9 +27,6 @@ export default async function ActiveGamePage({
     ])
 
   if (!game) notFound()
-
-  const gamePlayerIds = new Set(gamePlayersData.map((gp) => gp.player_id))
-  const gamePlayers = allGroupPlayers.filter((p) => gamePlayerIds.has(p.id))
 
   return (
     <ActiveGameClient

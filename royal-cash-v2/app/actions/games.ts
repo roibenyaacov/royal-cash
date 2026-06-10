@@ -6,10 +6,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import {
   createGame as dbCreateGame,
   addGamePlayer as dbAddGamePlayer,
+  removeGamePlayer as dbRemoveGamePlayer,
   closeGame as dbCloseGame,
   finalizeGame as dbFinalizeGame,
   getGame as dbGetGame,
 } from '@/lib/db/games'
+import { createPlayer as dbCreatePlayer } from '@/lib/db/players'
 import { addBuyIn as dbAddBuyIn, removeLatestBuyIn } from '@/lib/db/buy-ins'
 import { addExpense as dbAddExpense } from '@/lib/db/expenses'
 import { upsertCashOut as dbUpsertCashOut } from '@/lib/db/cashouts'
@@ -79,13 +81,112 @@ export async function addPlayerToGameAction(
   const { userId, db } = await authorizeActiveGameMutation(gameId)
 
   await dbAddGamePlayer(db, gameId, playerId)
-  await dbAddBuyIn(db, gameId, playerId, buyInAmount, userId)
 
-  await addGameEvent(db, gameId, 'buy_in_added', userId, {
+  if (buyInAmount > 0) {
+    await dbAddBuyIn(db, gameId, playerId, buyInAmount, userId)
+    await addGameEvent(db, gameId, 'buy_in_added', userId, {
+      playerId,
+      amount: buyInAmount,
+      description: 'הצטרפות למשחק',
+    })
+  }
+}
+
+export async function addNewPlayerToGameAction(
+  groupId: string,
+  gameId: string,
+  displayName: string,
+  options: { addToGroup: boolean; initialBuyIn: number },
+): Promise<void> {
+  const trimmed = displayName.trim()
+  if (!trimmed) throw new Error('Player name required')
+
+  const { userId, db, game } = await authorizeActiveGameMutation(gameId)
+  if (game.group_id !== groupId) throw new Error('Invalid group')
+
+  const player = await dbCreatePlayer(
+    db,
+    groupId,
+    trimmed,
+    undefined,
+    undefined,
+    options.addToGroup,
+  )
+
+  await dbAddGamePlayer(db, gameId, player.id)
+
+  if (options.initialBuyIn > 0) {
+    await dbAddBuyIn(db, gameId, player.id, options.initialBuyIn, userId)
+    await addGameEvent(db, gameId, 'buy_in_added', userId, {
+      playerId: player.id,
+      amount: options.initialBuyIn,
+      description: 'הצטרפות למשחק',
+    })
+  }
+}
+
+async function playerHasGameExpenses(
+  db: Awaited<ReturnType<typeof authorizeActiveGameMutation>>['db'],
+  gameId: string,
+  playerId: string,
+): Promise<boolean> {
+  const { data: paidExpenses, error: paidError } = await db
+    .from('expenses')
+    .select('id')
+    .eq('game_id', gameId)
+    .eq('paid_by_player_id', playerId)
+    .limit(1)
+
+  if (paidError) throw paidError
+  if (paidExpenses?.length) return true
+
+  const { data: expenses, error: expensesError } = await db
+    .from('expenses')
+    .select('id')
+    .eq('game_id', gameId)
+
+  if (expensesError) throw expensesError
+  if (!expenses?.length) return false
+
+  const expenseIds = expenses.map((e) => e.id)
+  const { data: participants, error: participantsError } = await db
+    .from('expense_participants')
+    .select('id')
+    .in('expense_id', expenseIds)
+    .eq('player_id', playerId)
+    .limit(1)
+
+  if (participantsError) throw participantsError
+  return (participants?.length ?? 0) > 0
+}
+
+export async function removePlayerFromGameAction(
+  gameId: string,
+  playerId: string,
+): Promise<{ success: true } | { success: false; error: 'has_expenses' }> {
+  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  await assertPlayerInActiveGame(db, gameId, playerId)
+
+  if (await playerHasGameExpenses(db, gameId, playerId)) {
+    return { success: false, error: 'has_expenses' }
+  }
+
+  const { error: buyInDeleteError } = await db
+    .from('buy_ins')
+    .delete()
+    .eq('game_id', gameId)
+    .eq('player_id', playerId)
+
+  if (buyInDeleteError) throw buyInDeleteError
+
+  await dbRemoveGamePlayer(db, gameId, playerId)
+
+  await addGameEvent(db, gameId, 'buy_in_removed', userId, {
     playerId,
-    amount: buyInAmount,
-    description: 'הצטרפות למשחק',
+    description: 'הוסר מהשולחן',
   })
+
+  return { success: true }
 }
 
 export async function addBuyInAction(
@@ -137,6 +238,27 @@ export async function removeDefaultBuyInAction(
     amount: removed.amount,
   })
 
+  const { count, error: countError } = await db
+    .from('buy_ins')
+    .select('*', { count: 'exact', head: true })
+    .eq('game_id', gameId)
+    .eq('player_id', playerId)
+
+  if (countError) throw countError
+
+  if (count === 0) {
+    if (await playerHasGameExpenses(db, gameId, playerId)) {
+      await dbAddBuyIn(db, gameId, playerId, removed.amount, userId)
+      throw new Error('cannot_remove_player_with_expenses')
+    }
+
+    await dbRemoveGamePlayer(db, gameId, playerId)
+    await addGameEvent(db, gameId, 'buy_in_removed', userId, {
+      playerId,
+      description: 'הוסר מהשולחן',
+    })
+  }
+
   return removed
 }
 
@@ -171,6 +293,14 @@ export async function setPlayerBuyInCountAction(
   } else if (diff < 0) {
     for (let i = 0; i < Math.abs(diff); i++) {
       await removeDefaultBuyInAction(gameId, playerId, defaultAmount)
+    }
+  }
+
+  if (targetCount === 0) {
+    const result = await removePlayerFromGameAction(gameId, playerId)
+    if (!result.success && result.error === 'has_expenses') {
+      await addBuyInAction(gameId, playerId, defaultAmount)
+      throw new Error('cannot_remove_player_with_expenses')
     }
   }
 }

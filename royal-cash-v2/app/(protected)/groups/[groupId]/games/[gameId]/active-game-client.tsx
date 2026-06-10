@@ -6,24 +6,25 @@ import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { PlayerCard } from '@/components/games/player-card'
+import { AddPlayerToGameSheet } from '@/components/games/add-player-to-game-sheet'
 import { ExpenseSheet } from '@/components/expenses/expense-sheet'
 import { GameActivityLog } from '@/components/games/game-activity-log'
-import { IosListGroup, IosListRow } from '@/components/ui/ios-list'
 import { createClient } from '@/lib/supabase/client'
-import { getGame, getGamePlayers } from '@/lib/db/games'
+import { getGame, getGameRosterPlayers } from '@/lib/db/games'
 import { getGroupPlayers } from '@/lib/db/players'
 import { getGameBuyIns } from '@/lib/db/buy-ins'
 import { getGameExpensesWithParticipants } from '@/lib/db/expenses'
 import { getGameEvents } from '@/lib/db/game-events'
 import { useGameRealtime } from '@/hooks/use-game-realtime'
+import { calcPlayerBuyIns } from '@/lib/calculations/buy-ins'
 import {
   addDefaultBuyInAction,
   removeDefaultBuyInAction,
   setPlayerBuyInCountAction,
   addExpenseAction,
   addPlayerToGameAction,
+  addNewPlayerToGameAction,
 } from '@/app/actions/games'
 import type {
   Game,
@@ -44,6 +45,13 @@ interface ActiveGameClientProps {
   initialExpenses: Expense[]
   initialExpenseParticipants: ExpenseParticipant[]
   initialEvents: GameEvent[]
+}
+
+function getBuyInErrorMessage(err: unknown): string | null {
+  if (err instanceof Error && err.message === 'cannot_remove_player_with_expenses') {
+    return t.players.cannotRemoveWithExpenses
+  }
+  return null
 }
 
 export default function ActiveGameClient({
@@ -68,14 +76,16 @@ export default function ActiveGameClient({
   const [showExpense, setShowExpense] = useState(false)
   const [showAddPlayer, setShowAddPlayer] = useState(false)
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null)
+  const [savingNewPlayer, setSavingNewPlayer] = useState(false)
+  const [buyInError, setBuyInError] = useState('')
 
   const fetchData = useCallback(async () => {
     const supabase = createClient()
     try {
-      const [gameData, gamePlayersData, allPlayers, buyInsData, { expenses: expensesData, participants }, eventsData] =
+      const [gameData, rosterPlayers, allPlayers, buyInsData, { expenses: expensesData, participants }, eventsData] =
         await Promise.all([
           getGame(supabase, gameId),
-          getGamePlayers(supabase, gameId),
+          getGameRosterPlayers(supabase, gameId),
           getGroupPlayers(supabase, groupId),
           getGameBuyIns(supabase, gameId),
           getGameExpensesWithParticipants(supabase, gameId),
@@ -83,14 +93,12 @@ export default function ActiveGameClient({
         ])
 
       if (gameData) setGame(gameData)
+      setPlayers(rosterPlayers)
       setBuyIns(buyInsData)
       setExpenses(expensesData)
       setExpenseParticipants(participants)
       setAllGroupPlayers(allPlayers)
       setEvents(eventsData)
-
-      const gamePlayerIds = new Set(gamePlayersData.map((gp) => gp.player_id))
-      setPlayers(allPlayers.filter((p) => gamePlayerIds.has(p.id)))
     } catch (err) {
       console.error('Failed to refresh game:', err)
     }
@@ -98,9 +106,14 @@ export default function ActiveGameClient({
 
   useGameRealtime(gameId, fetchData)
 
+  const visiblePlayers = useMemo(
+    () => players.filter((p) => calcPlayerBuyIns(buyIns, p.id) > 0),
+    [players, buyIns],
+  )
+
   const playerNames = useMemo(
-    () => new Map(players.map((p) => [p.id, p.display_name])),
-    [players],
+    () => new Map(visiblePlayers.map((p) => [p.id, p.display_name])),
+    [visiblePlayers],
   )
 
   const playersNotInGame = useMemo(() => {
@@ -108,30 +121,45 @@ export default function ActiveGameClient({
     return allGroupPlayers.filter((p) => !inGameIds.has(p.id))
   }, [players, allGroupPlayers])
 
+  const playersAtZeroBuyIn = useMemo(
+    () =>
+      players.filter((p) => calcPlayerBuyIns(buyIns, p.id) === 0),
+    [players, buyIns],
+  )
+
   const handleAddDefaultBuyIn = async (playerId: string) => {
+    setBuyInError('')
     try {
       await addDefaultBuyInAction(gameId, playerId, game.default_buy_in)
       await fetchData()
     } catch (err) {
-      console.error('Failed to add buy-in:', err)
+      const msg = getBuyInErrorMessage(err)
+      if (msg) setBuyInError(msg)
+      else console.error('Failed to add buy-in:', err)
     }
   }
 
   const handleRemoveDefaultBuyIn = async (playerId: string) => {
+    setBuyInError('')
     try {
       await removeDefaultBuyInAction(gameId, playerId, game.default_buy_in)
       await fetchData()
     } catch (err) {
-      console.error('Failed to remove buy-in:', err)
+      const msg = getBuyInErrorMessage(err)
+      if (msg) setBuyInError(msg)
+      else console.error('Failed to remove buy-in:', err)
     }
   }
 
   const handleSetBuyInCount = async (playerId: string, count: number) => {
+    setBuyInError('')
     try {
       await setPlayerBuyInCountAction(gameId, playerId, count, game.default_buy_in)
       await fetchData()
     } catch (err) {
-      console.error('Failed to set buy-in count:', err)
+      const msg = getBuyInErrorMessage(err)
+      if (msg) setBuyInError(msg)
+      else console.error('Failed to set buy-in count:', err)
     }
   }
 
@@ -150,17 +178,55 @@ export default function ActiveGameClient({
     }
   }
 
-  const handleAddPlayerToGame = async (playerId: string) => {
+  const handleAddBuyInToPlayer = async (playerId: string) => {
     if (addingPlayer) return
     setAddingPlayer(playerId)
     try {
-      await addPlayerToGameAction(gameId, playerId, game.default_buy_in)
+      await addDefaultBuyInAction(gameId, playerId, game.default_buy_in)
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to add buy-in:', err)
+    } finally {
+      setAddingPlayer(null)
+    }
+  }
+
+  const handleAddExistingPlayer = async (playerId: string, withBuyIn: boolean) => {
+    if (addingPlayer) return
+    setAddingPlayer(playerId)
+    try {
+      await addPlayerToGameAction(
+        gameId,
+        playerId,
+        withBuyIn ? game.default_buy_in : 0,
+      )
       await fetchData()
       setShowAddPlayer(false)
     } catch (err) {
       console.error('Failed to add player:', err)
     } finally {
       setAddingPlayer(null)
+    }
+  }
+
+  const handleAddNewPlayer = async (
+    name: string,
+    addToGroup: boolean,
+    withBuyIn: boolean,
+  ) => {
+    if (savingNewPlayer) return
+    setSavingNewPlayer(true)
+    try {
+      await addNewPlayerToGameAction(groupId, gameId, name, {
+        addToGroup,
+        initialBuyIn: withBuyIn ? game.default_buy_in : 0,
+      })
+      await fetchData()
+      setShowAddPlayer(false)
+    } catch (err) {
+      console.error('Failed to add new player:', err)
+    } finally {
+      setSavingNewPlayer(false)
     }
   }
 
@@ -175,12 +241,16 @@ export default function ActiveGameClient({
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
         <div className="grid grid-cols-3 gap-2">
           <SummaryCard label={t.game.totalBuyIns} value={`${symbol}${totalBuyIns}`} />
-          <SummaryCard label={t.game.playersCount} value={String(players.length)} />
+          <SummaryCard label={t.game.playersCount} value={String(visiblePlayers.length)} />
           <SummaryCard label={t.game.expensesTotal} value={`${symbol}${totalExpenses}`} />
         </div>
 
+        {buyInError && (
+          <p className="text-sm text-negative text-center px-2">{buyInError}</p>
+        )}
+
         <div className="flex flex-col gap-1.5">
-          {players.map((player) => (
+          {visiblePlayers.map((player) => (
             <PlayerCard
               key={player.id}
               name={player.display_name}
@@ -194,16 +264,14 @@ export default function ActiveGameClient({
           ))}
         </div>
 
-        {playersNotInGame.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowAddPlayer(true)}
-            className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-border text-text-muted text-sm active:bg-surface-elevated transition-colors"
-          >
-            <span className="text-lg leading-none">+</span>
-            {t.players.addToGame}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setShowAddPlayer(true)}
+          className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-border text-text-muted text-sm active:bg-surface-elevated transition-colors min-h-[44px]"
+        >
+          <span className="text-lg leading-none">+</span>
+          {t.players.addToGame}
+        </button>
 
         <GameActivityLog
           events={events}
@@ -229,46 +297,26 @@ export default function ActiveGameClient({
       <ExpenseSheet
         open={showExpense}
         onClose={() => setShowExpense(false)}
-        players={players}
+        players={visiblePlayers}
         currency={game.currency}
         onSubmit={handleAddExpense}
       />
 
-      <BottomSheet
+      <AddPlayerToGameSheet
         open={showAddPlayer}
         onClose={() => setShowAddPlayer(false)}
-        title={t.players.addToGameTitle}
-      >
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-text-secondary mb-2">
-            {t.players.selectToAdd} ({t.players.initialBuyIn.replace('{amount}', `${symbol}${game.default_buy_in}`)})
-          </p>
-          {playersNotInGame.length === 0 ? (
-            <p className="text-sm text-text-muted text-center py-4">
-              {t.players.noPlayersToAdd}
-            </p>
-          ) : (
-            <IosListGroup>
-              {playersNotInGame.map((player) => (
-                <IosListRow
-                  key={player.id}
-                  onClick={() => handleAddPlayerToGame(player.id)}
-                  showChevron={false}
-                  trailing={
-                    addingPlayer === player.id ? (
-                      <span className="text-xs text-text-muted shrink-0">{t.players.addingPlayer}</span>
-                    ) : (
-                      <span className="text-accent text-[15px] font-medium shrink-0">{t.players.addPlayerShort}</span>
-                    )
-                  }
-                >
-                  <span className="font-medium text-text-primary">{player.display_name}</span>
-                </IosListRow>
-              ))}
-            </IosListGroup>
-          )}
-        </div>
-      </BottomSheet>
+        gameId={gameId}
+        gameName={game.name}
+        defaultBuyIn={game.default_buy_in}
+        currency={game.currency}
+        playersNotInGame={playersNotInGame}
+        playersAtZeroBuyIn={playersAtZeroBuyIn}
+        addingPlayerId={addingPlayer}
+        savingNew={savingNewPlayer}
+        onAddExisting={handleAddExistingPlayer}
+        onAddBuyInToPlayer={handleAddBuyInToPlayer}
+        onAddNew={handleAddNewPlayer}
+      />
     </>
   )
 }

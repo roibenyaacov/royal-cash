@@ -56,7 +56,7 @@ export function validateGameForClose(
   }
 
   for (const bi of buyIns) {
-    if (bi.amount <= 0) {
+    if (bi.amount < 0) {
       errors.push({
         code: 'buy_in_not_positive',
         params: { playerId: bi.player_id },

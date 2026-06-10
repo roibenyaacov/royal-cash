@@ -111,7 +111,7 @@ export default function CreateGamePage({
           value={defaultBuyIn}
           onChange={(e) => setDefaultBuyIn(e.target.value)}
           currency={currency}
-          placeholder="100"
+          placeholder="50"
         />
 
         <div>

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { resolveUserDisplayName } from '@/lib/auth/display-name'
 import { generateToken } from '@/lib/utils/tokens'
 import {
   createPlayerClaimInvite,
@@ -55,10 +56,7 @@ export async function joinGroupAction(token: string): Promise<JoinGroupResult> {
       .eq('id', user.id)
       .maybeSingle()
 
-    const displayName =
-      profile?.full_name?.trim() ||
-      (user.user_metadata?.full_name as string | undefined)?.trim() ||
-      (profile?.email ?? user.email ?? '').split('@')[0]
+    const displayName = resolveUserDisplayName(profile, user)
 
     const adminClient = createAdminClient()
     await createPlayer(adminClient, groupId, displayName, undefined, user.id)

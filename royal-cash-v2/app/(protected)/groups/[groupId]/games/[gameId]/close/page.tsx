@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getGame, getGamePlayers } from '@/lib/db/games'
+import { getGame, getGameRosterPlayers } from '@/lib/db/games'
 import { getGroupPlayers } from '@/lib/db/players'
 import { getGameBuyIns } from '@/lib/db/buy-ins'
+import { calcPlayerBuyIns } from '@/lib/calculations/buy-ins'
 import { getGameExpensesWithParticipants } from '@/lib/db/expenses'
 import CloseGameClient from './close-game-client'
 
@@ -14,19 +15,19 @@ export default async function CloseGamePage({
   const { groupId, gameId } = await params
   const supabase = await createClient()
 
-  const [game, gamePlayersData, allGroupPlayers, buyIns, { expenses, participants }] =
+  const [game, rosterPlayers, buyIns, { expenses, participants }] =
     await Promise.all([
       getGame(supabase, gameId),
-      getGamePlayers(supabase, gameId),
-      getGroupPlayers(supabase, groupId),
+      getGameRosterPlayers(supabase, gameId),
       getGameBuyIns(supabase, gameId),
       getGameExpensesWithParticipants(supabase, gameId),
     ])
 
   if (!game) notFound()
 
-  const gamePlayerIds = new Set(gamePlayersData.map((gp) => gp.player_id))
-  const gamePlayers = allGroupPlayers.filter((p) => gamePlayerIds.has(p.id))
+  const gamePlayers = rosterPlayers.filter(
+    (p) => calcPlayerBuyIns(buyIns, p.id) > 0,
+  )
 
   return (
     <CloseGameClient

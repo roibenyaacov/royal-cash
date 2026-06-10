@@ -16,7 +16,7 @@ import { canViewPlayerPrivateData } from '@/lib/auth/player-privacy'
 import { getGroupPlayers, getPlayerGameHistory } from '@/lib/db/players'
 import { getPlayerGroupStats } from '@/lib/db/stats'
 import { generatePlayerClaimLink } from '@/app/actions/invites'
-import { removePlayerAction } from '@/app/actions/players'
+import { linkPlayerToSelfAction, removePlayerAction } from '@/app/actions/players'
 import { getClaimInviteUrl } from '@/lib/site-url'
 import { calcWinRatePercent, calcAveragePerGame } from '@/lib/calculations/stats'
 import { getPlayerWinCounts } from '@/lib/db/stats'
@@ -42,6 +42,10 @@ export default function PlayerProfilePage({
   const [generatingLink, setGeneratingLink] = useState(false)
   const [linkError, setLinkError] = useState('')
   const [showRemove, setShowRemove] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [linkingSelf, setLinkingSelf] = useState(false)
+  const [linkSelfSuccess, setLinkSelfSuccess] = useState(false)
+  const [linkSelfError, setLinkSelfError] = useState('')
 
   useEffect(() => {
     params.then((p) => {
@@ -57,6 +61,7 @@ export default function PlayerProfilePage({
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        setCurrentUserId(user.id)
         const { data: membership } = await supabase
           .from('group_members')
           .select('role')
@@ -115,6 +120,34 @@ export default function PlayerProfilePage({
     }
   }
 
+  async function handleLinkSelf() {
+    setLinkingSelf(true)
+    setLinkSelfError('')
+    try {
+      const result = await linkPlayerToSelfAction(playerId)
+      if (!result.success) {
+        if (result.error === 'player_already_linked') {
+          setLinkSelfError(t.invites.playerAlreadyLinked)
+        } else if (result.error === 'user_already_linked_in_group') {
+          setLinkSelfError(t.invites.userAlreadyLinkedInGroup)
+        } else {
+          setLinkSelfError(t.common.error)
+        }
+        return
+      }
+      setLinkSelfSuccess(true)
+      setPlayer((prev) =>
+        prev && currentUserId ? { ...prev, linked_user_id: currentUserId } : prev,
+      )
+      setCanViewPrivate(true)
+      await fetchData()
+    } catch {
+      setLinkSelfError(t.common.error)
+    } finally {
+      setLinkingSelf(false)
+    }
+  }
+
   async function handleRemovePlayer() {
     await removePlayerAction(groupId, playerId)
     router.push(`/groups/${groupId}`)
@@ -144,6 +177,8 @@ export default function PlayerProfilePage({
 
   const symbol = t.currency[currency]
   const isLinked = !!player.linked_user_id
+  const canLinkSelf =
+    !isLinked && !!currentUserId && player.linked_user_id !== currentUserId
   const gamesPlayed = stats?.games_played ?? 0
   const totalBalance = stats?.total_balance ?? 0
   const avgPerGame = calcAveragePerGame(totalBalance, gamesPlayed)
@@ -216,7 +251,30 @@ export default function PlayerProfilePage({
           </section>
         )}
 
-        {!isLinked && (
+        {canLinkSelf && (
+          <section>
+            <h2 className="text-base font-semibold text-text-primary mb-3">
+              {t.players.linkSelf}
+            </h2>
+            <Card>
+              <p className="text-sm text-text-secondary mb-3">{t.players.linkSelfDesc}</p>
+              {linkSelfSuccess ? (
+                <p className="text-sm text-positive text-center">{t.players.linkSelfSuccess}</p>
+              ) : (
+                <>
+                  {linkSelfError && (
+                    <p className="text-xs text-negative mb-2">{linkSelfError}</p>
+                  )}
+                  <Button fullWidth onClick={handleLinkSelf} disabled={linkingSelf}>
+                    {linkingSelf ? t.players.linkingSelf : t.players.linkSelf}
+                  </Button>
+                </>
+              )}
+            </Card>
+          </section>
+        )}
+
+        {!isLinked && isAdmin && (
           <section>
             <h2 className="text-base font-semibold text-text-primary mb-3">
               {t.players.generateClaimLink}

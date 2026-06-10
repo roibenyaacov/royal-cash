@@ -82,12 +82,58 @@ export async function removePlayer(
   if (error) throw error
 }
 
+export type LinkPlayerToSelfResult =
+  | { success: true; groupId: string; alreadyLinked?: boolean }
+  | {
+      success: false
+      error:
+        | 'not_authenticated'
+        | 'player_not_found'
+        | 'not_group_member'
+        | 'player_already_linked'
+        | 'user_already_linked_in_group'
+        | 'unknown'
+    }
+
+export async function linkPlayerToSelf(
+  supabase: SupabaseClient,
+  playerId: string,
+): Promise<LinkPlayerToSelfResult> {
+  const { data, error } = await supabase.rpc('link_player_to_self', {
+    p_player_id: playerId,
+  })
+
+  if (error) return { success: false, error: 'unknown' }
+
+  if (data?.success) {
+    return {
+      success: true,
+      groupId: data.group_id as string,
+      alreadyLinked: Boolean(data.already_linked),
+    }
+  }
+
+  const err = data?.error as string | undefined
+  if (
+    err === 'not_authenticated' ||
+    err === 'player_not_found' ||
+    err === 'not_group_member' ||
+    err === 'player_already_linked' ||
+    err === 'user_already_linked_in_group'
+  ) {
+    return { success: false, error: err }
+  }
+
+  return { success: false, error: 'unknown' }
+}
+
 export async function createPlayer(
   supabase: SupabaseClient,
   groupId: string,
   displayName: string,
   phone?: string,
   linkedUserId?: string,
+  isActive = true,
 ): Promise<Player> {
   const { data, error } = await supabase
     .from('players')
@@ -96,6 +142,7 @@ export async function createPlayer(
       display_name: displayName,
       phone: phone ?? null,
       linked_user_id: linkedUserId ?? null,
+      is_active: isActive,
     })
     .select()
     .single()

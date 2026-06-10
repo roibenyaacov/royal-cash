@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Game, GamePlayer } from '@/lib/domain/types'
+import type { Game, GamePlayer, Player } from '@/lib/domain/types'
 
 export async function getGroupGames(
   supabase: SupabaseClient,
@@ -94,4 +94,36 @@ export async function addGamePlayer(
     .insert({ game_id: gameId, player_id: playerId })
 
   if (error) throw error
+}
+
+export async function removeGamePlayer(
+  supabase: SupabaseClient,
+  gameId: string,
+  playerId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('game_players')
+    .delete()
+    .eq('game_id', gameId)
+    .eq('player_id', playerId)
+
+  if (error) throw error
+}
+
+export async function getGameRosterPlayers(
+  supabase: SupabaseClient,
+  gameId: string,
+): Promise<Player[]> {
+  const gamePlayers = await getGamePlayers(supabase, gameId)
+  if (!gamePlayers.length) return []
+
+  const playerIds = gamePlayers.map((gp) => gp.player_id)
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .in('id', playerIds)
+    .order('display_name')
+
+  if (error) throw error
+  return data ?? []
 }

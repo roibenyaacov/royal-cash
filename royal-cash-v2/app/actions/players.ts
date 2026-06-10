@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { createPlayer as dbCreatePlayer, removePlayer as dbRemovePlayer } from '@/lib/db/players'
+import { createPlayer as dbCreatePlayer, removePlayer as dbRemovePlayer, linkPlayerToSelf } from '@/lib/db/players'
 import type { Player } from '@/lib/domain/types'
 
 export async function createPlayerAction(
@@ -15,6 +15,19 @@ export async function createPlayerAction(
   if (!user) throw new Error('Not authenticated')
 
   return dbCreatePlayer(supabase, groupId, displayName, phone)
+}
+
+export async function linkPlayerToSelfAction(playerId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const result = await linkPlayerToSelf(supabase, playerId)
+  if (result.success) {
+    revalidatePath(`/groups/${result.groupId}`)
+    revalidatePath('/profile')
+  }
+  return result
 }
 
 export async function removePlayerAction(

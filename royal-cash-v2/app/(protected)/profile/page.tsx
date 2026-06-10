@@ -8,9 +8,18 @@ import { Input } from '@/components/ui/input'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Loading } from '@/components/ui/loading'
 import { ProfileStatCard } from '@/components/profile/profile-stat-card'
-import { updateProfileAction } from '@/app/actions/profile'
 import { createClient } from '@/lib/supabase/client'
 import { getPersonalStats, type PersonalStats } from '@/lib/db/profile'
+import { updateProfileAction } from '@/app/actions/profile'
+
+function getSaveErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const message = (err as { message: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message
+  }
+  return 'שגיאה בשמירה'
+}
 
 const symbol = t.currency.ILS
 
@@ -122,16 +131,43 @@ export default function ProfilePage() {
     setSaving(true)
     setSaveError('')
     try {
-      await updateProfileAction({ full_name: nameDraft, phone: phoneDraft })
-      setStats((prev) =>
-        prev
-          ? { ...prev, profile: { ...prev.profile, phone: phoneDraft.trim() || null, full_name: nameDraft.trim() || '' } }
-          : prev,
-      )
+      const trimmedName = nameDraft.trim() || null
+      const trimmedPhone = phoneDraft.trim() || null
+
+      await updateProfileAction({
+        full_name: nameDraft.trim(),
+        phone: phoneDraft.trim(),
+      })
+
+      try {
+        const supabase = createClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (user) {
+          const fresh = await getPersonalStats(supabase, user.id)
+          setStats(fresh)
+          setPhoneDraft(fresh.profile.phone ?? '')
+          setNameDraft(fresh.profile.full_name ?? '')
+        }
+      } catch (reloadErr) {
+        console.error('Profile saved but stats reload failed:', reloadErr)
+        setStats((prev) =>
+          prev
+            ? {
+                ...prev,
+                profile: {
+                  ...prev.profile,
+                  phone: trimmedPhone,
+                  full_name: trimmedName ?? '',
+                },
+              }
+            : prev,
+        )
+      }
       setEditOpen(false)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'שגיאה בשמירה'
-      setSaveError(msg)
+      setSaveError(getSaveErrorMessage(err))
       console.error('Failed to update profile:', err)
     } finally {
       setSaving(false)
@@ -161,12 +197,32 @@ export default function ProfilePage() {
       <PageHeader title={t.profile.title} />
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
-        {/* Greeting */}
-        {resolvedName && (
-          <p className="text-xl font-bold text-text-primary text-center pt-1">
-            {t.profile.greeting}, {resolvedName}
+        {/* Avatar + greeting */}
+        <div className="flex flex-col items-center gap-3 pt-1">
+          {profile?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.avatar_url}
+              alt={resolvedName}
+              className="w-20 h-20 rounded-full border border-border object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full border border-border bg-surface-elevated flex items-center justify-center">
+              <span className="text-2xl font-bold text-accent">
+                {(resolvedName || '?').charAt(0)}
+              </span>
+            </div>
+          )}
+          {resolvedName && (
+            <p className="text-xl font-bold text-text-primary text-center">
+              {t.profile.greeting}, {resolvedName}
+            </p>
+          )}
+          <p className="text-xs text-text-muted text-center px-2">
+            {t.profile.accountIdentityNote}
           </p>
-        )}
+        </div>
 
         {/* Personal details card */}
         <div className="rounded-[var(--radius-card)] bg-surface-elevated border border-border overflow-hidden">
@@ -268,6 +324,58 @@ export default function ProfilePage() {
             valueClassName="text-[#22d3ee]"
           />
         </div>
+
+        {stats?.hasLinkedPlayers && (
+          <section>
+            <p className="text-sm font-semibold text-text-primary mb-3">
+              {t.profile.gameHistoryTitle}
+            </p>
+            {!stats.gameHistory?.length ? (
+              <p className="text-sm text-text-muted text-center py-4">
+                {t.profile.noGameHistory}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {stats.gameHistory.map((entry) => (
+                  <li
+                    key={`${entry.gameId}-${entry.tableDisplayName}`}
+                    className="rounded-[var(--radius-card)] bg-surface-elevated border border-border px-4 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-text-primary truncate">
+                          {entry.gameName}
+                        </p>
+                        <p className="text-xs text-text-muted mt-0.5 truncate">
+                          {entry.groupName}
+                          {entry.tableDisplayName && (
+                            <>
+                              {' · '}
+                              {t.profile.playedAs} {entry.tableDisplayName}
+                            </>
+                          )}
+                        </p>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {new Date(entry.gameDate).toLocaleDateString('he-IL')}
+                        </p>
+                      </div>
+                      <p
+                        className={`text-sm font-bold shrink-0 ${
+                          entry.finalBalance >= 0 ? 'text-positive' : 'text-negative'
+                        }`}
+                        dir="ltr"
+                      >
+                        {entry.finalBalance >= 0 ? '+' : ''}
+                        {symbol}
+                        {Math.abs(entry.finalBalance)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </main>
 
       <BottomSheet

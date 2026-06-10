@@ -7,6 +7,7 @@ import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Button } from '@/components/ui/button'
 import { InviteLink } from '@/components/ui/invite-link'
 import { generatePlayerClaimLink } from '@/app/actions/invites'
+import { linkPlayerToSelfAction } from '@/app/actions/players'
 import { getClaimInviteUrl } from '@/lib/site-url'
 import type { Player, PlayerGroupStats, Currency } from '@/lib/domain/types'
 
@@ -15,16 +16,29 @@ type Props = {
   stats?: PlayerGroupStats
   currency: Currency
   groupId: string
+  currentUserId: string | null
+  isGroupAdmin: boolean
   canViewPrivate: boolean
   onClose: () => void
+  onPlayerLinked?: (player: Player) => void
 }
 
-export function PlayerSheet({ player, stats, currency, groupId, canViewPrivate, onClose }: Props) {
+export function PlayerSheet({
+  player,
+  stats,
+  currency,
+  groupId,
+  currentUserId,
+  isGroupAdmin,
+  canViewPrivate,
+  onClose,
+  onPlayerLinked,
+}: Props) {
   const [claimUrl, setClaimUrl] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [linkingSelf, setLinkingSelf] = useState(false)
+  const [linkSelfSuccess, setLinkSelfSuccess] = useState(false)
   const [error, setError] = useState('')
-
-  const symbol = t.currency[currency]
 
   async function handleGenerateLink() {
     if (!player) return
@@ -40,15 +54,48 @@ export function PlayerSheet({ player, stats, currency, groupId, canViewPrivate, 
     }
   }
 
+  async function handleLinkSelf() {
+    if (!player) return
+    setLinkingSelf(true)
+    setError('')
+    try {
+      const result = await linkPlayerToSelfAction(player.id)
+      if (!result.success) {
+        if (result.error === 'player_already_linked') {
+          setError(t.invites.playerAlreadyLinked)
+        } else if (result.error === 'user_already_linked_in_group') {
+          setError(t.invites.userAlreadyLinkedInGroup)
+        } else {
+          setError(t.common.error)
+        }
+        return
+      }
+
+      setLinkSelfSuccess(true)
+      onPlayerLinked?.({ ...player, linked_user_id: currentUserId })
+    } catch {
+      setError(t.common.error)
+    } finally {
+      setLinkingSelf(false)
+    }
+  }
+
   function handleClose() {
     setClaimUrl(null)
     setError('')
+    setLinkSelfSuccess(false)
     onClose()
   }
 
   if (!player) return null
 
   const isLinked = !!player.linked_user_id
+  const canLinkSelf =
+    !isLinked &&
+    !!currentUserId &&
+    player.linked_user_id !== currentUserId
+
+  const symbol = t.currency[currency]
 
   return (
     <BottomSheet open={!!player} onClose={handleClose} title={player.display_name}>
@@ -99,8 +146,33 @@ export function PlayerSheet({ player, stats, currency, groupId, canViewPrivate, 
           <p className="text-sm text-text-muted text-center">{t.players.privateStats}</p>
         )}
 
-        {/* Claim link section */}
-        {!isLinked && (
+        {canLinkSelf && (
+          <div className="flex flex-col gap-3 border border-accent/30 rounded-xl p-4 bg-accent/5">
+            <div>
+              <p className="text-sm font-medium text-text-primary mb-1">
+                {t.players.linkSelf}
+              </p>
+              <p className="text-xs text-text-muted">{t.players.linkSelfDesc}</p>
+            </div>
+            {linkSelfSuccess ? (
+              <p className="text-sm text-positive text-center">{t.players.linkSelfSuccess}</p>
+            ) : (
+              <>
+                {error && <p className="text-xs text-negative">{error}</p>}
+                <Button
+                  fullWidth
+                  onClick={handleLinkSelf}
+                  disabled={linkingSelf}
+                >
+                  {linkingSelf ? t.players.linkingSelf : t.players.linkSelf}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Claim link section — admins only */}
+        {!isLinked && isGroupAdmin && (
           <div className="flex flex-col gap-3 border border-border rounded-xl p-4">
             <div>
               <p className="text-sm font-medium text-text-primary mb-1">
@@ -117,7 +189,7 @@ export function PlayerSheet({ player, stats, currency, groupId, canViewPrivate, 
               />
             ) : (
               <>
-                {error && <p className="text-xs text-negative">{error}</p>}
+                {error && !canLinkSelf && <p className="text-xs text-negative">{error}</p>}
                 <Button
                   variant="secondary"
                   fullWidth

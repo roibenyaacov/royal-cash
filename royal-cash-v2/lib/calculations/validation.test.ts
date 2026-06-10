@@ -49,10 +49,21 @@ describe('validateGameForClose', () => {
     )
   })
 
-  it('fails when buy-in is not positive', () => {
+  it('allows zero total buy-in for a player with zero cash-out', () => {
+    const result = validateGameForClose(
+      ['roi', 'guest'],
+      [makeBuyIn('roi', 100)],
+      [makeCashOut('roi', 100), makeCashOut('guest', 0)],
+      [],
+      new Map(),
+    )
+    expect(result.valid).toBe(true)
+  })
+
+  it('fails when buy-in is negative', () => {
     const result = validateGameForClose(
       ['roi'],
-      [makeBuyIn('roi', 0)],
+      [makeBuyIn('roi', -10)],
       [makeCashOut('roi', 0)],
       [],
       new Map(),

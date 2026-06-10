@@ -124,7 +124,7 @@ export default function GroupDetailClient({
     <>
       <PageHeader title={group.name} showBack />
 
-      <main className="flex-1 px-4 py-4 flex flex-col gap-3 overflow-y-auto">
+      <main className="flex-1 px-4 py-4 flex flex-col gap-3 overflow-y-auto min-h-0">
         <section className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -150,15 +150,6 @@ export default function GroupDetailClient({
               style={{ background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96a 50%, #c9a84c 100%)' }}
             >
               {t.game.newGame}
-            </button>
-          )}
-          {isOwner && (
-            <button
-              type="button"
-              onClick={() => setShowArchive(true)}
-              className="col-span-2 py-3 rounded-[10px] border border-negative/30 bg-negative/5 text-[14px] font-medium text-negative active:bg-negative/10 transition-colors min-h-[44px]"
-            >
-              {t.groups.archiveGroup}
             </button>
           )}
         </section>
@@ -216,7 +207,7 @@ export default function GroupDetailClient({
         )}
 
         {historyGames.length > 0 && (
-          <section className="pb-6">
+          <section>
             <p className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wider">
               {t.game.gameHistory}
             </p>
@@ -237,6 +228,18 @@ export default function GroupDetailClient({
                 </IosListRow>
               ))}
             </IosListGroup>
+          </section>
+        )}
+
+        {isOwner && (
+          <section className="mt-auto pt-8 pb-2">
+            <button
+              type="button"
+              onClick={() => setShowArchive(true)}
+              className="w-full py-3 rounded-[10px] border border-negative/30 bg-negative/5 text-[14px] font-medium text-negative active:bg-negative/10 transition-colors min-h-[44px]"
+            >
+              {t.groups.archiveGroup}
+            </button>
           </section>
         )}
       </main>
@@ -287,8 +290,16 @@ export default function GroupDetailClient({
         stats={selectedPlayer ? statsByPlayer.get(selectedPlayer.id) : undefined}
         currency={defaultCurrency}
         groupId={groupId}
+        currentUserId={currentUserId}
+        isGroupAdmin={isOwner}
         canViewPrivate={selectedPlayerCanViewPrivate}
         onClose={() => setSelectedPlayer(null)}
+        onPlayerLinked={(linked) => {
+          setPlayers((prev) =>
+            prev.map((p) => (p.id === linked.id ? linked : p)),
+          )
+          setSelectedPlayer(linked)
+        }}
       />
 
       <ConfirmSheet
