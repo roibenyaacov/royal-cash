@@ -29,13 +29,13 @@ export function PreflopCharts() {
       {/* Position selector */}
       <div>
         <p className="text-xs text-text-secondary mb-1.5">{t.tools.position}</p>
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="grid grid-cols-4 gap-1.5">
           {POSITIONS.map((pos) => (
             <button
               key={pos}
               type="button"
               onClick={() => setPosition(pos)}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+              className={`w-full px-2 py-1.5 rounded-lg text-sm border transition-colors text-center min-h-[36px] ${
                 position === pos
                   ? 'bg-accent/20 border-accent text-accent'
                   : 'bg-surface-elevated border-border text-text-secondary'
@@ -59,14 +59,14 @@ export function PreflopCharts() {
 
       {/* Legend */}
       <div className="flex gap-3 flex-wrap">
-        {(['R', 'L', 'F'] as PreflopAction[]).map((action) => (
+        {(['R', 'F'] as PreflopAction[]).map((action) => (
           <div key={action} className="flex items-center gap-1.5">
             <div
               className="w-3 h-3 rounded-sm"
               style={{ background: ACTION_COLORS[action] }}
             />
             <span className="text-xs text-text-secondary">
-              {action === 'R' ? t.tools.raise : action === 'L' ? t.tools.limp : t.tools.fold}
+              {action === 'R' ? t.tools.raise : t.tools.fold}
             </span>
           </div>
         ))}

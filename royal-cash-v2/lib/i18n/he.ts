@@ -231,7 +231,7 @@ export const he = {
     fold: 'פולד',
     limp: 'לימפ',
     preflopTitle: 'טווחי פריפלופ',
-    preflopDesc: 'טבלאות RFI — גישת GTO לפי פוזיציה (6-max)',
+    preflopDesc: 'טבלאות RFI — גישת GTO לפי פוזיציה (8-max, 100bb)',
     calcDesc: 'חישוב אקוויטי עם סימולציית מונטה קרלו',
     needMoreCards: 'נדרשים לפחות 2 קלפים שלך',
     needOmahaCards: 'אומהה דורש 4 קלפים שלך',

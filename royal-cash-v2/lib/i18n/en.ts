@@ -233,7 +233,7 @@ export const en = {
     fold: 'Fold',
     limp: 'Limp',
     preflopTitle: 'Preflop ranges',
-    preflopDesc: 'RFI charts — GTO approach by position (6-max)',
+    preflopDesc: 'RFI charts — GTO approach by position (8-max, 100bb)',
     calcDesc: 'Equity calculation with Monte Carlo simulation',
     needMoreCards: 'At least 2 hole cards required',
     needOmahaCards: 'Omaha requires 4 hole cards',
