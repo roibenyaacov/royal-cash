@@ -11,6 +11,7 @@ import { ProfileStatCard } from '@/components/profile/profile-stat-card'
 import { createClient } from '@/lib/supabase/client'
 import { getPersonalStats, type PersonalStats } from '@/lib/db/profile'
 import { updateProfileAction } from '@/app/actions/profile'
+import { ContactLink } from '@/components/layout/contact-link'
 
 function getSaveErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message
@@ -376,6 +377,10 @@ export default function ProfilePage() {
             )}
           </section>
         )}
+
+        <section className="pt-2">
+          <ContactLink variant="row" />
+        </section>
       </main>
 
       <BottomSheet

@@ -285,6 +285,11 @@ export const he = {
     unlimited: 'ללא הגבלה',
     revoke: 'בטל קישור',
   },
+  contact: {
+    prompt: 'שאלות? צור קשר',
+    label: 'צור קשר',
+    emailSubject: 'Royal Cash — פנייה',
+  },
   common: {
     save: 'שמור',
     cancel: 'ביטול',

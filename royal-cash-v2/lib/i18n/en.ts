@@ -287,6 +287,11 @@ export const en = {
     unlimited: 'Unlimited',
     revoke: 'Revoke link',
   },
+  contact: {
+    prompt: 'Questions? Contact us',
+    label: 'Contact us',
+    emailSubject: 'Royal Cash — inquiry',
+  },
   common: {
     save: 'Save',
     cancel: 'Cancel',

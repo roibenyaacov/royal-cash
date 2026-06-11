@@ -7,6 +7,7 @@ import { GoogleIcon } from '@/components/ui/google-icon'
 import { useAuth } from '@/hooks/use-auth'
 import { useLocale } from '@/lib/i18n/locale-context'
 import { hasSupabasePublicConfig } from '@/lib/supabase/config'
+import { ContactLink } from '@/components/layout/contact-link'
 
 function LockIcon() {
   return (
@@ -108,14 +109,17 @@ export default function LoginPage() {
         </div>
       </main>
 
-      <footer className="relative z-10 flex flex-col items-center gap-3 pb-8 opacity-40">
-        <div className="flex items-center gap-2 text-text-muted">
-          <LockIcon />
-          <span className="text-[11px] font-medium uppercase tracking-[0.2em]">
-            Secure
-          </span>
+      <footer className="relative z-10 flex flex-col items-center gap-4 pb-8">
+        <div className="flex flex-col items-center gap-3 opacity-40">
+          <div className="flex items-center gap-2 text-text-muted">
+            <LockIcon />
+            <span className="text-[11px] font-medium uppercase tracking-[0.2em]">
+              Secure
+            </span>
+          </div>
+          <div className="h-px w-12 bg-accent/20" />
         </div>
-        <div className="h-px w-12 bg-accent/20" />
+        <ContactLink />
       </footer>
     </div>
   )
