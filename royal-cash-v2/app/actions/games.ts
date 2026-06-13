@@ -20,6 +20,7 @@ import { applyGameStats } from '@/lib/db/stats'
 import { addGameEvent } from '@/lib/db/game-events'
 import {
   assertPlayerInActiveGame,
+  assertGroupMember,
   authorizeActiveGameMutation,
 } from '@/lib/server/authorize-game'
 import type {
@@ -43,6 +44,8 @@ export async function createGameAction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
+
+  await assertGroupMember(supabase, groupId, user.id)
 
   const game = await dbCreateGame(supabase, {
     group_id: groupId,
@@ -350,6 +353,11 @@ export async function closeGameAction(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  const game = await dbGetGame(supabase, gameId)
+  if (!game) throw new Error('Game not found')
+
+  await assertGroupMember(supabase, game.group_id, user.id)
+
   await Promise.all(
     cashOuts.map((co) =>
       dbUpsertCashOut(supabase, gameId, co.playerId, co.amount, user.id),
@@ -370,13 +378,7 @@ export async function finalizeGameAction(
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const { data: membership } = await supabase
-    .from('group_members')
-    .select('id')
-    .eq('group_id', groupId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-  if (!membership) throw new Error('Not a group member')
+  await assertGroupMember(supabase, groupId, user.id)
 
   const game = await dbGetGame(supabase, gameId)
   if (!game) throw new Error('Game not found')

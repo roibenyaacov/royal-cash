@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createPlayer as dbCreatePlayer, removePlayer as dbRemovePlayer, linkPlayerToSelf } from '@/lib/db/players'
+import { assertGroupMember } from '@/lib/server/authorize-game'
 import type { Player } from '@/lib/domain/types'
 
 export async function createPlayerAction(
@@ -13,6 +14,8 @@ export async function createPlayerAction(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
+
+  await assertGroupMember(supabase, groupId, user.id)
 
   return dbCreatePlayer(supabase, groupId, displayName, phone)
 }
@@ -40,14 +43,12 @@ export async function removePlayerAction(
 
   const { data: membership } = await supabase
     .from('group_members')
-    .select('role')
+    .select('id')
     .eq('group_id', groupId)
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!membership || !['owner', 'manager'].includes(membership.role)) {
-    throw new Error('Not authorized')
-  }
+  if (!membership) throw new Error('Not a group member')
 
   await dbRemovePlayer(supabase, playerId)
   revalidatePath(`/groups/${groupId}`)

@@ -12,6 +12,21 @@ type ActiveGameMutationContext = {
   db: SupabaseClient
 }
 
+export async function assertGroupMember(
+  supabase: SupabaseClient,
+  groupId: string,
+  userId: string,
+): Promise<void> {
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('id')
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (!membership) throw new Error('Not a group member')
+}
+
 export async function authorizeActiveGameMutation(
   gameId: string,
 ): Promise<ActiveGameMutationContext> {

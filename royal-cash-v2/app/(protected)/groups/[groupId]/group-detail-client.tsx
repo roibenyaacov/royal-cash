@@ -291,7 +291,6 @@ export default function GroupDetailClient({
         currency={defaultCurrency}
         groupId={groupId}
         currentUserId={currentUserId}
-        isGroupAdmin={isOwner}
         canViewPrivate={selectedPlayerCanViewPrivate}
         onClose={() => setSelectedPlayer(null)}
         onPlayerLinked={(linked) => {

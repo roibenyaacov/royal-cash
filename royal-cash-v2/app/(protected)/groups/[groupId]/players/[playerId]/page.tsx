@@ -36,7 +36,7 @@ export default function PlayerProfilePage({
   const [winCount, setWinCount] = useState(0)
   const [currency, setCurrency] = useState<Currency>('ILS')
   const [canViewPrivate, setCanViewPrivate] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [isMember, setIsMember] = useState(false)
   const [loading, setLoading] = useState(true)
   const [claimUrl, setClaimUrl] = useState<string | null>(null)
   const [generatingLink, setGeneratingLink] = useState(false)
@@ -68,7 +68,7 @@ export default function PlayerProfilePage({
           .eq('group_id', groupId)
           .eq('user_id', user.id)
           .maybeSingle()
-        setIsAdmin(!!membership && ['owner', 'manager'].includes(membership.role))
+        setIsMember(!!membership)
       }
 
       const allowed = await canViewPlayerPrivateData(supabase, playerId)
@@ -274,7 +274,7 @@ export default function PlayerProfilePage({
           </section>
         )}
 
-        {!isLinked && isAdmin && (
+        {!isLinked && isMember && (
           <section>
             <h2 className="text-base font-semibold text-text-primary mb-3">
               {t.players.generateClaimLink}
@@ -345,7 +345,7 @@ export default function PlayerProfilePage({
           </section>
         )}
 
-        {isAdmin && (
+        {isMember && (
           <div className="mt-auto pt-4 pb-2">
             <Button
               variant="danger"

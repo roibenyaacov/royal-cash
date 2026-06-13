@@ -17,7 +17,6 @@ type Props = {
   currency: Currency
   groupId: string
   currentUserId: string | null
-  isGroupAdmin: boolean
   canViewPrivate: boolean
   onClose: () => void
   onPlayerLinked?: (player: Player) => void
@@ -29,7 +28,6 @@ export function PlayerSheet({
   currency,
   groupId,
   currentUserId,
-  isGroupAdmin,
   canViewPrivate,
   onClose,
   onPlayerLinked,
@@ -171,8 +169,8 @@ export function PlayerSheet({
           </div>
         )}
 
-        {/* Claim link section — admins only */}
-        {!isLinked && isGroupAdmin && (
+        {/* Claim link section */}
+        {!isLinked && (
           <div className="flex flex-col gap-3 border border-border rounded-xl p-4">
             <div>
               <p className="text-sm font-medium text-text-primary mb-1">
