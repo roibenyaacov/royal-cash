@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getGame, getGameRosterPlayers } from '@/lib/db/games'
 import { getGroupPlayers } from '@/lib/db/players'
@@ -27,6 +27,10 @@ export default async function ActiveGamePage({
     ])
 
   if (!game) notFound()
+
+  if (game.status !== 'active') {
+    redirect(`/groups/${groupId}/games/${gameId}/results`)
+  }
 
   return (
     <ActiveGameClient

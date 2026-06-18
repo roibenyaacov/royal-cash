@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getGame } from '@/lib/db/games'
 import { getGroupPlayers } from '@/lib/db/players'
@@ -21,6 +21,14 @@ export default async function ResultsPage({
   ])
 
   if (!game) notFound()
+
+  // Only send back to the close form when the game is still open *and* has
+  // no saved results. After a successful close, RSC cache can briefly still
+  // report status=active even though results were written — in that case we
+  // must render the results screen, not bounce the user back to the table.
+  if (game.status === 'active' && results.length === 0) {
+    redirect(`/groups/${groupId}/games/${gameId}/close`)
+  }
 
   return (
     <ResultsClient

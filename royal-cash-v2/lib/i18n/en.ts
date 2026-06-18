@@ -147,6 +147,8 @@ export const en = {
     playerBuyIns: 'Buy-ins: {amount}',
     calculateResults: 'Calculate results',
     backToGame: 'Back to game',
+    failed: 'Could not close the game. Please try again.',
+    staleRoster: 'The player list changed. Go back to the table and try again.',
   },
   results: {
     title: 'Results',

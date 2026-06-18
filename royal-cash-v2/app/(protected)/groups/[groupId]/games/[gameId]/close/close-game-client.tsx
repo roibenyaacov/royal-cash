@@ -62,6 +62,14 @@ export default function CloseGameClient({
   const symbol = t.currency[game.currency]
   const difference = totalCashOuts - totalBuyIns
 
+  const getCloseErrorMessage = (err: unknown): string => {
+    if (!(err instanceof Error)) return t.close.failed
+    if (err.message === 'validation_failed' || err.message === 'roster_mismatch') {
+      return t.close.staleRoster
+    }
+    return t.close.failed
+  }
+
   const handleCalculate = async () => {
     if (saving) return
 
@@ -107,10 +115,11 @@ export default function CloseGameClient({
       // server inside closeGameAction. The client only submits the
       // human-entered cash-out amounts.
       await closeGameAction(gameId, cashOutAmounts)
-
-      router.push(`/groups/${groupId}/games/${gameId}/results`)
+      router.refresh()
+      router.replace(`/groups/${groupId}/games/${gameId}/results`)
     } catch (err) {
       console.error('Failed to close game:', err)
+      setErrors([getCloseErrorMessage(err)])
     } finally {
       setSaving(false)
     }

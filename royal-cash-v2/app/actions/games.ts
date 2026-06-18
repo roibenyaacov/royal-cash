@@ -11,7 +11,7 @@ import {
   deleteGame as dbDeleteGame,
   finalizeGame as dbFinalizeGame,
   getGame as dbGetGame,
-  getGamePlayers as dbGetGamePlayers,
+  getGameRosterPlayers,
 } from '@/lib/db/games'
 import { createPlayer as dbCreatePlayer } from '@/lib/db/players'
 import {
@@ -32,6 +32,7 @@ import {
   assertGroupMember,
   authorizeActiveGameMutation,
 } from '@/lib/server/authorize-game'
+import { calcPlayerBuyIns } from '@/lib/calculations/buy-ins'
 import { calcAllPlayerBalances } from '@/lib/calculations/balance'
 import { calcSettlements } from '@/lib/calculations/settlement'
 import { validateGameForClose } from '@/lib/calculations/validation'
@@ -466,13 +467,8 @@ export async function closeGameAction(
   // already_closed branch) instead of confusing the user with
   // "Game is not active".
   if (game.status === 'closed') {
-    const { data: existingResult } = await supabase
-      .from('game_results')
-      .select('id')
-      .eq('game_id', gameId)
-      .limit(1)
-      .maybeSingle()
-    if (existingResult) {
+    const existingResults = await getGameResults(supabase, gameId)
+    if (existingResults.length > 0) {
       revalidatePath(`/groups/${game.group_id}`)
       revalidatePath(`/groups/${game.group_id}/games/${gameId}/results`)
       return
@@ -497,19 +493,25 @@ export async function closeGameAction(
 
   // Recompute everything from the database — never trust client-supplied
   // results or settlements. The close client sends only cash-out amounts.
-  const [gamePlayers, buyIns, { expenses, participants }] = await Promise.all([
-    dbGetGamePlayers(supabase, gameId),
+  const [rosterPlayers, buyIns, { expenses, participants }] = await Promise.all([
+    getGameRosterPlayers(supabase, gameId),
     dbGetGameBuyIns(supabase, gameId),
     dbGetGameExpensesWithParticipants(supabase, gameId),
   ])
 
-  // Only players with at least one buy-in are part of the close — matches
-  // the roster the close screen renders.
-  const buyInPlayerIds = new Set(buyIns.map((b) => b.player_id))
-  const rosterIds = gamePlayers
-    .map((gp) => gp.player_id)
-    .filter((id) => buyInPlayerIds.has(id))
+  // Same roster as the close screen: roster players with at least one buy-in.
+  const rosterIds = rosterPlayers
+    .filter((p) => calcPlayerBuyIns(buyIns, p.id) > 0)
+    .map((p) => p.id)
   const rosterIdSet = new Set(rosterIds)
+  const cashOutIdSet = new Set(cashOuts.map((co) => co.playerId))
+
+  if (
+    rosterIds.length !== cashOutIdSet.size ||
+    rosterIds.some((id) => !cashOutIdSet.has(id))
+  ) {
+    throw new Error('roster_mismatch')
+  }
 
   for (const co of cashOuts) {
     if (!rosterIdSet.has(co.playerId)) {
@@ -595,6 +597,9 @@ export async function closeGameAction(
     if (payload?.error) {
       throw new Error(payload.error)
     }
+    if (!payload?.success) {
+      throw new Error('close_failed')
+    }
   } else {
     // Pre-021 fallback — not atomic, but functionally equivalent.
     await Promise.all(
@@ -604,6 +609,16 @@ export async function closeGameAction(
     )
     await dbSaveGameResults(supabase, gameId, results, settlements)
     await dbCloseGame(supabase, gameId)
+  }
+
+  const closedGame = await dbGetGame(supabase, gameId)
+  if (closedGame?.status !== 'closed') {
+    throw new Error('close_failed')
+  }
+
+  const savedResults = await getGameResults(supabase, gameId)
+  if (savedResults.length === 0) {
+    throw new Error('close_failed')
   }
 
   revalidatePath(`/groups/${game.group_id}`)

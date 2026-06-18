@@ -145,6 +145,8 @@ export const he = {
     playerBuyIns: 'כניסות: {amount}',
     calculateResults: 'חשב תוצאות',
     backToGame: 'חזור למשחק',
+    failed: 'לא הצלחנו לסגור את המשחק. נסה שוב.',
+    staleRoster: 'רשימת השחקנים השתנתה. חזור לשולחן ונסה שוב.',
   },
   results: {
     title: 'תוצאות',
