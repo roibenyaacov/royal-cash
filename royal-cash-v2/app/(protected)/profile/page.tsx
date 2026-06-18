@@ -39,7 +39,7 @@ function formatWinAmount(amount: number): string {
 // SVG icons — outline style, 40×40
 function IconController() {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
       <rect x="2" y="6" width="20" height="12" rx="3" />
       <path d="M6 12h4M8 10v4" />
       <circle cx="16" cy="11" r="1" fill="currentColor" stroke="none" />
@@ -50,7 +50,7 @@ function IconController() {
 
 function IconChart() {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
       <rect x="3" y="12" width="4" height="9" rx="1" />
       <rect x="10" y="7" width="4" height="14" rx="1" />
       <rect x="17" y="3" width="4" height="18" rx="1" />
@@ -62,7 +62,7 @@ function IconChart() {
 
 function IconTarget() {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
       <circle cx="12" cy="12" r="10" />
       <circle cx="12" cy="12" r="6" />
       <circle cx="12" cy="12" r="2" />
@@ -73,7 +73,7 @@ function IconTarget() {
 
 function IconTrophy() {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-white">
       <path d="M6 2h12v8a6 6 0 01-12 0V2z" />
       <path d="M6 5H3a2 2 0 000 4h3" />
       <path d="M18 5h3a2 2 0 010 4h-3" />
@@ -197,109 +197,33 @@ export default function ProfilePage() {
     <>
       <PageHeader title={t.profile.title} />
 
-      <main className="flex-1 px-4 py-4 flex flex-col gap-4">
-        {/* Avatar + greeting */}
-        <div className="flex flex-col items-center gap-3 pt-1">
+      <main className="flex-1 px-4 py-3 flex flex-col gap-3">
+        {/* Avatar + greeting — compact row */}
+        <div className="flex items-center gap-3">
           {profile?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={profile.avatar_url}
               alt={resolvedName}
-              className="w-20 h-20 rounded-full border border-border object-cover"
+              className="w-14 h-14 shrink-0 rounded-full border border-border object-cover"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="w-20 h-20 rounded-full border border-border bg-surface-elevated flex items-center justify-center">
-              <span className="text-2xl font-bold text-accent">
+            <div className="w-14 h-14 shrink-0 rounded-full border border-border bg-surface-elevated flex items-center justify-center">
+              <span className="text-lg font-bold text-accent">
                 {(resolvedName || '?').charAt(0)}
               </span>
             </div>
           )}
           {resolvedName && (
-            <p className="text-xl font-bold text-text-primary text-center">
+            <p className="text-lg font-bold text-text-primary leading-snug">
               {t.profile.greeting}, {resolvedName}
             </p>
           )}
-          <p className="text-xs text-text-muted text-center px-2">
-            {t.profile.accountIdentityNote}
-          </p>
         </div>
-
-        {/* Personal details card */}
-        <div className="rounded-[var(--radius-card)] bg-surface-elevated border border-border overflow-hidden">
-          {/* Header row */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <button
-              type="button"
-              onClick={() => {
-                setPhoneDraft(profile?.phone ?? '')
-                setNameDraft(profile?.full_name ?? '')
-                setEditOpen(true)
-              }}
-              className="flex items-center gap-1.5 min-h-[44px]"
-            >
-              <IconEdit />
-              <span className="text-sm text-accent">{t.common.edit}</span>
-            </button>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-text-primary">
-                {t.profile.personalDetails}
-              </span>
-              <IconPerson />
-            </div>
-          </div>
-
-          {/* Name row */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <p className="text-sm text-text-secondary">
-              {profile?.full_name || t.profile.noName}
-            </p>
-            <span className="text-sm text-text-secondary">{t.profile.fullName}</span>
-          </div>
-
-          {/* Phone row */}
-          <div className="flex items-center justify-between px-4 py-3">
-            <p
-              className="text-sm text-text-secondary"
-              dir="ltr"
-            >
-              {profile?.phone || t.profile.noPhone}
-            </p>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-text-secondary">{t.profile.phoneForBit}</span>
-              <span className="text-accent font-bold text-base">₿</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Not linked notice */}
-        {!stats?.hasLinkedPlayers && (
-          <p className="text-sm text-text-muted text-center px-4">
-            {t.profile.notLinked}
-          </p>
-        )}
-
-        {stats?.linkedIdentities && stats.linkedIdentities.length > 0 && (
-          <div className="rounded-[var(--radius-card)] bg-surface border border-border px-4 py-3">
-            <p className="text-sm text-text-secondary mb-2">{t.profile.linkedAsTitle}</p>
-            <ul className="flex flex-col gap-1.5">
-              {stats.linkedIdentities.map((identity) => (
-                <li
-                  key={`${identity.groupName}-${identity.displayName}`}
-                  className="text-sm text-text-primary"
-                >
-                  <span className="font-medium">{identity.displayName}</span>
-                  {identity.groupName && (
-                    <span className="text-text-muted"> · {identity.groupName}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {/* Stats grid */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <ProfileStatCard
             icon={<IconController />}
             label={t.groups.gamesPlayed}
@@ -326,9 +250,56 @@ export default function ProfilePage() {
           />
         </div>
 
+        {!stats?.hasLinkedPlayers && (
+          <p className="text-xs text-text-muted text-center px-1">
+            {t.profile.notLinked}
+          </p>
+        )}
+
+        {/* Personal details card */}
+        <div className="rounded-[var(--radius-card)] bg-surface-elevated border border-border overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <button
+              type="button"
+              onClick={() => {
+                setPhoneDraft(profile?.phone ?? '')
+                setNameDraft(profile?.full_name ?? '')
+                setEditOpen(true)
+              }}
+              className="flex items-center gap-1 min-h-[40px]"
+            >
+              <IconEdit />
+              <span className="text-sm text-accent">{t.common.edit}</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-text-primary">
+                {t.profile.personalDetails}
+              </span>
+              <IconPerson />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <p className="text-sm text-text-secondary truncate max-w-[55%]">
+              {profile?.full_name || t.profile.noName}
+            </p>
+            <span className="text-xs text-text-muted shrink-0">{t.profile.fullName}</span>
+          </div>
+
+          <div className="flex items-center justify-between px-3 py-2">
+            <p className="text-sm text-text-secondary" dir="ltr">
+              {profile?.phone || t.profile.noPhone}
+            </p>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-xs text-text-muted">{t.profile.phoneForBit}</span>
+              <span className="text-accent font-bold text-sm">₿</span>
+            </div>
+          </div>
+        </div>
+
         {stats?.hasLinkedPlayers && (
           <section>
-            <p className="text-sm font-semibold text-text-primary mb-3">
+            <p className="text-sm font-semibold text-text-primary mb-2">
               {t.profile.gameHistoryTitle}
             </p>
             {!stats.gameHistory?.length ? (
@@ -378,7 +349,7 @@ export default function ProfilePage() {
           </section>
         )}
 
-        <section className="pt-2">
+        <section className="pt-1">
           <ContactLink variant="row" />
         </section>
       </main>
