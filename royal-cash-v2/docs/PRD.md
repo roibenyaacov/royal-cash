@@ -1385,11 +1385,11 @@ Any authenticated **group member** may (RLS: `is_group_member`):
 | Delete active game (discard table) | Yes |
 | Create invite / claim / game-access links | Yes |
 
-**Owner only:** archive group, update `groups` row as owner.
+**Owner only:** remove player from group roster (soft-delete), archive group, update `groups` row as owner.
 
 **Not allowed:** access another group's data; delete finalized closed games via UI (only active discard).
 
-Migrations: `010` (member active-game mutations), `016` (member create game), `017` (full member permissions), `018` (member delete active game).
+Migrations: `010` (member active-game mutations), `016` (member create game), `017` (full member permissions), `018` (member delete active game), `023` (owner remove players).
 
 ### 14.3 Contact
 

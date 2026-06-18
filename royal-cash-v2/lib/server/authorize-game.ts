@@ -26,6 +26,22 @@ export async function assertGroupMember(
   if (!membership) throw new Error('Not a group member')
 }
 
+export async function assertGroupOwner(
+  supabase: SupabaseClient,
+  groupId: string,
+  userId: string,
+): Promise<void> {
+  const { data: group } = await supabase
+    .from('groups')
+    .select('owner_id')
+    .eq('id', groupId)
+    .maybeSingle()
+
+  if (!group || group.owner_id !== userId) {
+    throw new Error('Not authorized')
+  }
+}
+
 export async function authorizeActiveGameMutation(
   gameId: string,
 ): Promise<ActiveGameMutationContext> {

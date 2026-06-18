@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { t } from '@/lib/i18n/dictionary'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
 import { Button } from '@/components/ui/button'
+import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { InviteLink } from '@/components/ui/invite-link'
 import { generatePlayerClaimLink } from '@/app/actions/invites'
-import { linkPlayerToSelfAction } from '@/app/actions/players'
+import { linkPlayerToSelfAction, removePlayerAction } from '@/app/actions/players'
 import { getClaimInviteUrl } from '@/lib/site-url'
 import type { Player, PlayerGroupStats, Currency } from '@/lib/domain/types'
 
@@ -18,8 +19,10 @@ type Props = {
   groupId: string
   currentUserId: string | null
   canViewPrivate: boolean
+  isOwner?: boolean
   onClose: () => void
   onPlayerLinked?: (player: Player) => void
+  onPlayerRemoved?: (playerId: string) => void
 }
 
 export function PlayerSheet({
@@ -29,14 +32,18 @@ export function PlayerSheet({
   groupId,
   currentUserId,
   canViewPrivate,
+  isOwner = false,
   onClose,
   onPlayerLinked,
+  onPlayerRemoved,
 }: Props) {
   const [claimUrl, setClaimUrl] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [linkingSelf, setLinkingSelf] = useState(false)
   const [linkSelfSuccess, setLinkSelfSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [showRemove, setShowRemove] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   async function handleGenerateLink() {
     if (!player) return
@@ -82,7 +89,23 @@ export function PlayerSheet({
     setClaimUrl(null)
     setError('')
     setLinkSelfSuccess(false)
+    setShowRemove(false)
     onClose()
+  }
+
+  async function handleRemovePlayer() {
+    if (!player || removing) return
+    setRemoving(true)
+    try {
+      await removePlayerAction(groupId, player.id)
+      onPlayerRemoved?.(player.id)
+      handleClose()
+    } catch {
+      setError(t.common.error)
+      setShowRemove(false)
+    } finally {
+      setRemoving(false)
+    }
   }
 
   if (!player) return null
@@ -208,7 +231,27 @@ export function PlayerSheet({
             </Button>
           </Link>
         )}
+
+        {isOwner && (
+          <Button
+            variant="danger"
+            fullWidth
+            onClick={() => setShowRemove(true)}
+            disabled={removing}
+          >
+            {t.players.removePlayer}
+          </Button>
+        )}
       </div>
+
+      <ConfirmSheet
+        open={showRemove}
+        onClose={() => setShowRemove(false)}
+        title={t.players.removePlayer}
+        message={t.players.removePlayerWarning}
+        confirmLabel={t.players.removePlayerConfirm}
+        onConfirm={handleRemovePlayer}
+      />
     </BottomSheet>
   )
 }

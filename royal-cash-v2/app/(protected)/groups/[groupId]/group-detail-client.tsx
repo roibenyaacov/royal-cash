@@ -292,12 +292,17 @@ export default function GroupDetailClient({
         groupId={groupId}
         currentUserId={currentUserId}
         canViewPrivate={selectedPlayerCanViewPrivate}
+        isOwner={isOwner}
         onClose={() => setSelectedPlayer(null)}
         onPlayerLinked={(linked) => {
           setPlayers((prev) =>
             prev.map((p) => (p.id === linked.id ? linked : p)),
           )
           setSelectedPlayer(linked)
+        }}
+        onPlayerRemoved={(playerId) => {
+          setPlayers((prev) => prev.filter((p) => p.id !== playerId))
+          setSelectedPlayer(null)
         }}
       />
 

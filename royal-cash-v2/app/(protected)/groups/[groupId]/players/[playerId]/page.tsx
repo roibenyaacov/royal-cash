@@ -37,6 +37,7 @@ export default function PlayerProfilePage({
   const [currency, setCurrency] = useState<Currency>('ILS')
   const [canViewPrivate, setCanViewPrivate] = useState(false)
   const [isMember, setIsMember] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
   const [loading, setLoading] = useState(true)
   const [claimUrl, setClaimUrl] = useState<string | null>(null)
   const [generatingLink, setGeneratingLink] = useState(false)
@@ -62,13 +63,17 @@ export default function PlayerProfilePage({
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setCurrentUserId(user.id)
-        const { data: membership } = await supabase
-          .from('group_members')
-          .select('role')
-          .eq('group_id', groupId)
-          .eq('user_id', user.id)
-          .maybeSingle()
+        const [{ data: membership }, { data: group }] = await Promise.all([
+          supabase
+            .from('group_members')
+            .select('role')
+            .eq('group_id', groupId)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          supabase.from('groups').select('owner_id').eq('id', groupId).maybeSingle(),
+        ])
         setIsMember(!!membership)
+        setIsOwner(group?.owner_id === user.id)
       }
 
       const allowed = await canViewPlayerPrivateData(supabase, playerId)
@@ -345,7 +350,7 @@ export default function PlayerProfilePage({
           </section>
         )}
 
-        {isMember && (
+        {isOwner && (
           <div className="mt-auto pt-4 pb-2">
             <Button
               variant="danger"
