@@ -414,9 +414,33 @@ export async function closeGameAction(
 
   const game = await dbGetGame(supabase, gameId)
   if (!game) throw new Error('Game not found')
-  if (game.status !== 'active') throw new Error('Game is not active')
 
   await assertGroupMember(supabase, game.group_id, user.id)
+
+  // Idempotent retry: a network blip, a React re-mount, or the user
+  // hitting Back+Submit can hand us the same close request twice. The
+  // first call already committed status='closed' + results, so the
+  // second call should silently succeed (matches the atomic RPC's
+  // already_closed branch) instead of confusing the user with
+  // "Game is not active".
+  if (game.status === 'closed') {
+    const { data: existingResult } = await supabase
+      .from('game_results')
+      .select('id')
+      .eq('game_id', gameId)
+      .limit(1)
+      .maybeSingle()
+    if (existingResult) {
+      revalidatePath(`/groups/${game.group_id}`)
+      revalidatePath(`/groups/${game.group_id}/games/${gameId}/results`)
+      return
+    }
+    // Status='closed' with no results is an inconsistent state. Fall
+    // through and let the RPC (or fallback writes) recover by writing
+    // the results that were missed.
+  } else if (game.status !== 'active') {
+    throw new Error('Game is not active')
+  }
 
   // Validate every cash-out amount before doing anything to the DB.
   for (const co of cashOuts) {

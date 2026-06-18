@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getGame, getGameRosterPlayers } from '@/lib/db/games'
 import { getGameBuyIns } from '@/lib/db/buy-ins'
@@ -23,6 +23,13 @@ export default async function CloseGamePage({
     ])
 
   if (!game) notFound()
+
+  // A closed (or archived) game can't be closed again. If the user navigated
+  // here via browser Back or a stale link, send them straight to the
+  // results screen instead of letting them fill out a doomed form.
+  if (game.status !== 'active') {
+    redirect(`/groups/${groupId}/games/${gameId}/results`)
+  }
 
   const gamePlayers = rosterPlayers.filter(
     (p) => calcPlayerBuyIns(buyIns, p.id) > 0,
