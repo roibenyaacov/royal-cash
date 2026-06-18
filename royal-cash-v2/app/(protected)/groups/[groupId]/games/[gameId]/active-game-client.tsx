@@ -73,7 +73,7 @@ export default function ActiveGameClient({
   const [allGroupPlayers, setAllGroupPlayers] = useState<Player[]>(initialAllGroupPlayers)
   const [buyIns, setBuyIns] = useState<BuyIn[]>(initialBuyIns)
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
-  const [expenseParticipants, setExpenseParticipants] = useState<ExpenseParticipant[]>(initialExpenseParticipants)
+  const [, setExpenseParticipants] = useState<ExpenseParticipant[]>(initialExpenseParticipants)
   const [events, setEvents] = useState<GameEvent[]>(initialEvents)
   const [showExpense, setShowExpense] = useState(false)
   const [showAddPlayer, setShowAddPlayer] = useState(false)

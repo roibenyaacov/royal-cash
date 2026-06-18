@@ -57,8 +57,11 @@ export function LocaleProvider({
   const [locale, setLocaleState] = useState<Locale>(initialLocale)
 
   useEffect(() => {
+    // Sync from localStorage on mount — runs once and reconciles the
+    // server-rendered initialLocale with the user's stored preference.
     const stored = readStoredLocale(initialLocale)
     setActiveLocale(stored)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocaleState(stored)
     applyDocumentLocale(stored)
     persistLocale(stored)

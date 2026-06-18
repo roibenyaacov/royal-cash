@@ -1,7 +1,6 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveUserDisplayName } from '@/lib/auth/display-name'
 import { generateToken } from '@/lib/utils/tokens'
 import {
@@ -58,8 +57,10 @@ export async function joinGroupAction(token: string): Promise<JoinGroupResult> {
 
     const displayName = resolveUserDisplayName(profile, user)
 
-    const adminClient = createAdminClient()
-    await createPlayer(adminClient, groupId, displayName, undefined, user.id)
+    // accept_group_invite just added this user to group_members, so RLS
+    // (migration 017 players_insert: is_group_member) allows the user
+    // client to create the linked player row.
+    await createPlayer(supabase, groupId, displayName, undefined, user.id)
   }
 
   return { success: true, groupId, alreadyMember: false }

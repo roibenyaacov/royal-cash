@@ -127,6 +127,9 @@ export default function ClaimPlayerPage({
     if (searchParams.get('resume') === '1') {
       router.replace(`/claim/${token}`)
     }
+    // Auto-claim after returning from Google sign-in. State changes happen
+    // inside the async callback, not synchronously in the effect body.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void executeClaim()
   }, [user, state, token, executeClaim, searchParams, router])
 

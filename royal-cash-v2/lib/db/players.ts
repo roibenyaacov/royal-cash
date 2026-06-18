@@ -127,6 +127,9 @@ export async function linkPlayerToSelf(
   return { success: false, error: 'unknown' }
 }
 
+const MAX_DISPLAY_NAME_LENGTH = 60
+const MAX_PHONE_LENGTH = 25
+
 export async function createPlayer(
   supabase: SupabaseClient,
   groupId: string,
@@ -135,12 +138,23 @@ export async function createPlayer(
   linkedUserId?: string,
   isActive = true,
 ): Promise<Player> {
+  const trimmedName = displayName.trim()
+  if (!trimmedName) throw new Error('Player name required')
+  if (trimmedName.length > MAX_DISPLAY_NAME_LENGTH) {
+    throw new Error('Player name too long')
+  }
+
+  const trimmedPhone = phone?.trim() || undefined
+  if (trimmedPhone && trimmedPhone.length > MAX_PHONE_LENGTH) {
+    throw new Error('Phone number too long')
+  }
+
   const { data, error } = await supabase
     .from('players')
     .insert({
       group_id: groupId,
-      display_name: displayName,
-      phone: phone ?? null,
+      display_name: trimmedName,
+      phone: trimmedPhone ?? null,
       linked_user_id: linkedUserId ?? null,
       is_active: isActive,
     })

@@ -14,7 +14,6 @@ export async function startGoogleOAuth(
   nextPath?: string,
 ): Promise<void> {
   const redirectTo = buildOAuthRedirectTo(nextPath)
-  console.log('[oauth] starting signInWithOAuth', { redirectTo })
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',

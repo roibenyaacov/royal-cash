@@ -34,9 +34,9 @@ function formatK(n: number): string {
 }
 
 export function BalanceChart({ series, currency }: Props) {
-  const { paths, yTicks, xCount } = useMemo(() => {
+  const { paths, yTicks, xCount, zeroY } = useMemo(() => {
     if (!series.length || series.every((s) => s.data.length === 0)) {
-      return { paths: [], yTicks: [], xCount: 0 }
+      return { paths: [], yTicks: [], xCount: 0, zeroY: PAD.top + INNER_H }
     }
 
     const allValues = series.flatMap((s) => s.data)
@@ -66,20 +66,10 @@ export function BalanceChart({ series, currency }: Props) {
       yTicks.push({ value: Math.round(value), y: toY(value) })
     }
 
-    const zeroY = toY(0)
-
-    return { paths, yTicks, xCount: maxPoints, zeroY }
+    return { paths, yTicks, xCount: maxPoints, zeroY: toY(0) }
   }, [series])
 
   if (!series.length) return null
-
-  const zeroY = useMemo(() => {
-    const allValues = series.flatMap((s) => s.data)
-    const minVal = Math.min(0, ...allValues)
-    const maxVal = Math.max(0, ...allValues)
-    const range = maxVal - minVal || 1
-    return PAD.top + INNER_H - ((0 - minVal) / range) * INNER_H
-  }, [series])
 
   return (
     <div className="w-full">

@@ -7,12 +7,20 @@ import { createGroup as dbCreateGroup, archiveGroup as dbArchiveGroup } from '@/
 import { createPlayer } from '@/lib/db/players'
 import type { Group } from '@/lib/domain/types'
 
+const MAX_GROUP_NAME_LENGTH = 80
+
 export async function createGroupAction(name: string): Promise<Group> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  const group = await dbCreateGroup(supabase, name, user.id)
+  const trimmed = name.trim()
+  if (!trimmed) throw new Error('Group name required')
+  if (trimmed.length > MAX_GROUP_NAME_LENGTH) {
+    throw new Error('Group name too long')
+  }
+
+  const group = await dbCreateGroup(supabase, trimmed, user.id)
 
   const { data: profile } = await supabase
     .from('profiles')

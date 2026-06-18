@@ -12,13 +12,21 @@ export default function GlobalError({
 }) {
   const { t } = useLocale()
 
+  // Never render the raw error.message — it can leak internal details
+  // (file paths, query text, stack hints). The Next.js digest is enough
+  // to correlate user reports with server logs.
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh px-6 bg-bg">
       <div className="flex flex-col items-center gap-4 max-w-sm w-full">
         <h1 className="text-xl font-bold text-text-primary">{t.common.error}</h1>
         <p className="text-text-secondary text-center text-sm">
-          {error.message || t.common.somethingWentWrong}
+          {t.common.somethingWentWrong}
         </p>
+        {error.digest && (
+          <p className="text-text-muted text-[10px] font-mono" dir="ltr">
+            {error.digest}
+          </p>
+        )}
         <Button onClick={reset}>{t.common.tryAgain}</Button>
       </div>
     </div>

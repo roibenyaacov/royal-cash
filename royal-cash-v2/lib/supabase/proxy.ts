@@ -4,7 +4,7 @@ import { getSupabaseCookieOptions } from '@/lib/supabase/cookie-options'
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/lib/supabase/config'
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request })
+  const response = NextResponse.next({ request })
 
   const supabase = createServerClient(
     getSupabaseUrl(),

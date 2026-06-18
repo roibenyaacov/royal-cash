@@ -7,8 +7,6 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Button } from '@/components/ui/button'
-import { calcAllPlayerBalances } from '@/lib/calculations/balance'
-import { calcSettlements } from '@/lib/calculations/settlement'
 import { validateGameForClose } from '@/lib/calculations/validation'
 import { translateValidationErrors } from '@/lib/i18n/translate-validation'
 import { closeGameAction } from '@/app/actions/games'
@@ -105,22 +103,10 @@ export default function CloseGameClient({
     setSaving(true)
 
     try {
-      const results = calcAllPlayerBalances(
-        playerIds,
-        buyIns,
-        cashOuts,
-        expenses,
-        participantsByExpense,
-        gameId,
-      )
-
-      const balances = results.map((r) => ({
-        playerId: r.player_id,
-        amount: r.final_balance,
-      }))
-      const settlements = calcSettlements(balances)
-
-      await closeGameAction(gameId, cashOutAmounts, results, settlements)
+      // Final balances + settlements are recomputed and validated on the
+      // server inside closeGameAction. The client only submits the
+      // human-entered cash-out amounts.
+      await closeGameAction(gameId, cashOutAmounts)
 
       router.push(`/groups/${groupId}/games/${gameId}/results`)
     } catch (err) {

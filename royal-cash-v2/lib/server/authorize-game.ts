@@ -1,7 +1,6 @@
 import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { getGame as dbGetGame } from '@/lib/db/games'
 import type { Game } from '@/lib/domain/types'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -49,10 +48,15 @@ export async function authorizeActiveGameMutation(
 
   if (!membership) throw new Error('Not a group member')
 
+  // Return the authenticated user's Supabase client so every mutation is
+  // still gated by RLS (migration 017 grants insert/update/delete on
+  // active-game tables to every group member). This preserves defense in
+  // depth: a bug in this Node-side membership check cannot escalate beyond
+  // what the user's auth.uid() is allowed to do in Postgres.
   return {
     userId: user.id,
     game,
-    db: createAdminClient(),
+    db: supabase,
   }
 }
 

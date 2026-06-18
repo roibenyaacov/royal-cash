@@ -1,6 +1,6 @@
 'use client'
 
-import { RANKS, SUITS, SUIT_COLORS, cardRank, cardSuit, makeCard } from '@/lib/poker/evaluator'
+import { RANKS, SUITS, cardRank, cardSuit, makeCard } from '@/lib/poker/evaluator'
 
 type Props = {
   selected: number[]
@@ -68,7 +68,7 @@ type CardDisplayProps = {
 }
 
 export function CardDisplay({ cards, label, color = '#D4AF37', emptySlots = 0 }: CardDisplayProps) {
-  const total = cards.length + emptySlots
+  void emptySlots
 
   return (
     <div>

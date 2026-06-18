@@ -27,7 +27,6 @@ const logoPath = join(root, 'public', 'logo.png')
 
 const BG = '#0f0f0f'
 const ACCENT = '#c9a84c'
-const TEXT = '#f5f5f5'
 const MUTED = '#a0a0a0'
 
 mkdirSync(appDir, { recursive: true })

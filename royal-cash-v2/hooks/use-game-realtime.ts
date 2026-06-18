@@ -5,11 +5,17 @@ import { createClient } from '@/lib/supabase/client'
 
 const REALTIME_TABLES = ['buy_ins', 'expenses', 'game_events', 'game_players'] as const
 const DEBOUNCE_MS = 150
-const POLL_MS = 5000
+// When realtime is healthy, poll only as a slow safety net.
+const HEALTHY_POLL_MS = 30_000
+// When realtime is not connected (anonymous spectator viewing, transport
+// errors, etc.) fall back to a tighter cadence so the UI stays current.
+const FALLBACK_POLL_MS = 8_000
 
 export function useGameRealtime(gameId: string | null, onRefresh: () => void) {
   const onRefreshRef = useRef(onRefresh)
-  onRefreshRef.current = onRefresh
+  useEffect(() => {
+    onRefreshRef.current = onRefresh
+  }, [onRefresh])
 
   useEffect(() => {
     if (!gameId) return
@@ -19,12 +25,22 @@ export function useGameRealtime(gameId: string | null, onRefresh: () => void) {
     let pollTimer: ReturnType<typeof setInterval> | null = null
     let channel: ReturnType<typeof supabase.channel> | null = null
     let cancelled = false
+    let realtimeHealthy = false
 
     const scheduleRefresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
         onRefreshRef.current()
       }, DEBOUNCE_MS)
+    }
+
+    function startPolling(intervalMs: number) {
+      if (pollTimer) clearInterval(pollTimer)
+      pollTimer = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          scheduleRefresh()
+        }
+      }, intervalMs)
     }
 
     async function bindRealtimeAuth() {
@@ -57,8 +73,21 @@ export function useGameRealtime(gameId: string | null, onRefresh: () => void) {
       }
 
       nextChannel.subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('Game realtime subscription failed:', status, err)
+        if (status === 'SUBSCRIBED') {
+          realtimeHealthy = true
+          startPolling(HEALTHY_POLL_MS)
+        } else if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          if (status !== 'CLOSED') {
+            console.error('Game realtime subscription failed:', status, err)
+          }
+          if (realtimeHealthy) {
+            realtimeHealthy = false
+            startPolling(FALLBACK_POLL_MS)
+          }
         }
       })
 
@@ -75,11 +104,9 @@ export function useGameRealtime(gameId: string | null, onRefresh: () => void) {
       }
     })
 
-    pollTimer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        scheduleRefresh()
-      }
-    }, POLL_MS)
+    // Start in fallback cadence; once the channel reports SUBSCRIBED we
+    // switch to the healthy (slow) cadence.
+    startPolling(FALLBACK_POLL_MS)
 
     return () => {
       cancelled = true

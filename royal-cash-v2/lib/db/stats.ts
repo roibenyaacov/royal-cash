@@ -101,44 +101,49 @@ export async function applyGameStats(
   gameId: string,
   results: GameResult[],
 ): Promise<void> {
-  for (const result of results) {
-    const { data: existing, error: selectError } = await supabase
-      .from('player_group_stats')
-      .select('*')
-      .eq('player_id', result.player_id)
-      .eq('group_id', groupId)
-      .maybeSingle()
+  if (results.length === 0) return
 
-    if (selectError) throw selectError
+  const playerIds = results.map((r) => r.player_id)
 
-    const gamesPlayed = (existing?.games_played ?? 0) + 1
-    const totalBalance = (existing?.total_balance ?? 0) + result.final_balance
-    const biggestWin = Math.max(
-      existing?.biggest_win ?? 0,
-      result.final_balance > 0 ? result.final_balance : 0,
-    )
-    const biggestLoss = Math.min(
-      existing?.biggest_loss ?? 0,
-      result.final_balance < 0 ? result.final_balance : 0,
-    )
+  // Batch fetch existing stats for all players in this game in one round-trip.
+  const { data: existingRows, error: selectError } = await supabase
+    .from('player_group_stats')
+    .select('*')
+    .eq('group_id', groupId)
+    .in('player_id', playerIds)
 
-    const { error: upsertError } = await supabase
-      .from('player_group_stats')
-      .upsert(
-        {
-          player_id: result.player_id,
-          group_id: groupId,
-          games_played: gamesPlayed,
-          total_balance: totalBalance,
-          biggest_win: biggestWin,
-          biggest_loss: biggestLoss,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'player_id,group_id' },
-      )
+  if (selectError) throw selectError
 
-    if (upsertError) throw upsertError
-  }
+  const existingByPlayer = new Map(
+    (existingRows ?? []).map((row) => [row.player_id as string, row]),
+  )
+
+  const nowIso = new Date().toISOString()
+  const upsertPayload = results.map((result) => {
+    const existing = existingByPlayer.get(result.player_id)
+    return {
+      player_id: result.player_id,
+      group_id: groupId,
+      games_played: (existing?.games_played ?? 0) + 1,
+      total_balance: (existing?.total_balance ?? 0) + result.final_balance,
+      biggest_win: Math.max(
+        existing?.biggest_win ?? 0,
+        result.final_balance > 0 ? result.final_balance : 0,
+      ),
+      biggest_loss: Math.min(
+        existing?.biggest_loss ?? 0,
+        result.final_balance < 0 ? result.final_balance : 0,
+      ),
+      updated_at: nowIso,
+    }
+  })
+
+  // Single batched upsert instead of N round-trips.
+  const { error: upsertError } = await supabase
+    .from('player_group_stats')
+    .upsert(upsertPayload, { onConflict: 'player_id,group_id' })
+
+  if (upsertError) throw upsertError
 
   let currentRecord = await getGroupRecordAmount(supabase, groupId)
 

@@ -8,13 +8,12 @@ import type { User } from '@supabase/supabase-js'
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Start out as "loading" only when we actually have Supabase configured;
+  // otherwise there is no async user lookup to wait on.
+  const [loading, setLoading] = useState(() => hasSupabasePublicConfig())
 
   useEffect(() => {
-    if (!hasSupabasePublicConfig()) {
-      setLoading(false)
-      return
-    }
+    if (!hasSupabasePublicConfig()) return
 
     const supabase = createClient()
 
@@ -36,11 +35,6 @@ export function useAuth() {
     if (!hasSupabasePublicConfig()) {
       throw new Error('Missing Supabase public configuration')
     }
-
-    console.log('[oauth] signInWithGoogle clicked', {
-      origin: window.location.origin,
-      nextPath,
-    })
 
     const supabase = createClient()
     await startGoogleOAuth(supabase, nextPath)

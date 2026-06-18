@@ -11,10 +11,18 @@ import {
   deleteGame as dbDeleteGame,
   finalizeGame as dbFinalizeGame,
   getGame as dbGetGame,
+  getGamePlayers as dbGetGamePlayers,
 } from '@/lib/db/games'
 import { createPlayer as dbCreatePlayer } from '@/lib/db/players'
-import { addBuyIn as dbAddBuyIn, removeLatestBuyIn } from '@/lib/db/buy-ins'
-import { addExpense as dbAddExpense } from '@/lib/db/expenses'
+import {
+  addBuyIn as dbAddBuyIn,
+  getGameBuyIns as dbGetGameBuyIns,
+  removeLatestBuyIn,
+} from '@/lib/db/buy-ins'
+import {
+  addExpense as dbAddExpense,
+  getGameExpensesWithParticipants as dbGetGameExpensesWithParticipants,
+} from '@/lib/db/expenses'
 import { upsertCashOut as dbUpsertCashOut } from '@/lib/db/cashouts'
 import { saveGameResults as dbSaveGameResults, getGameResults } from '@/lib/db/results'
 import { applyGameStats } from '@/lib/db/stats'
@@ -24,16 +32,23 @@ import {
   assertGroupMember,
   authorizeActiveGameMutation,
 } from '@/lib/server/authorize-game'
+import { calcAllPlayerBalances } from '@/lib/calculations/balance'
+import { calcSettlements } from '@/lib/calculations/settlement'
+import { validateGameForClose } from '@/lib/calculations/validation'
 import type {
   Game,
   BuyIn,
+  CashOut,
   Expense,
+  ExpenseParticipant,
   Currency,
   ManagementMode,
   ExpenseSplitType,
-  GameResult,
 } from '@/lib/domain/types'
-import type { SettlementTransfer } from '@/lib/calculations/settlement'
+
+const MAX_GAME_NAME_LENGTH = 80
+const MAX_EXPENSE_DESCRIPTION_LENGTH = 120
+const MAX_NOTE_LENGTH = 200
 
 export async function createGameAction(
   groupId: string,
@@ -46,11 +61,24 @@ export async function createGameAction(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  if (!Number.isInteger(defaultBuyIn) || defaultBuyIn <= 0) {
+    throw new Error('Invalid default buy-in')
+  }
+  if (playerIds.length === 0) {
+    throw new Error('At least one player required')
+  }
+
+  const trimmedName = name.trim()
+  if (!trimmedName) throw new Error('Game name required')
+  if (trimmedName.length > MAX_GAME_NAME_LENGTH) {
+    throw new Error('Game name too long')
+  }
+
   await assertGroupMember(supabase, groupId, user.id)
 
   const game = await dbCreateGame(supabase, {
     group_id: groupId,
-    name,
+    name: trimmedName,
     date: new Date().toISOString().split('T')[0],
     default_buy_in: defaultBuyIn,
     currency,
@@ -59,15 +87,15 @@ export async function createGameAction(
     created_by: user.id,
   })
 
-  const db = createAdminClient()
-
+  // All writes go through the user's client; RLS (migration 017) lets any
+  // group member insert game_players / buy_ins / game_events.
   await Promise.all(
-    playerIds.map((id) => dbAddGamePlayer(db, game.id, id)),
+    playerIds.map((id) => dbAddGamePlayer(supabase, game.id, id)),
   )
 
   for (const playerId of playerIds) {
-    await dbAddBuyIn(db, game.id, playerId, defaultBuyIn, user.id)
-    await addGameEvent(db, game.id, 'buy_in_added', user.id, {
+    await dbAddBuyIn(supabase, game.id, playerId, defaultBuyIn, user.id)
+    await addGameEvent(supabase, game.id, 'buy_in_added', user.id, {
       playerId,
       amount: defaultBuyIn,
       description: 'כניסה ראשונית',
@@ -199,15 +227,23 @@ export async function addBuyInAction(
   amount: number,
   note?: string,
 ): Promise<BuyIn> {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error('Invalid buy-in amount')
+  }
+  const trimmedNote = note?.trim() || undefined
+  if (trimmedNote && trimmedNote.length > MAX_NOTE_LENGTH) {
+    throw new Error('Note too long')
+  }
+
   const { userId, db } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
 
-  const buyIn = await dbAddBuyIn(db, gameId, playerId, amount, userId, note)
+  const buyIn = await dbAddBuyIn(db, gameId, playerId, amount, userId, trimmedNote)
 
   await addGameEvent(db, gameId, 'buy_in_added', userId, {
     playerId,
     amount,
-    description: note ?? undefined,
+    description: trimmedNote ?? undefined,
   })
 
   return buyIn
@@ -317,6 +353,30 @@ export async function addExpenseAction(
   splitType: ExpenseSplitType,
   participants: { playerId: string; amountOwed: number }[],
 ): Promise<Expense> {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error('Invalid expense amount')
+  }
+
+  const trimmedDescription = description.trim()
+  if (trimmedDescription.length > MAX_EXPENSE_DESCRIPTION_LENGTH) {
+    throw new Error('Expense description too long')
+  }
+
+  if (participants.length === 0) {
+    throw new Error('Expense participants required')
+  }
+
+  let participantSum = 0
+  for (const p of participants) {
+    if (!Number.isInteger(p.amountOwed) || p.amountOwed < 0) {
+      throw new Error('Invalid expense participant amount')
+    }
+    participantSum += p.amountOwed
+  }
+  if (participantSum !== amount) {
+    throw new Error('Expense participants must sum to expense amount')
+  }
+
   const { userId, db } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, paidByPlayerId)
 
@@ -329,7 +389,7 @@ export async function addExpenseAction(
     gameId,
     paidByPlayerId,
     amount,
-    description,
+    trimmedDescription,
     splitType,
     userId,
     participants,
@@ -338,7 +398,7 @@ export async function addExpenseAction(
   await addGameEvent(db, gameId, 'expense_added', userId, {
     playerId: paidByPlayerId,
     amount,
-    description: description.trim() || undefined,
+    description: trimmedDescription || undefined,
   })
 
   return expense
@@ -347,8 +407,6 @@ export async function addExpenseAction(
 export async function closeGameAction(
   gameId: string,
   cashOuts: { playerId: string; amount: number }[],
-  results: Omit<GameResult, 'id' | 'created_at'>[],
-  settlements: SettlementTransfer[],
 ): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -356,17 +414,135 @@ export async function closeGameAction(
 
   const game = await dbGetGame(supabase, gameId)
   if (!game) throw new Error('Game not found')
+  if (game.status !== 'active') throw new Error('Game is not active')
 
   await assertGroupMember(supabase, game.group_id, user.id)
 
-  await Promise.all(
-    cashOuts.map((co) =>
-      dbUpsertCashOut(supabase, gameId, co.playerId, co.amount, user.id),
-    ),
+  // Validate every cash-out amount before doing anything to the DB.
+  for (const co of cashOuts) {
+    if (
+      !Number.isFinite(co.amount) ||
+      !Number.isInteger(co.amount) ||
+      co.amount < 0
+    ) {
+      throw new Error('Invalid cash-out amount')
+    }
+  }
+
+  // Recompute everything from the database — never trust client-supplied
+  // results or settlements. The close client sends only cash-out amounts.
+  const [gamePlayers, buyIns, { expenses, participants }] = await Promise.all([
+    dbGetGamePlayers(supabase, gameId),
+    dbGetGameBuyIns(supabase, gameId),
+    dbGetGameExpensesWithParticipants(supabase, gameId),
+  ])
+
+  // Only players with at least one buy-in are part of the close — matches
+  // the roster the close screen renders.
+  const buyInPlayerIds = new Set(buyIns.map((b) => b.player_id))
+  const rosterIds = gamePlayers
+    .map((gp) => gp.player_id)
+    .filter((id) => buyInPlayerIds.has(id))
+  const rosterIdSet = new Set(rosterIds)
+
+  for (const co of cashOuts) {
+    if (!rosterIdSet.has(co.playerId)) {
+      throw new Error('Cash-out for player not in game')
+    }
+  }
+
+  const participantsByExpense = new Map<string, ExpenseParticipant[]>()
+  for (const ep of participants) {
+    const list = participantsByExpense.get(ep.expense_id) ?? []
+    list.push(ep)
+    participantsByExpense.set(ep.expense_id, list)
+  }
+
+  const nowIso = new Date().toISOString()
+  const cashOutEntries: CashOut[] = cashOuts.map((co) => ({
+    id: '',
+    game_id: gameId,
+    player_id: co.playerId,
+    amount: co.amount,
+    created_by: user.id,
+    created_at: nowIso,
+    updated_at: nowIso,
+  }))
+
+  const validation = validateGameForClose(
+    rosterIds,
+    buyIns,
+    cashOutEntries,
+    expenses,
+    participantsByExpense,
+  )
+  if (!validation.valid) {
+    throw new Error('validation_failed')
+  }
+
+  const results = calcAllPlayerBalances(
+    rosterIds,
+    buyIns,
+    cashOutEntries,
+    expenses,
+    participantsByExpense,
+    gameId,
+  )
+  const settlements = calcSettlements(
+    results.map((r) => ({ playerId: r.player_id, amount: r.final_balance })),
   )
 
-  await dbSaveGameResults(supabase, gameId, results, settlements)
-  await dbCloseGame(supabase, gameId)
+  // Prefer the atomic RPC (migration 021). It handles cash-outs, results,
+  // settlements, and the status change inside one Postgres transaction —
+  // a failure leaves nothing partially written. Falls back to the
+  // sequential writes if the RPC isn't deployed yet.
+  const rpc = await supabase.rpc('close_game_atomic', {
+    p_game_id: gameId,
+    p_cash_outs: cashOuts.map((co) => ({
+      player_id: co.playerId,
+      amount: co.amount,
+    })),
+    p_results: results.map((r) => ({
+      player_id: r.player_id,
+      total_buy_in: r.total_buy_in,
+      cash_out: r.cash_out,
+      game_net: r.game_net,
+      expense_credit: r.expense_credit,
+      expense_debt: r.expense_debt,
+      final_balance: r.final_balance,
+    })),
+    p_settlements: settlements.map((s) => ({
+      from_player_id: s.from,
+      to_player_id: s.to,
+      amount: s.amount,
+    })),
+  })
+
+  const rpcMissing =
+    rpc.error &&
+    (rpc.error.code === 'PGRST202' ||
+      rpc.error.message?.includes('close_game_atomic'))
+
+  if (!rpcMissing) {
+    if (rpc.error) throw new Error(rpc.error.message)
+    const payload = rpc.data as { success?: boolean; error?: string } | null
+    if (payload?.error) {
+      throw new Error(payload.error)
+    }
+  } else {
+    // Pre-021 fallback — not atomic, but functionally equivalent.
+    await Promise.all(
+      cashOuts.map((co) =>
+        dbUpsertCashOut(supabase, gameId, co.playerId, co.amount, user.id),
+      ),
+    )
+    await dbSaveGameResults(supabase, gameId, results, settlements)
+    await dbCloseGame(supabase, gameId)
+  }
+
+  revalidatePath(`/groups/${game.group_id}`)
+  revalidatePath(`/groups/${game.group_id}/games/${gameId}`)
+  revalidatePath(`/groups/${game.group_id}/games/${gameId}/results`)
 }
 
 export async function finalizeGameAction(
@@ -391,23 +567,50 @@ export async function finalizeGameAction(
     return
   }
 
-  const results = await getGameResults(supabase, gameId)
-  if (results.length === 0) throw new Error('No results to finalize')
+  // Prefer the atomic RPC (migration 021): mark finalized + stats upsert
+  // + win-records insert in one transaction. Falls back to the legacy
+  // two-step path (with a manual rollback) when the RPC isn't deployed.
+  const rpc = await supabase.rpc('finalize_game_with_stats', {
+    p_game_id: gameId,
+    p_group_id: groupId,
+  })
 
-  const didFinalize = await dbFinalizeGame(supabase, gameId)
-  if (!didFinalize) {
-    revalidatePath(`/groups/${groupId}`)
-    return
-  }
+  const rpcMissing =
+    rpc.error &&
+    (rpc.error.code === 'PGRST202' ||
+      rpc.error.message?.includes('finalize_game_with_stats'))
 
-  try {
-    await applyGameStats(createAdminClient(), groupId, gameId, results)
-  } catch (err) {
-    await supabase
-      .from('games')
-      .update({ finalized_at: null })
-      .eq('id', gameId)
-    throw err
+  if (!rpcMissing) {
+    if (rpc.error) throw new Error(rpc.error.message)
+    const payload = rpc.data as { success?: boolean; error?: string } | null
+    if (payload?.error) {
+      if (payload.error === 'no_results') {
+        throw new Error('No results to finalize')
+      }
+      throw new Error(payload.error)
+    }
+  } else {
+    // Pre-021 fallback path.
+    const results = await getGameResults(supabase, gameId)
+    if (results.length === 0) throw new Error('No results to finalize')
+
+    const didFinalize = await dbFinalizeGame(supabase, gameId)
+    if (!didFinalize) {
+      revalidatePath(`/groups/${groupId}`)
+      return
+    }
+
+    try {
+      await applyGameStats(createAdminClient(), groupId, gameId, results)
+    } catch (err) {
+      // Best-effort rollback — note: any group_win_records inserted before
+      // the failure remain, which is exactly why the atomic RPC is preferred.
+      await supabase
+        .from('games')
+        .update({ finalized_at: null })
+        .eq('id', gameId)
+      throw err
+    }
   }
 
   revalidatePath(`/groups/${groupId}`)

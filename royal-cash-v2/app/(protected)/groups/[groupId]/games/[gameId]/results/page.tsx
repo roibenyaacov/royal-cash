@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getGame, getGamePlayers } from '@/lib/db/games'
+import { getGame } from '@/lib/db/games'
 import { getGroupPlayers } from '@/lib/db/players'
 import { getGameResults, getGameSettlements } from '@/lib/db/results'
 import ResultsClient from './results-client'

@@ -33,13 +33,12 @@ export default function LoginPage() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth()
   const { t } = useLocale()
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [submitError, setSubmitError] = useState('')
 
-  useEffect(() => {
-    if (searchParams.get('error') === 'auth') {
-      setError(t.auth.loginFailed)
-    }
-  }, [searchParams, t.auth.loginFailed])
+  // Derive the error message directly from the URL — no effect needed.
+  const error = submitError || (
+    searchParams.get('error') === 'auth' ? t.auth.loginFailed : ''
+  )
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -48,9 +47,9 @@ export default function LoginPage() {
   }, [authLoading, user, router])
 
   async function handleGoogleSignIn() {
-    setError('')
+    setSubmitError('')
     if (!hasSupabasePublicConfig()) {
-      setError(t.auth.loginConfigError)
+      setSubmitError(t.auth.loginConfigError)
       return
     }
 
@@ -59,7 +58,7 @@ export default function LoginPage() {
       await signInWithGoogle()
     } catch (err) {
       console.error('Google sign-in failed:', err)
-      setError(t.auth.loginFailed)
+      setSubmitError(t.auth.loginFailed)
       setLoading(false)
     }
   }

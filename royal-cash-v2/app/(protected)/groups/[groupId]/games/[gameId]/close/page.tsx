@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getGame, getGameRosterPlayers } from '@/lib/db/games'
-import { getGroupPlayers } from '@/lib/db/players'
 import { getGameBuyIns } from '@/lib/db/buy-ins'
 import { calcPlayerBuyIns } from '@/lib/calculations/buy-ins'
 import { getGameExpensesWithParticipants } from '@/lib/db/expenses'

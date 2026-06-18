@@ -74,6 +74,9 @@ export default function GroupInvitePage({
     if (searchParams.get('resume') === '1') {
       router.replace(`/invite/group/${token}`)
     }
+    // Auto-join after returning from Google sign-in. State changes happen
+    // inside the async callback, not synchronously in the effect body.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void performJoin()
   }, [user, state, token, performJoin, searchParams, router])
 

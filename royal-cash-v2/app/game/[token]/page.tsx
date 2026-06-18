@@ -49,6 +49,8 @@ export default function GameAccessPage({
 
   useEffect(() => {
     if (!token) return
+    // State changes happen inside the async loadSnapshot, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSnapshot()
   }, [token, loadSnapshot])
 

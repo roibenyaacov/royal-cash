@@ -16,6 +16,10 @@ export function BottomNav() {
   const [mounted, setMounted] = useState(false)
   const { t } = useLocale()
 
+  // Mark mounted after hydration so the active-link highlight only renders
+  // once usePathname() is reliable on the client. Setting state once on
+  // mount is the standard hydration-guard pattern.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), [])
 
   const items: {

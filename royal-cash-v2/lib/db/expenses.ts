@@ -43,7 +43,11 @@ export async function getGameExpensesWithParticipants(
   if (error) throw error
   const rows = data ?? []
 
-  const expenses: Expense[] = rows.map(({ expense_participants: _ep, ...e }) => e as Expense)
+  const expenses: Expense[] = rows.map((row) => {
+    const { expense_participants: _participants, ...rest } = row
+    void _participants
+    return rest as Expense
+  })
   const participants: ExpenseParticipant[] = rows.flatMap(
     (r) => (r.expense_participants as ExpenseParticipant[]) ?? [],
   )
