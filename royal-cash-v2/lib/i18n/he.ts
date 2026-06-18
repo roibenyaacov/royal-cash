@@ -158,7 +158,7 @@ export const he = {
     cashOut: 'יציאה',
     food: 'אוכל',
     summaryCopied: 'הסיכום הועתק!',
-    shareAndClose: 'סגור שולחן',
+    shareAndClose: 'שתף בוואטסאפ וסגור שולחן',
     backToGroup: 'חזור לשולחן',
     savingGame: 'שומר משחק...',
     shareWhatsApp: 'שתף בוואטסאפ',

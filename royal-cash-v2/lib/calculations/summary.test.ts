@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateSummaryText } from './summary'
+import { generateSummaryText, generateWhatsAppSettlementText } from './summary'
 import type { GameResult } from '@/lib/domain/types'
 
 const makeResult = (playerId: string, finalBalance: number): GameResult => ({
@@ -76,5 +76,19 @@ describe('generateSummaryText', () => {
     expect(text).toContain('Game: Friday Night')
     expect(text).toContain('Roi: +150')
     expect(text).toContain('Tamar → Roi: 100')
+  })
+
+  it('formats WhatsApp settlement with RTL game name and closing line', () => {
+    const text = generateWhatsAppSettlementText(
+      { name: 'שישי בערב', currency: 'ILS' },
+      [{ from: 'tamar', to: 'roi', amount: 100 }],
+      names,
+    )
+
+    expect(text).toContain('תמר מעביר לרועי 100₪')
+    expect(text).toContain('\u202Bשישי בערב\u202C')
+    expect(text).toContain('נתראה בערב הבא !')
+    expect(text).not.toContain('♦')
+    expect(text).not.toContain('!נתראה')
   })
 })

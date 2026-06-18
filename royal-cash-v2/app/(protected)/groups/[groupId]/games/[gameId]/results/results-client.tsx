@@ -6,7 +6,7 @@ import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { generateSummaryText, generateWhatsAppSettlementText } from '@/lib/calculations/summary'
+import { generateWhatsAppSettlementText } from '@/lib/calculations/summary'
 import { finalizeGameAction } from '@/app/actions/games'
 import type { Game, Player, GameResult, Settlement } from '@/lib/domain/types'
 
@@ -46,6 +46,16 @@ export default function ResultsClient({
   const symbol = t.currency[currencyKey]
   const isFinalized = !!game.finalized_at
 
+  const settlementTransfers = useMemo(
+    () =>
+      settlements.map((s) => ({
+        from: s.from_player_id,
+        to: s.to_player_id,
+        amount: s.amount,
+      })),
+    [settlements],
+  )
+
   const finalizeAndNavigate = useCallback(async () => {
     if (finalizing) return
     setFinalizing(true)
@@ -58,17 +68,7 @@ export default function ResultsClient({
     }
   }, [gameId, groupId, finalizing, router])
 
-  const handleWhatsAppShare = useCallback(() => {
-    const settlementTransfers = settlements.map((s) => ({
-      from: s.from_player_id,
-      to: s.to_player_id,
-      amount: s.amount,
-    }))
-    const text = generateWhatsAppSettlementText(game, settlementTransfers, playerNames)
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
-  }, [game, settlements, playerNames])
-
-  const handleShareAndClose = useCallback(async () => {
+  const handleWhatsAppShareAndClose = useCallback(async () => {
     if (finalizing) return
 
     if (isFinalized) {
@@ -76,45 +76,20 @@ export default function ResultsClient({
       return
     }
 
-    const settlementTransfers = settlements.map((s) => ({
-      from: s.from_player_id,
-      to: s.to_player_id,
-      amount: s.amount,
-    }))
-
-    const text = generateSummaryText(
-      { name: game.name },
-      results,
-      settlementTransfers,
-      playerNames,
-      'he',
-    )
-
-    let didShare = false
-
-    if (typeof navigator.share === 'function') {
-      try {
-        await navigator.share({
-          title: `${t.summary.header} – ${game.name}`,
-          text,
-        })
-        didShare = true
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return
-      }
-    }
-
-    if (!didShare) {
-      try {
-        await navigator.clipboard.writeText(text)
-      } catch (err) {
-        console.error('Failed to copy summary:', err)
-        return
-      }
-    }
+    const text = generateWhatsAppSettlementText(game, settlementTransfers, playerNames)
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
 
     await finalizeAndNavigate()
-  }, [game, finalizing, isFinalized, settlements, results, playerNames, groupId, router, finalizeAndNavigate])
+  }, [
+    game,
+    settlementTransfers,
+    playerNames,
+    finalizing,
+    isFinalized,
+    groupId,
+    router,
+    finalizeAndNavigate,
+  ])
 
   if (results.length === 0) {
     return (
@@ -223,20 +198,10 @@ export default function ResultsClient({
         )}
 
         <div className="flex flex-col gap-3 mt-auto pt-4">
-          {settlements.length > 0 && (
-            <Button
-              variant="secondary"
-              fullWidth
-              size="lg"
-              onClick={handleWhatsAppShare}
-            >
-              {t.results.shareWhatsApp}
-            </Button>
-          )}
           <Button
             fullWidth
             size="lg"
-            onClick={handleShareAndClose}
+            onClick={handleWhatsAppShareAndClose}
             disabled={finalizing}
           >
             {buttonLabel}

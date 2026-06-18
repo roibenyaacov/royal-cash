@@ -160,7 +160,7 @@ export const en = {
     cashOut: 'Cash out',
     food: 'Food',
     summaryCopied: 'Summary copied!',
-    shareAndClose: 'Share & close',
+    shareAndClose: 'Share on WhatsApp & close table',
     backToGroup: 'Back to group',
     savingGame: 'Saving game...',
     shareWhatsApp: 'Share on WhatsApp',

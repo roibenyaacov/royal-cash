@@ -3,13 +3,18 @@ import type { SettlementTransfer } from './settlement'
 
 const CURRENCY_SYMBOLS: Record<string, string> = { ILS: '₪', USD: '$', EUR: '€' }
 
+/** Force RTL display for the table name line in WhatsApp (mixed Hebrew/Latin/numbers). */
+function formatRtlGameName(name: string): string {
+  return `\u202B${name}\u202C`
+}
+
 export function generateWhatsAppSettlementText(
   game: Pick<Game, 'name' | 'currency'>,
   settlements: SettlementTransfer[],
   playerNames: Map<string, string>,
 ): string {
   const symbol = CURRENCY_SYMBOLS[game.currency] ?? '₪'
-  const lines: string[] = ['Royal Cash - סיכום שולחן', game.name, '']
+  const lines: string[] = ['Royal Cash - סיכום שולחן', formatRtlGameName(game.name), '']
 
   if (settlements.length === 0) {
     lines.push('קיזוזים: אין')
@@ -21,7 +26,7 @@ export function generateWhatsAppSettlementText(
     }
   }
 
-  lines.push('', '!נתראה בערב הבא')
+  lines.push('', 'נתראה בערב הבא !')
   return lines.join('\n')
 }
 

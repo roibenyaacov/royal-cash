@@ -58,41 +58,12 @@ export async function getGroupAllTimeGameWins(
   })
 }
 
+/** Top poker wins (game_net, before food) from all finalized games. */
 export async function getGroupWinRecords(
   supabase: SupabaseClient,
   groupId: string,
 ): Promise<GroupWinRecord[]> {
-  const { data, error } = await supabase
-    .from('group_win_records')
-    .select('*, games(name, date)')
-    .eq('group_id', groupId)
-    .order('amount', { ascending: false })
-    .order('achieved_at', { ascending: false })
-
-  if (error) throw error
-
-  return (data ?? []).map((row) => {
-    const { games, ...record } = row as GroupWinRecord & {
-      games: GroupWinRecord['game'] | null
-    }
-    return { ...record, game: games ?? undefined }
-  })
-}
-
-export async function getGroupRecordAmount(
-  supabase: SupabaseClient,
-  groupId: string,
-): Promise<number> {
-  const { data, error } = await supabase
-    .from('group_win_records')
-    .select('amount')
-    .eq('group_id', groupId)
-    .order('amount', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) throw error
-  return data?.amount ?? 0
+  return getGroupAllTimeGameWins(supabase, groupId)
 }
 
 export async function applyGameStats(
@@ -145,27 +116,36 @@ export async function applyGameStats(
 
   if (upsertError) throw upsertError
 
-  let currentRecord = await getGroupRecordAmount(supabase, groupId)
+  const winners = results.filter((r) => r.game_net > 0)
+  if (winners.length === 0) return
 
-  const winners = [...results]
-    .filter((r) => r.game_net > 0)
-    .sort((a, b) => b.game_net - a.game_net)
+  const { data: existingRecords, error: existingError } = await supabase
+    .from('group_win_records')
+    .select('player_id')
+    .eq('game_id', gameId)
 
-  for (const winner of winners) {
-    if (winner.game_net <= currentRecord) continue
+  if (existingError) throw existingError
 
-    const { error: insertError } = await supabase
-      .from('group_win_records')
-      .insert({
-        group_id: groupId,
-        player_id: winner.player_id,
-        game_id: gameId,
-        amount: winner.game_net,
-      })
+  const existingPlayers = new Set(
+    (existingRecords ?? []).map((row) => row.player_id as string),
+  )
 
-    if (insertError) throw insertError
-    currentRecord = winner.game_net
-  }
+  const toInsert = winners
+    .filter((winner) => !existingPlayers.has(winner.player_id))
+    .map((winner) => ({
+      group_id: groupId,
+      player_id: winner.player_id,
+      game_id: gameId,
+      amount: winner.game_net,
+    }))
+
+  if (toInsert.length === 0) return
+
+  const { error: insertError } = await supabase
+    .from('group_win_records')
+    .insert(toInsert)
+
+  if (insertError) throw insertError
 }
 
 export async function getPlayerWinCounts(
