@@ -8,6 +8,7 @@ import {
   addGamePlayer as dbAddGamePlayer,
   removeGamePlayer as dbRemoveGamePlayer,
   closeGame as dbCloseGame,
+  deleteGame as dbDeleteGame,
   finalizeGame as dbFinalizeGame,
   getGame as dbGetGame,
 } from '@/lib/db/games'
@@ -411,4 +412,27 @@ export async function finalizeGameAction(
 
   revalidatePath(`/groups/${groupId}`)
   revalidatePath(`/groups/${groupId}/games/${gameId}/results`)
+}
+
+export async function deleteGameAction(
+  groupId: string,
+  gameId: string,
+): Promise<void> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  await assertGroupMember(supabase, groupId, user.id)
+
+  const game = await dbGetGame(supabase, gameId)
+  if (!game) throw new Error('Game not found')
+  if (game.group_id !== groupId) throw new Error('Invalid group')
+  if (game.status !== 'active') throw new Error('Only active games can be deleted')
+
+  await dbDeleteGame(supabase, gameId)
+
+  revalidatePath(`/groups/${groupId}`)
+  revalidatePath('/groups')
 }

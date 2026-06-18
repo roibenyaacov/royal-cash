@@ -102,6 +102,12 @@ export const en = {
     eventExpenseAdded: 'expense',
     unknownPlayer: 'Player',
     closeGame: 'Close game',
+    deleteGame: 'Delete table',
+    deleteGameTitle: 'Delete table',
+    deleteGameWarning:
+      'This will permanently delete the table and all its buy-ins and expenses.',
+    deleteGameConfirm: 'Yes, delete table',
+    deleteGameSuccess: 'Table deleted',
     date: 'Date',
     status: 'Status',
     statusActive: 'Active',

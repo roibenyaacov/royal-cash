@@ -25,7 +25,9 @@ import {
   addExpenseAction,
   addPlayerToGameAction,
   addNewPlayerToGameAction,
+  deleteGameAction,
 } from '@/app/actions/games'
+import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import type {
   Game,
   Player,
@@ -75,6 +77,8 @@ export default function ActiveGameClient({
   const [events, setEvents] = useState<GameEvent[]>(initialEvents)
   const [showExpense, setShowExpense] = useState(false)
   const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [showDeleteGame, setShowDeleteGame] = useState(false)
+  const [deletingGame, setDeletingGame] = useState(false)
   const [addingPlayer, setAddingPlayer] = useState<string | null>(null)
   const [savingNewPlayer, setSavingNewPlayer] = useState(false)
   const [buyInError, setBuyInError] = useState('')
@@ -230,6 +234,20 @@ export default function ActiveGameClient({
     }
   }
 
+  const handleDeleteGame = async () => {
+    if (deletingGame) return
+    setDeletingGame(true)
+    try {
+      await deleteGameAction(groupId, gameId)
+      router.push(`/groups/${groupId}`)
+    } catch (err) {
+      console.error('Failed to delete game:', err)
+      throw err
+    } finally {
+      setDeletingGame(false)
+    }
+  }
+
   const symbol = t.currency[game.currency]
   const totalBuyIns = buyIns.reduce((s, b) => s + b.amount, 0)
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
@@ -291,8 +309,26 @@ export default function ActiveGameClient({
           <Button fullWidth size="lg" onClick={() => router.push(`/groups/${groupId}/games/${gameId}/close`)}>
             {t.game.closeGame}
           </Button>
+          <Button
+            variant="danger"
+            fullWidth
+            size="lg"
+            onClick={() => setShowDeleteGame(true)}
+          >
+            {t.game.deleteGame}
+          </Button>
         </div>
       </main>
+
+      <ConfirmSheet
+        open={showDeleteGame}
+        onClose={() => setShowDeleteGame(false)}
+        title={t.game.deleteGameTitle}
+        message={t.game.deleteGameWarning}
+        confirmLabel={t.game.deleteGameConfirm}
+        cancelLabel={t.common.cancel}
+        onConfirm={handleDeleteGame}
+      />
 
       <ExpenseSheet
         open={showExpense}

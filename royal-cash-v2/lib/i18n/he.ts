@@ -100,6 +100,12 @@ export const he = {
     eventExpenseAdded: 'הוצאה',
     unknownPlayer: 'שחקן',
     closeGame: 'סגור משחק',
+    deleteGame: 'מחק שולחן',
+    deleteGameTitle: 'מחיקת שולחן',
+    deleteGameWarning:
+      'פעולה זו תמחק את השולחן ואת כל הכניסות וההוצאות שלו. לא ניתן לשחזר.',
+    deleteGameConfirm: 'כן, מחק שולחן',
+    deleteGameSuccess: 'השולחן נמחק',
     date: 'תאריך',
     status: 'סטטוס',
     statusActive: 'פעיל',

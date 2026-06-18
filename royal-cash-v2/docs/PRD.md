@@ -36,18 +36,27 @@ The host is responsible for:
 
 ### 2.2 Secondary Users
 
-Players in the group may later be able to:
+Registered group members (any role: owner, manager, or member) can:
 
-- View the active game
-- See their own buy-ins
-- See expenses
-- See final results
-- View personal statistics
+- View and manage active games in their group
+- Add players to the group and to an active game
+- Add and remove buy-ins, expenses, and cash-outs
+- Close games and finalize results
+- Delete an active game/table (discard without saving to history)
+- Generate group, player-claim, and game-access invite links
+- View personal statistics when linked to a player profile
 - Join a group through an invite link
 
-Not every player must have a registered account.
+Not every player at the table must have a registered account.
 
-The host should be able to create manual players who are not linked to a user account.
+Any group member can create manual players who are not linked to a user account.
+
+**Owner-only actions:**
+
+- Archive (delete) the group
+- Update group-level settings in the database
+
+The `manager` role remains in the schema for invite links but has the same in-app game permissions as `member`.
 
 ---
 
@@ -186,7 +195,7 @@ A user can:
 
 - Create groups
 - Belong to groups
-- Manage games if they have permission
+- Manage games and players in any group they belong to (see §6.3 and §14)
 - View games they are allowed to access
 
 User fields:
@@ -231,29 +240,30 @@ Group fields:
 
 A group member is a registered user who belongs to a group.
 
-Roles:
+Roles (stored in `group_members.role`):
 
-- owner
-- manager
-- member
+- **owner** — created the group
+- **manager** — invited with manager role (same game permissions as member)
+- **member** — joined via invite or added on group creation
 
-Owner can:
+#### Permissions model (v2 — cooperative group)
 
-- Manage the group
-- Add/remove players
-- Create games
-- Close games
-- Manage permissions
+All group members (owner, manager, member) may:
 
-Manager can:
+- Add and remove players in the group
+- Create new games
+- Manage active games: buy-ins, expenses, roster, activity log
+- Enter cash-outs and close games
+- Finalize closed games into group history
+- Delete an **active** game (discard table; cascades buy-ins/expenses; does not affect finalized history)
+- Generate invite links (group, player claim, game access)
 
-- Manage games if allowed
-- Add buy-ins, expenses, and cash-outs
+**Owner only:**
 
-Member can:
+- Archive the group (`archived_at`)
+- Delete the group record (if implemented)
 
-- View group games
-- Later update their own data depending on game settings
+RLS enforces membership via `is_group_member()`. Game mutations require membership in the game's group. See migrations `016`–`018`.
 
 Group member fields:
 
@@ -889,7 +899,9 @@ Requirements:
 - New game button
 - Active games
 - Closed games history
-- Group settings access for owner/manager
+- Archive group button (owner only)
+
+All members see: new game, add player, invite link, and full player/game management.
 
 Suggested Hebrew labels:
 
@@ -947,6 +959,7 @@ Requirements:
 - Add buy-in action
 - "היינו רעבים" action
 - Close game action
+- Delete table action (active games only, with confirmation)
 - Mobile-first card layout
 
 Player card should show:
@@ -966,6 +979,7 @@ Suggested Hebrew labels:
 הוסף כניסה
 היינו רעבים
 סגור משחק
+מחק שולחן
 ```
 
 ---
@@ -1338,14 +1352,13 @@ Business logic remains separate
 
 The app must use Supabase Row Level Security before production.
 
+### 14.1 Access boundaries
+
 Core rules:
 
 - Users can only access groups they belong to.
 - Users can only access games that belong to their groups.
 - Users can only view players in their groups.
-- Only owners/managers can create games.
-- Only owners/managers can edit buy-ins, expenses, and cash-outs unless game settings allow more.
-- Only owners/managers can close games.
 - Private game data must not be exposed publicly.
 - No service role key should ever be exposed in client-side code.
 - Environment variables must be handled safely.
@@ -1354,7 +1367,33 @@ The service role key must not be used in the browser.
 
 Client-side code may use only the safe public anon key together with RLS policies.
 
-Sensitive operations that require elevated permissions should be handled only through secure server-side code if needed.
+Server actions use the service role only after verifying the caller is a group member (`assertGroupMember`).
+
+### 14.2 Group permissions (all members)
+
+Any authenticated **group member** may (RLS: `is_group_member`):
+
+| Action | Allowed |
+|--------|---------|
+| Add/remove group players | Yes |
+| Create game | Yes |
+| Add/remove buy-ins on active game | Yes |
+| Add/remove expenses | Yes |
+| Add/remove players on active game | Yes |
+| Cash-out + close game | Yes |
+| Finalize closed game to history | Yes |
+| Delete active game (discard table) | Yes |
+| Create invite / claim / game-access links | Yes |
+
+**Owner only:** archive group, update `groups` row as owner.
+
+**Not allowed:** access another group's data; delete finalized closed games via UI (only active discard).
+
+Migrations: `010` (member active-game mutations), `016` (member create game), `017` (full member permissions), `018` (member delete active game).
+
+### 14.3 Contact
+
+Login and profile screens expose a contact email (`royalcash.pokerapp@gmail.com`) for user support.
 
 ---
 

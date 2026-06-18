@@ -55,6 +55,15 @@ export async function closeGame(
   if (error) throw error
 }
 
+export async function deleteGame(
+  supabase: SupabaseClient,
+  gameId: string,
+): Promise<void> {
+  const { error } = await supabase.from('games').delete().eq('id', gameId)
+
+  if (error) throw error
+}
+
 export async function finalizeGame(
   supabase: SupabaseClient,
   gameId: string,
