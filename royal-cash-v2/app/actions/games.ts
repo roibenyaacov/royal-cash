@@ -37,6 +37,8 @@ import { calcSettlements } from '@/lib/calculations/settlement'
 import { validateGameForClose } from '@/lib/calculations/validation'
 import type {
   Game,
+  GameEvent,
+  Player,
   BuyIn,
   CashOut,
   Expense,
@@ -105,23 +107,37 @@ export async function createGameAction(
   return game
 }
 
+export type AddPlayerToGameResult = {
+  buyIn: BuyIn | null
+  event: GameEvent | null
+}
+
 export async function addPlayerToGameAction(
   gameId: string,
   playerId: string,
   buyInAmount: number,
-): Promise<void> {
+): Promise<AddPlayerToGameResult> {
   const { userId, db } = await authorizeActiveGameMutation(gameId)
 
   await dbAddGamePlayer(db, gameId, playerId)
 
   if (buyInAmount > 0) {
-    await dbAddBuyIn(db, gameId, playerId, buyInAmount, userId)
-    await addGameEvent(db, gameId, 'buy_in_added', userId, {
+    const buyIn = await dbAddBuyIn(db, gameId, playerId, buyInAmount, userId)
+    const event = await addGameEvent(db, gameId, 'buy_in_added', userId, {
       playerId,
       amount: buyInAmount,
       description: 'הצטרפות למשחק',
     })
+    return { buyIn, event }
   }
+
+  return { buyIn: null, event: null }
+}
+
+export type AddNewPlayerToGameResult = {
+  player: Player
+  buyIn: BuyIn | null
+  event: GameEvent | null
 }
 
 export async function addNewPlayerToGameAction(
@@ -129,7 +145,7 @@ export async function addNewPlayerToGameAction(
   gameId: string,
   displayName: string,
   options: { addToGroup: boolean; initialBuyIn: number },
-): Promise<void> {
+): Promise<AddNewPlayerToGameResult> {
   const trimmed = displayName.trim()
   if (!trimmed) throw new Error('Player name required')
 
@@ -148,13 +164,16 @@ export async function addNewPlayerToGameAction(
   await dbAddGamePlayer(db, gameId, player.id)
 
   if (options.initialBuyIn > 0) {
-    await dbAddBuyIn(db, gameId, player.id, options.initialBuyIn, userId)
-    await addGameEvent(db, gameId, 'buy_in_added', userId, {
+    const buyIn = await dbAddBuyIn(db, gameId, player.id, options.initialBuyIn, userId)
+    const event = await addGameEvent(db, gameId, 'buy_in_added', userId, {
       playerId: player.id,
       amount: options.initialBuyIn,
       description: 'הצטרפות למשחק',
     })
+    return { player, buyIn, event }
   }
+
+  return { player, buyIn: null, event: null }
 }
 
 async function playerHasGameExpenses(
@@ -221,12 +240,14 @@ export async function removePlayerFromGameAction(
   return { success: true }
 }
 
+export type AddBuyInResult = { buyIn: BuyIn; event: GameEvent }
+
 export async function addBuyInAction(
   gameId: string,
   playerId: string,
   amount: number,
   note?: string,
-): Promise<BuyIn> {
+): Promise<AddBuyInResult> {
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new Error('Invalid buy-in amount')
   }
@@ -240,28 +261,35 @@ export async function addBuyInAction(
 
   const buyIn = await dbAddBuyIn(db, gameId, playerId, amount, userId, trimmedNote)
 
-  await addGameEvent(db, gameId, 'buy_in_added', userId, {
+  const event = await addGameEvent(db, gameId, 'buy_in_added', userId, {
     playerId,
     amount,
     description: trimmedNote ?? undefined,
   })
 
-  return buyIn
+  return { buyIn, event }
 }
 
 export async function addDefaultBuyInAction(
   gameId: string,
   playerId: string,
   defaultAmount: number,
-): Promise<BuyIn> {
+): Promise<AddBuyInResult> {
   return addBuyInAction(gameId, playerId, defaultAmount)
+}
+
+export type RemoveDefaultBuyInResult = {
+  removedBuyIn: BuyIn
+  removeEvent: GameEvent
+  // Present when removing the last buy-in also drops the player from the table.
+  playerRemoved?: { event: GameEvent }
 }
 
 export async function removeDefaultBuyInAction(
   gameId: string,
   playerId: string,
   defaultAmount: number,
-): Promise<BuyIn | null> {
+): Promise<RemoveDefaultBuyInResult | null> {
   const { userId, db } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
 
@@ -273,7 +301,7 @@ export async function removeDefaultBuyInAction(
   )
   if (!removed) return null
 
-  await addGameEvent(db, gameId, 'buy_in_removed', userId, {
+  const removeEvent = await addGameEvent(db, gameId, 'buy_in_removed', userId, {
     playerId,
     amount: removed.amount,
   })
@@ -293,13 +321,21 @@ export async function removeDefaultBuyInAction(
     }
 
     await dbRemoveGamePlayer(db, gameId, playerId)
-    await addGameEvent(db, gameId, 'buy_in_removed', userId, {
-      playerId,
-      description: 'הוסר מהשולחן',
-    })
+    const playerRemovedEvent = await addGameEvent(
+      db,
+      gameId,
+      'buy_in_removed',
+      userId,
+      { playerId, description: 'הוסר מהשולחן' },
+    )
+    return {
+      removedBuyIn: removed,
+      removeEvent,
+      playerRemoved: { event: playerRemovedEvent },
+    }
   }
 
-  return removed
+  return { removedBuyIn: removed, removeEvent }
 }
 
 export async function setPlayerBuyInCountAction(
@@ -345,6 +381,12 @@ export async function setPlayerBuyInCountAction(
   }
 }
 
+export type AddExpenseResult = {
+  expense: Expense
+  participants: ExpenseParticipant[]
+  event: GameEvent
+}
+
 export async function addExpenseAction(
   gameId: string,
   paidByPlayerId: string,
@@ -352,7 +394,7 @@ export async function addExpenseAction(
   description: string,
   splitType: ExpenseSplitType,
   participants: { playerId: string; amountOwed: number }[],
-): Promise<Expense> {
+): Promise<AddExpenseResult> {
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new Error('Invalid expense amount')
   }
@@ -384,7 +426,7 @@ export async function addExpenseAction(
     await assertPlayerInActiveGame(db, gameId, participant.playerId)
   }
 
-  const expense = await dbAddExpense(
+  const { expense, participants: insertedParticipants } = await dbAddExpense(
     db,
     gameId,
     paidByPlayerId,
@@ -395,13 +437,13 @@ export async function addExpenseAction(
     participants,
   )
 
-  await addGameEvent(db, gameId, 'expense_added', userId, {
+  const event = await addGameEvent(db, gameId, 'expense_added', userId, {
     playerId: paidByPlayerId,
     amount,
     description: trimmedDescription || undefined,
   })
 
-  return expense
+  return { expense, participants: insertedParticipants, event }
 }
 
 export async function closeGameAction(

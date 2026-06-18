@@ -64,7 +64,7 @@ export async function addExpense(
   splitType: ExpenseSplitType,
   createdBy: string,
   participants: { playerId: string; amountOwed: number }[],
-): Promise<Expense> {
+): Promise<{ expense: Expense; participants: ExpenseParticipant[] }> {
   const { data: expense, error } = await supabase
     .from('expenses')
     .insert({
@@ -80,14 +80,17 @@ export async function addExpense(
 
   if (error) throw error
 
-  const { error: pError } = await supabase.from('expense_participants').insert(
-    participants.map((p) => ({
-      expense_id: expense.id,
-      player_id: p.playerId,
-      amount_owed: p.amountOwed,
-    })),
-  )
+  const { data: insertedParticipants, error: pError } = await supabase
+    .from('expense_participants')
+    .insert(
+      participants.map((p) => ({
+        expense_id: expense.id,
+        player_id: p.playerId,
+        amount_owed: p.amountOwed,
+      })),
+    )
+    .select()
 
   if (pError) throw pError
-  return expense
+  return { expense, participants: insertedParticipants ?? [] }
 }

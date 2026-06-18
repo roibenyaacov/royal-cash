@@ -1,6 +1,12 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useOptimistic,
+  useTransition,
+} from 'react'
 import { useRouter } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
@@ -34,6 +40,7 @@ import type {
   BuyIn,
   Expense,
   ExpenseParticipant,
+  ExpenseSplitType,
   GameEvent,
 } from '@/lib/domain/types'
 
@@ -49,8 +56,129 @@ interface ActiveGameClientProps {
   initialEvents: GameEvent[]
 }
 
+// ---------------------------------------------------------------------------
+// Optimistic state + reducer
+//
+// Every game-mutating handler dispatches an OptimisticAction inside a
+// React transition. The reducer applies the action against the latest
+// authoritative serverState; the displayed `optimisticState` is the
+// composition of all pending updates. When the transition ends, that
+// update is removed from the pending queue and only the real serverState
+// remains.
+// ---------------------------------------------------------------------------
+
+type ServerState = {
+  players: Player[]
+  allGroupPlayers: Player[]
+  buyIns: BuyIn[]
+  expenses: Expense[]
+  expenseParticipants: ExpenseParticipant[]
+  events: GameEvent[]
+}
+
+type OptimisticAction =
+  | { type: 'add_buy_ins'; buyIns: BuyIn[]; events: GameEvent[] }
+  | {
+      type: 'remove_buy_in'
+      buyInId: string
+      removeEvent: GameEvent
+      alsoRemovePlayerId?: string
+      playerRemovedEvent?: GameEvent
+    }
+  | {
+      type: 'add_existing_player'
+      player: Player
+      buyIn: BuyIn | null
+      event: GameEvent | null
+    }
+  | {
+      type: 'add_new_player'
+      player: Player
+      addToGroupRoster: boolean
+      buyIn: BuyIn | null
+      event: GameEvent | null
+    }
+  | {
+      type: 'add_expense'
+      expense: Expense
+      participants: ExpenseParticipant[]
+      event: GameEvent
+    }
+
+function optimisticReducer(
+  state: ServerState,
+  action: OptimisticAction,
+): ServerState {
+  switch (action.type) {
+    case 'add_buy_ins':
+      return {
+        ...state,
+        buyIns: [...state.buyIns, ...action.buyIns],
+        events: [...action.events, ...state.events],
+      }
+    case 'remove_buy_in': {
+      const newBuyIns = state.buyIns.filter((b) => b.id !== action.buyInId)
+      const eventsAfterRemove = [action.removeEvent, ...state.events]
+      const events = action.playerRemovedEvent
+        ? [action.playerRemovedEvent, ...eventsAfterRemove]
+        : eventsAfterRemove
+      const players = action.alsoRemovePlayerId
+        ? state.players.filter((p) => p.id !== action.alsoRemovePlayerId)
+        : state.players
+      return { ...state, buyIns: newBuyIns, events, players }
+    }
+    case 'add_existing_player': {
+      const alreadyHas = state.players.some((p) => p.id === action.player.id)
+      return {
+        ...state,
+        players: alreadyHas ? state.players : [...state.players, action.player],
+        buyIns: action.buyIn ? [...state.buyIns, action.buyIn] : state.buyIns,
+        events: action.event ? [action.event, ...state.events] : state.events,
+      }
+    }
+    case 'add_new_player':
+      return {
+        ...state,
+        players: [...state.players, action.player],
+        allGroupPlayers: action.addToGroupRoster
+          ? [...state.allGroupPlayers, action.player]
+          : state.allGroupPlayers,
+        buyIns: action.buyIn ? [...state.buyIns, action.buyIn] : state.buyIns,
+        events: action.event ? [action.event, ...state.events] : state.events,
+      }
+    case 'add_expense':
+      return {
+        ...state,
+        expenses: [...state.expenses, action.expense],
+        expenseParticipants: [
+          ...state.expenseParticipants,
+          ...action.participants,
+        ],
+        events: [action.event, ...state.events],
+      }
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+const pendingId = () => `pending:${crypto.randomUUID()}`
+
+// Realtime can refetch + replace serverState in between an action firing
+// and the action's response landing. These helpers make sure we don't
+// duplicate a row that the refetch already wrote.
+function appendUnique<T extends { id: string }>(arr: T[], item: T): T[] {
+  return arr.some((x) => x.id === item.id) ? arr : [...arr, item]
+}
+
+function prependUnique<T extends { id: string }>(arr: T[], item: T): T[] {
+  return arr.some((x) => x.id === item.id) ? arr : [item, ...arr]
+}
+
 function getBuyInErrorMessage(err: unknown): string | null {
-  if (err instanceof Error && err.message === 'cannot_remove_player_with_expenses') {
+  if (
+    err instanceof Error &&
+    err.message === 'cannot_remove_player_with_expenses'
+  ) {
     return t.players.cannotRemoveWithExpenses
   }
   return null
@@ -69,40 +197,57 @@ export default function ActiveGameClient({
 }: ActiveGameClientProps) {
   const router = useRouter()
   const [game, setGame] = useState<Game>(initialGame)
-  const [players, setPlayers] = useState<Player[]>(initialPlayers)
-  const [allGroupPlayers, setAllGroupPlayers] = useState<Player[]>(initialAllGroupPlayers)
-  const [buyIns, setBuyIns] = useState<BuyIn[]>(initialBuyIns)
-  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses)
-  const [, setExpenseParticipants] = useState<ExpenseParticipant[]>(initialExpenseParticipants)
-  const [events, setEvents] = useState<GameEvent[]>(initialEvents)
+  const [serverState, setServerState] = useState<ServerState>({
+    players: initialPlayers,
+    allGroupPlayers: initialAllGroupPlayers,
+    buyIns: initialBuyIns,
+    expenses: initialExpenses,
+    expenseParticipants: initialExpenseParticipants,
+    events: initialEvents,
+  })
+  const [optimisticState, applyOptimistic] = useOptimistic(
+    serverState,
+    optimisticReducer,
+  )
+  const [, startTransition] = useTransition()
+
   const [showExpense, setShowExpense] = useState(false)
   const [showAddPlayer, setShowAddPlayer] = useState(false)
   const [showDeleteGame, setShowDeleteGame] = useState(false)
   const [deletingGame, setDeletingGame] = useState(false)
-  const [addingPlayer, setAddingPlayer] = useState<string | null>(null)
-  const [savingNewPlayer, setSavingNewPlayer] = useState(false)
   const [buyInError, setBuyInError] = useState('')
 
+  const { players, allGroupPlayers, buyIns, expenses, events } = optimisticState
+
+  // Realtime + slow polling refreshes the authoritative serverState.
   const fetchData = useCallback(async () => {
     const supabase = createClient()
     try {
-      const [gameData, rosterPlayers, allPlayers, buyInsData, { expenses: expensesData, participants }, eventsData] =
-        await Promise.all([
-          getGame(supabase, gameId),
-          getGameRosterPlayers(supabase, gameId),
-          getGroupPlayers(supabase, groupId),
-          getGameBuyIns(supabase, gameId),
-          getGameExpensesWithParticipants(supabase, gameId),
-          getGameEvents(supabase, gameId).catch(() => [] as GameEvent[]),
-        ])
+      const [
+        gameData,
+        rosterPlayers,
+        allPlayers,
+        buyInsData,
+        { expenses: expensesData, participants },
+        eventsData,
+      ] = await Promise.all([
+        getGame(supabase, gameId),
+        getGameRosterPlayers(supabase, gameId),
+        getGroupPlayers(supabase, groupId),
+        getGameBuyIns(supabase, gameId),
+        getGameExpensesWithParticipants(supabase, gameId),
+        getGameEvents(supabase, gameId).catch(() => [] as GameEvent[]),
+      ])
 
       if (gameData) setGame(gameData)
-      setPlayers(rosterPlayers)
-      setBuyIns(buyInsData)
-      setExpenses(expensesData)
-      setExpenseParticipants(participants)
-      setAllGroupPlayers(allPlayers)
-      setEvents(eventsData)
+      setServerState({
+        players: rosterPlayers,
+        allGroupPlayers: allPlayers,
+        buyIns: buyInsData,
+        expenses: expensesData,
+        expenseParticipants: participants,
+        events: eventsData,
+      })
     } catch (err) {
       console.error('Failed to refresh game:', err)
     }
@@ -126,112 +271,477 @@ export default function ActiveGameClient({
   }, [players, allGroupPlayers])
 
   const playersAtZeroBuyIn = useMemo(
-    () =>
-      players.filter((p) => calcPlayerBuyIns(buyIns, p.id) === 0),
+    () => players.filter((p) => calcPlayerBuyIns(buyIns, p.id) === 0),
     [players, buyIns],
   )
 
-  const handleAddDefaultBuyIn = async (playerId: string) => {
+  // --- Handlers (optimistic) ------------------------------------------------
+
+  const handleAddDefaultBuyIn = (playerId: string) => {
     setBuyInError('')
-    try {
-      await addDefaultBuyInAction(gameId, playerId, game.default_buy_in)
-      await fetchData()
-    } catch (err) {
-      const msg = getBuyInErrorMessage(err)
-      if (msg) setBuyInError(msg)
-      else console.error('Failed to add buy-in:', err)
+    const nowIso = new Date().toISOString()
+    const optimisticBuyIn: BuyIn = {
+      id: pendingId(),
+      game_id: gameId,
+      player_id: playerId,
+      amount: game.default_buy_in,
+      created_by: '',
+      created_at: nowIso,
+      note: null,
     }
+    const optimisticEvent: GameEvent = {
+      id: pendingId(),
+      game_id: gameId,
+      event_type: 'buy_in_added',
+      player_id: playerId,
+      amount: game.default_buy_in,
+      description: null,
+      created_by: '',
+      created_at: nowIso,
+    }
+
+    startTransition(async () => {
+      applyOptimistic({
+        type: 'add_buy_ins',
+        buyIns: [optimisticBuyIn],
+        events: [optimisticEvent],
+      })
+      try {
+        const { buyIn, event } = await addDefaultBuyInAction(
+          gameId,
+          playerId,
+          game.default_buy_in,
+        )
+        setServerState((prev) => ({
+          ...prev,
+          buyIns: appendUnique(prev.buyIns, buyIn),
+          events: prependUnique(prev.events, event),
+        }))
+      } catch (err) {
+        const msg = getBuyInErrorMessage(err)
+        if (msg) setBuyInError(msg)
+        else console.error('Failed to add buy-in:', err)
+        void fetchData()
+      }
+    })
   }
 
-  const handleRemoveDefaultBuyIn = async (playerId: string) => {
+  const handleRemoveDefaultBuyIn = (playerId: string) => {
     setBuyInError('')
-    try {
-      await removeDefaultBuyInAction(gameId, playerId, game.default_buy_in)
-      await fetchData()
-    } catch (err) {
-      const msg = getBuyInErrorMessage(err)
-      if (msg) setBuyInError(msg)
-      else console.error('Failed to remove buy-in:', err)
+
+    const matching = optimisticState.buyIns
+      .filter(
+        (b) => b.player_id === playerId && b.amount === game.default_buy_in,
+      )
+      .slice()
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    const targetBuyIn = matching[0]
+    if (!targetBuyIn) return
+
+    const remainingForPlayer = optimisticState.buyIns.filter(
+      (b) => b.player_id === playerId && b.id !== targetBuyIn.id,
+    )
+    const willDropPlayer = remainingForPlayer.length === 0
+
+    const nowIso = new Date().toISOString()
+    const optimisticRemoveEvent: GameEvent = {
+      id: pendingId(),
+      game_id: gameId,
+      event_type: 'buy_in_removed',
+      player_id: playerId,
+      amount: game.default_buy_in,
+      description: null,
+      created_by: '',
+      created_at: nowIso,
     }
+    const optimisticPlayerRemovedEvent: GameEvent | undefined = willDropPlayer
+      ? {
+          id: pendingId(),
+          game_id: gameId,
+          event_type: 'buy_in_removed',
+          player_id: playerId,
+          amount: null,
+          description: 'הוסר מהשולחן',
+          created_by: '',
+          created_at: nowIso,
+        }
+      : undefined
+
+    startTransition(async () => {
+      applyOptimistic({
+        type: 'remove_buy_in',
+        buyInId: targetBuyIn.id,
+        removeEvent: optimisticRemoveEvent,
+        alsoRemovePlayerId: willDropPlayer ? playerId : undefined,
+        playerRemovedEvent: optimisticPlayerRemovedEvent,
+      })
+
+      try {
+        const result = await removeDefaultBuyInAction(
+          gameId,
+          playerId,
+          game.default_buy_in,
+        )
+        if (!result) return
+        setServerState((prev) => {
+          const eventsAfterRemove = prependUnique(prev.events, result.removeEvent)
+          const events = result.playerRemoved
+            ? prependUnique(eventsAfterRemove, result.playerRemoved.event)
+            : eventsAfterRemove
+          return {
+            ...prev,
+            buyIns: prev.buyIns.filter((b) => b.id !== result.removedBuyIn.id),
+            events,
+            players: result.playerRemoved
+              ? prev.players.filter((p) => p.id !== playerId)
+              : prev.players,
+          }
+        })
+      } catch (err) {
+        const msg = getBuyInErrorMessage(err)
+        if (msg) setBuyInError(msg)
+        else console.error('Failed to remove buy-in:', err)
+        void fetchData()
+      }
+    })
   }
 
-  const handleSetBuyInCount = async (playerId: string, count: number) => {
+  // The count-input is rare and the server fires N internal ops, so we
+  // optimistically apply the diff and then refetch once for canonical IDs.
+  const handleSetBuyInCount = (playerId: string, count: number) => {
     setBuyInError('')
-    try {
-      await setPlayerBuyInCountAction(gameId, playerId, count, game.default_buy_in)
-      await fetchData()
-    } catch (err) {
-      const msg = getBuyInErrorMessage(err)
-      if (msg) setBuyInError(msg)
-      else console.error('Failed to set buy-in count:', err)
-    }
+
+    const matchingBuyIns = optimisticState.buyIns.filter(
+      (b) => b.player_id === playerId && b.amount === game.default_buy_in,
+    )
+    const currentCount = matchingBuyIns.length
+    const diff = count - currentCount
+    if (diff === 0) return
+
+    const nowIso = new Date().toISOString()
+
+    startTransition(async () => {
+      if (diff > 0) {
+        const newBuyIns: BuyIn[] = []
+        const newEvents: GameEvent[] = []
+        for (let i = 0; i < diff; i++) {
+          newBuyIns.push({
+            id: pendingId(),
+            game_id: gameId,
+            player_id: playerId,
+            amount: game.default_buy_in,
+            created_by: '',
+            created_at: nowIso,
+            note: null,
+          })
+          newEvents.push({
+            id: pendingId(),
+            game_id: gameId,
+            event_type: 'buy_in_added',
+            player_id: playerId,
+            amount: game.default_buy_in,
+            description: null,
+            created_by: '',
+            created_at: nowIso,
+          })
+        }
+        applyOptimistic({
+          type: 'add_buy_ins',
+          buyIns: newBuyIns,
+          events: newEvents,
+        })
+      } else {
+        const sorted = matchingBuyIns
+          .slice()
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        for (let i = 0; i < Math.abs(diff); i++) {
+          const target = sorted[i]
+          if (!target) break
+          const willDrop = count === 0 && i === sorted.length - 1
+          applyOptimistic({
+            type: 'remove_buy_in',
+            buyInId: target.id,
+            removeEvent: {
+              id: pendingId(),
+              game_id: gameId,
+              event_type: 'buy_in_removed',
+              player_id: playerId,
+              amount: game.default_buy_in,
+              description: null,
+              created_by: '',
+              created_at: nowIso,
+            },
+            alsoRemovePlayerId: willDrop ? playerId : undefined,
+            playerRemovedEvent: willDrop
+              ? {
+                  id: pendingId(),
+                  game_id: gameId,
+                  event_type: 'buy_in_removed',
+                  player_id: playerId,
+                  amount: null,
+                  description: 'הוסר מהשולחן',
+                  created_by: '',
+                  created_at: nowIso,
+                }
+              : undefined,
+          })
+        }
+      }
+
+      try {
+        await setPlayerBuyInCountAction(
+          gameId,
+          playerId,
+          count,
+          game.default_buy_in,
+        )
+        // The action does N internal inserts/deletes — refetch to learn the
+        // real IDs and reconcile any drift.
+        await fetchData()
+      } catch (err) {
+        const msg = getBuyInErrorMessage(err)
+        if (msg) setBuyInError(msg)
+        else console.error('Failed to set buy-in count:', err)
+        // The optimistic state will discard at transition end; refetch
+        // to make sure displayed state matches reality after the error.
+        void fetchData()
+      }
+    })
   }
 
-  const handleAddExpense = async (
+  const handleAddExpense = (
     paidByPlayerId: string,
     amount: number,
     description: string,
-    splitType: Expense['split_type'],
+    splitType: ExpenseSplitType,
     participants: { playerId: string; amountOwed: number }[],
   ) => {
-    try {
-      await addExpenseAction(gameId, paidByPlayerId, amount, description, splitType, participants)
-      await fetchData()
-    } catch (err) {
-      console.error('Failed to add expense:', err)
+    const nowIso = new Date().toISOString()
+    const tempExpenseId = pendingId()
+    const optimisticExpense: Expense = {
+      id: tempExpenseId,
+      game_id: gameId,
+      paid_by_player_id: paidByPlayerId,
+      amount,
+      description,
+      split_type: splitType,
+      created_by: '',
+      created_at: nowIso,
     }
+    const optimisticParticipants: ExpenseParticipant[] = participants.map(
+      (p) => ({
+        id: pendingId(),
+        expense_id: tempExpenseId,
+        player_id: p.playerId,
+        amount_owed: p.amountOwed,
+      }),
+    )
+    const optimisticEvent: GameEvent = {
+      id: pendingId(),
+      game_id: gameId,
+      event_type: 'expense_added',
+      player_id: paidByPlayerId,
+      amount,
+      description: description.trim() || null,
+      created_by: '',
+      created_at: nowIso,
+    }
+
+    startTransition(async () => {
+      applyOptimistic({
+        type: 'add_expense',
+        expense: optimisticExpense,
+        participants: optimisticParticipants,
+        event: optimisticEvent,
+      })
+
+      try {
+        const result = await addExpenseAction(
+          gameId,
+          paidByPlayerId,
+          amount,
+          description,
+          splitType,
+          participants,
+        )
+        setServerState((prev) => {
+          const participantIds = new Set(
+            prev.expenseParticipants.map((p) => p.id),
+          )
+          const newParticipants = result.participants.filter(
+            (p) => !participantIds.has(p.id),
+          )
+          return {
+            ...prev,
+            expenses: appendUnique(prev.expenses, result.expense),
+            expenseParticipants: [
+              ...prev.expenseParticipants,
+              ...newParticipants,
+            ],
+            events: prependUnique(prev.events, result.event),
+          }
+        })
+      } catch (err) {
+        console.error('Failed to add expense:', err)
+        void fetchData()
+      }
+    })
   }
 
-  const handleAddBuyInToPlayer = async (playerId: string) => {
-    if (addingPlayer) return
-    setAddingPlayer(playerId)
-    try {
-      await addDefaultBuyInAction(gameId, playerId, game.default_buy_in)
-      await fetchData()
-    } catch (err) {
-      console.error('Failed to add buy-in:', err)
-    } finally {
-      setAddingPlayer(null)
-    }
+  const handleAddExistingPlayer = (playerId: string, withBuyIn: boolean) => {
+    setShowAddPlayer(false)
+
+    const player = optimisticState.allGroupPlayers.find(
+      (p) => p.id === playerId,
+    )
+    if (!player) return
+
+    const nowIso = new Date().toISOString()
+    const buyInAmount = withBuyIn ? game.default_buy_in : 0
+
+    const optimisticBuyIn: BuyIn | null =
+      buyInAmount > 0
+        ? {
+            id: pendingId(),
+            game_id: gameId,
+            player_id: playerId,
+            amount: buyInAmount,
+            created_by: '',
+            created_at: nowIso,
+            note: null,
+          }
+        : null
+
+    const optimisticEvent: GameEvent | null =
+      buyInAmount > 0
+        ? {
+            id: pendingId(),
+            game_id: gameId,
+            event_type: 'buy_in_added',
+            player_id: playerId,
+            amount: buyInAmount,
+            description: 'הצטרפות למשחק',
+            created_by: '',
+            created_at: nowIso,
+          }
+        : null
+
+    startTransition(async () => {
+      applyOptimistic({
+        type: 'add_existing_player',
+        player,
+        buyIn: optimisticBuyIn,
+        event: optimisticEvent,
+      })
+
+      try {
+        const result = await addPlayerToGameAction(
+          gameId,
+          playerId,
+          buyInAmount,
+        )
+        setServerState((prev) => ({
+          ...prev,
+          players: appendUnique(prev.players, player),
+          buyIns: result.buyIn
+            ? appendUnique(prev.buyIns, result.buyIn)
+            : prev.buyIns,
+          events: result.event
+            ? prependUnique(prev.events, result.event)
+            : prev.events,
+        }))
+      } catch (err) {
+        console.error('Failed to add player:', err)
+        void fetchData()
+      }
+    })
   }
 
-  const handleAddExistingPlayer = async (playerId: string, withBuyIn: boolean) => {
-    if (addingPlayer) return
-    setAddingPlayer(playerId)
-    try {
-      await addPlayerToGameAction(
-        gameId,
-        playerId,
-        withBuyIn ? game.default_buy_in : 0,
-      )
-      await fetchData()
-      setShowAddPlayer(false)
-    } catch (err) {
-      console.error('Failed to add player:', err)
-    } finally {
-      setAddingPlayer(null)
-    }
+  // "Re-add first buy-in to an at-zero player" reuses the +/+default flow.
+  const handleAddBuyInToPlayer = (playerId: string) => {
+    setShowAddPlayer(false)
+    handleAddDefaultBuyIn(playerId)
   }
 
-  const handleAddNewPlayer = async (
+  const handleAddNewPlayer = (
     name: string,
     addToGroup: boolean,
     withBuyIn: boolean,
   ) => {
-    if (savingNewPlayer) return
-    setSavingNewPlayer(true)
-    try {
-      await addNewPlayerToGameAction(groupId, gameId, name, {
-        addToGroup,
-        initialBuyIn: withBuyIn ? game.default_buy_in : 0,
-      })
-      await fetchData()
-      setShowAddPlayer(false)
-    } catch (err) {
-      console.error('Failed to add new player:', err)
-    } finally {
-      setSavingNewPlayer(false)
+    setShowAddPlayer(false)
+
+    const trimmedName = name.trim()
+    if (!trimmedName) return
+
+    const nowIso = new Date().toISOString()
+    const tempPlayerId = pendingId()
+
+    const optimisticPlayer: Player = {
+      id: tempPlayerId,
+      group_id: groupId,
+      display_name: trimmedName,
+      phone: null,
+      linked_user_id: null,
+      is_active: true,
+      created_at: nowIso,
+      updated_at: nowIso,
     }
+
+    const buyInAmount = withBuyIn ? game.default_buy_in : 0
+    const optimisticBuyIn: BuyIn | null =
+      buyInAmount > 0
+        ? {
+            id: pendingId(),
+            game_id: gameId,
+            player_id: tempPlayerId,
+            amount: buyInAmount,
+            created_by: '',
+            created_at: nowIso,
+            note: null,
+          }
+        : null
+
+    const optimisticEvent: GameEvent | null =
+      buyInAmount > 0
+        ? {
+            id: pendingId(),
+            game_id: gameId,
+            event_type: 'buy_in_added',
+            player_id: tempPlayerId,
+            amount: buyInAmount,
+            description: 'הצטרפות למשחק',
+            created_by: '',
+            created_at: nowIso,
+          }
+        : null
+
+    startTransition(async () => {
+      applyOptimistic({
+        type: 'add_new_player',
+        player: optimisticPlayer,
+        addToGroupRoster: addToGroup,
+        buyIn: optimisticBuyIn,
+        event: optimisticEvent,
+      })
+
+      try {
+        const result = await addNewPlayerToGameAction(groupId, gameId, trimmedName, {
+          addToGroup,
+          initialBuyIn: buyInAmount,
+        })
+        setServerState((prev) => ({
+          ...prev,
+          players: [...prev.players, result.player],
+          allGroupPlayers: addToGroup
+            ? [...prev.allGroupPlayers, result.player]
+            : prev.allGroupPlayers,
+          buyIns: result.buyIn ? [...prev.buyIns, result.buyIn] : prev.buyIns,
+          events: result.event ? [result.event, ...prev.events] : prev.events,
+        }))
+      } catch (err) {
+        console.error('Failed to add new player:', err)
+      }
+    })
   }
 
   const handleDeleteGame = async () => {
@@ -306,7 +816,11 @@ export default function ActiveGameClient({
           >
             {t.expenses.title}
           </Button>
-          <Button fullWidth size="lg" onClick={() => router.push(`/groups/${groupId}/games/${gameId}/close`)}>
+          <Button
+            fullWidth
+            size="lg"
+            onClick={() => router.push(`/groups/${groupId}/games/${gameId}/close`)}
+          >
             {t.game.closeGame}
           </Button>
           <Button
@@ -347,11 +861,17 @@ export default function ActiveGameClient({
         currency={game.currency}
         playersNotInGame={playersNotInGame}
         playersAtZeroBuyIn={playersAtZeroBuyIn}
-        addingPlayerId={addingPlayer}
-        savingNew={savingNewPlayer}
-        onAddExisting={handleAddExistingPlayer}
-        onAddBuyInToPlayer={handleAddBuyInToPlayer}
-        onAddNew={handleAddNewPlayer}
+        addingPlayerId={null}
+        savingNew={false}
+        onAddExisting={async (playerId, withBuyIn) => {
+          handleAddExistingPlayer(playerId, withBuyIn)
+        }}
+        onAddBuyInToPlayer={async (playerId) => {
+          handleAddBuyInToPlayer(playerId)
+        }}
+        onAddNew={async (name, addToGroup, withBuyIn) => {
+          handleAddNewPlayer(name, addToGroup, withBuyIn)
+        }}
       />
     </>
   )
