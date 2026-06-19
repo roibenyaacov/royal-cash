@@ -731,15 +731,20 @@ export default function ActiveGameClient({
         })
         setServerState((prev) => ({
           ...prev,
-          players: [...prev.players, result.player],
+          players: appendUnique(prev.players, result.player),
           allGroupPlayers: addToGroup
-            ? [...prev.allGroupPlayers, result.player]
+            ? appendUnique(prev.allGroupPlayers, result.player)
             : prev.allGroupPlayers,
-          buyIns: result.buyIn ? [...prev.buyIns, result.buyIn] : prev.buyIns,
-          events: result.event ? [result.event, ...prev.events] : prev.events,
+          buyIns: result.buyIn
+            ? appendUnique(prev.buyIns, result.buyIn)
+            : prev.buyIns,
+          events: result.event
+            ? prependUnique(prev.events, result.event)
+            : prev.events,
         }))
       } catch (err) {
         console.error('Failed to add new player:', err)
+        void fetchData()
       }
     })
   }
