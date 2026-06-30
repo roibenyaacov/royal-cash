@@ -3,7 +3,13 @@
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-const REALTIME_TABLES = ['buy_ins', 'expenses', 'game_events', 'game_players'] as const
+const REALTIME_TABLES = [
+  'buy_ins',
+  'cash_outs',
+  'expenses',
+  'game_events',
+  'game_players',
+] as const
 const DEBOUNCE_MS = 150
 // When realtime is healthy, poll only as a slow safety net.
 const HEALTHY_POLL_MS = 30_000

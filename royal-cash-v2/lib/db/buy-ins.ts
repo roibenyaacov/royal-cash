@@ -22,10 +22,15 @@ export async function addBuyIn(
   amount: number,
   createdBy: string,
   note?: string,
+  // When the client generates the row id up front (optimistic UI), persisting
+  // with that same id makes the insert idempotent against the realtime refetch
+  // — the optimistic row and the fetched row are one and the same.
+  id?: string,
 ): Promise<BuyIn> {
   const { data, error } = await supabase
     .from('buy_ins')
     .insert({
+      ...(id ? { id } : {}),
       game_id: gameId,
       player_id: playerId,
       amount,

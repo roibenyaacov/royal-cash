@@ -23,6 +23,7 @@ type Props = {
   currency: Currency
   playersNotInGame: Player[]
   playersAtZeroBuyIn: Player[]
+  existingNames: string[]
   addingPlayerId: string | null
   savingNew: boolean
   onAddExisting: (playerId: string, withBuyIn: boolean) => Promise<void>
@@ -43,6 +44,7 @@ export function AddPlayerToGameSheet({
   currency,
   playersNotInGame,
   playersAtZeroBuyIn,
+  existingNames,
   addingPlayerId,
   savingNew,
   onAddExisting,
@@ -56,6 +58,14 @@ export function AddPlayerToGameSheet({
   const [generatingInvite, setGeneratingInvite] = useState(false)
 
   const symbol = t.currency[currency]
+
+  // Block names that collide with a player already in the game — two players
+  // sharing a name on the table is impossible to tell apart afterwards.
+  const normalizeName = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase()
+  const trimmedNewName = newName.trim()
+  const isDuplicateName =
+    trimmedNewName.length > 0 &&
+    existingNames.some((n) => normalizeName(n) === normalizeName(trimmedNewName))
 
   function handleClose() {
     setTab('existing')
@@ -77,8 +87,8 @@ export function AddPlayerToGameSheet({
   }
 
   async function handleSubmitNew(withBuyIn: boolean) {
-    if (!newName.trim() || savingNew) return
-    await onAddNew(newName.trim(), addToGroup, withBuyIn)
+    if (!trimmedNewName || savingNew || isDuplicateName) return
+    await onAddNew(trimmedNewName, addToGroup, withBuyIn)
     setNewName('')
     setAddToGroup(false)
     setTab('existing')
@@ -183,12 +193,19 @@ export function AddPlayerToGameSheet({
 
         {tab === 'new' && (
           <div className="flex flex-col gap-4">
-            <Input
-              label={t.players.playerName}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              autoFocus
-            />
+            <div>
+              <Input
+                label={t.players.playerName}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                autoFocus
+              />
+              {isDuplicateName && (
+                <p className="mt-1.5 text-xs text-negative">
+                  {t.players.duplicateName}
+                </p>
+              )}
+            </div>
 
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -211,7 +228,7 @@ export function AddPlayerToGameSheet({
               <Button
                 fullWidth
                 onClick={() => handleSubmitNew(true)}
-                disabled={!newName.trim() || savingNew}
+                disabled={!trimmedNewName || savingNew || isDuplicateName}
               >
                 {savingNew
                   ? t.common.loading
@@ -221,7 +238,7 @@ export function AddPlayerToGameSheet({
                 fullWidth
                 variant="secondary"
                 onClick={() => handleSubmitNew(false)}
-                disabled={!newName.trim() || savingNew}
+                disabled={!trimmedNewName || savingNew || isDuplicateName}
               >
                 {savingNew ? t.common.loading : t.players.addWithoutBuyIn}
               </Button>

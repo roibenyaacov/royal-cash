@@ -24,11 +24,15 @@ export async function addGameEvent(
     playerId?: string
     amount?: number
     description?: string
+    // Optional client-generated id so the optimistic event and the persisted
+    // event share an identity (same idempotency benefit as buy-ins).
+    id?: string
   },
 ): Promise<GameEvent> {
   const { data, error } = await supabase
     .from('game_events')
     .insert({
+      ...(options?.id ? { id: options.id } : {}),
       game_id: gameId,
       event_type: eventType,
       player_id: options?.playerId ?? null,

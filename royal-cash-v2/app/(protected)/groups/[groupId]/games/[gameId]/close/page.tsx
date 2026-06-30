@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getGame, getGameRosterPlayers } from '@/lib/db/games'
 import { getGameBuyIns } from '@/lib/db/buy-ins'
+import { getGameCashOuts } from '@/lib/db/cashouts'
 import { calcPlayerBuyIns } from '@/lib/calculations/buy-ins'
 import { getGameExpensesWithParticipants } from '@/lib/db/expenses'
 import CloseGameClient from './close-game-client'
@@ -14,11 +15,12 @@ export default async function CloseGamePage({
   const { groupId, gameId } = await params
   const supabase = await createClient()
 
-  const [game, rosterPlayers, buyIns, { expenses, participants }] =
+  const [game, rosterPlayers, buyIns, cashOuts, { expenses, participants }] =
     await Promise.all([
       getGame(supabase, gameId),
       getGameRosterPlayers(supabase, gameId),
       getGameBuyIns(supabase, gameId),
+      getGameCashOuts(supabase, gameId),
       getGameExpensesWithParticipants(supabase, gameId),
     ])
 
@@ -42,6 +44,7 @@ export default async function CloseGamePage({
       game={game}
       players={gamePlayers}
       buyIns={buyIns}
+      cashOuts={cashOuts}
       expenses={expenses}
       expenseParticipants={participants}
     />

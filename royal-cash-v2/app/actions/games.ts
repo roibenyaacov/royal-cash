@@ -12,6 +12,7 @@ import {
   finalizeGame as dbFinalizeGame,
   getGame as dbGetGame,
   getGameRosterPlayers,
+  setGameManagers as dbSetGameManagers,
 } from '@/lib/db/games'
 import { createPlayer as dbCreatePlayer } from '@/lib/db/players'
 import {
@@ -23,7 +24,10 @@ import {
   addExpense as dbAddExpense,
   getGameExpensesWithParticipants as dbGetGameExpensesWithParticipants,
 } from '@/lib/db/expenses'
-import { upsertCashOut as dbUpsertCashOut } from '@/lib/db/cashouts'
+import {
+  upsertCashOut as dbUpsertCashOut,
+  deleteCashOut as dbDeleteCashOut,
+} from '@/lib/db/cashouts'
 import { saveGameResults as dbSaveGameResults, getGameResults } from '@/lib/db/results'
 import { applyGameStats } from '@/lib/db/stats'
 import { addGameEvent } from '@/lib/db/game-events'
@@ -59,6 +63,8 @@ export async function createGameAction(
   defaultBuyIn: number,
   currency: Currency,
   playerIds: string[],
+  // Players responsible for the money. Empty = everyone may manage (default).
+  managerPlayerIds: string[] = [],
 ): Promise<Game> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -92,8 +98,11 @@ export async function createGameAction(
 
   // All writes go through the user's client; RLS (migration 017) lets any
   // group member insert game_players / buy_ins / game_events.
+  const managerSet = new Set(managerPlayerIds)
   await Promise.all(
-    playerIds.map((id) => dbAddGamePlayer(supabase, game.id, id)),
+    playerIds.map((id) =>
+      dbAddGamePlayer(supabase, game.id, id, managerSet.has(id)),
+    ),
   )
 
   for (const playerId of playerIds) {
@@ -108,6 +117,11 @@ export async function createGameAction(
   return game
 }
 
+// Client-generated row ids so optimistic rows and their persisted/refetched
+// counterparts share an identity — this is what stops the buy-in count from
+// briefly overshooting and then snapping back.
+export type BuyInClientIds = { buyInId?: string; eventId?: string }
+
 export type AddPlayerToGameResult = {
   buyIn: BuyIn | null
   event: GameEvent | null
@@ -117,17 +131,27 @@ export async function addPlayerToGameAction(
   gameId: string,
   playerId: string,
   buyInAmount: number,
+  ids?: BuyInClientIds,
 ): Promise<AddPlayerToGameResult> {
   const { userId, db } = await authorizeActiveGameMutation(gameId)
 
   await dbAddGamePlayer(db, gameId, playerId)
 
   if (buyInAmount > 0) {
-    const buyIn = await dbAddBuyIn(db, gameId, playerId, buyInAmount, userId)
+    const buyIn = await dbAddBuyIn(
+      db,
+      gameId,
+      playerId,
+      buyInAmount,
+      userId,
+      undefined,
+      ids?.buyInId,
+    )
     const event = await addGameEvent(db, gameId, 'buy_in_added', userId, {
       playerId,
       amount: buyInAmount,
       description: 'הצטרפות למשחק',
+      id: ids?.eventId,
     })
     return { buyIn, event }
   }
@@ -145,7 +169,12 @@ export async function addNewPlayerToGameAction(
   groupId: string,
   gameId: string,
   displayName: string,
-  options: { addToGroup: boolean; initialBuyIn: number },
+  options: {
+    addToGroup: boolean
+    initialBuyIn: number
+    buyInId?: string
+    eventId?: string
+  },
 ): Promise<AddNewPlayerToGameResult> {
   const trimmed = displayName.trim()
   if (!trimmed) throw new Error('Player name required')
@@ -165,11 +194,20 @@ export async function addNewPlayerToGameAction(
   await dbAddGamePlayer(db, gameId, player.id)
 
   if (options.initialBuyIn > 0) {
-    const buyIn = await dbAddBuyIn(db, gameId, player.id, options.initialBuyIn, userId)
+    const buyIn = await dbAddBuyIn(
+      db,
+      gameId,
+      player.id,
+      options.initialBuyIn,
+      userId,
+      undefined,
+      options.buyInId,
+    )
     const event = await addGameEvent(db, gameId, 'buy_in_added', userId, {
       playerId: player.id,
       amount: options.initialBuyIn,
       description: 'הצטרפות למשחק',
+      id: options.eventId,
     })
     return { player, buyIn, event }
   }
@@ -248,6 +286,7 @@ export async function addBuyInAction(
   playerId: string,
   amount: number,
   note?: string,
+  ids?: BuyInClientIds,
 ): Promise<AddBuyInResult> {
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new Error('Invalid buy-in amount')
@@ -260,12 +299,21 @@ export async function addBuyInAction(
   const { userId, db } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
 
-  const buyIn = await dbAddBuyIn(db, gameId, playerId, amount, userId, trimmedNote)
+  const buyIn = await dbAddBuyIn(
+    db,
+    gameId,
+    playerId,
+    amount,
+    userId,
+    trimmedNote,
+    ids?.buyInId,
+  )
 
   const event = await addGameEvent(db, gameId, 'buy_in_added', userId, {
     playerId,
     amount,
     description: trimmedNote ?? undefined,
+    id: ids?.eventId,
   })
 
   return { buyIn, event }
@@ -275,8 +323,9 @@ export async function addDefaultBuyInAction(
   gameId: string,
   playerId: string,
   defaultAmount: number,
+  ids?: BuyInClientIds,
 ): Promise<AddBuyInResult> {
-  return addBuyInAction(gameId, playerId, defaultAmount)
+  return addBuyInAction(gameId, playerId, defaultAmount, undefined, ids)
 }
 
 export type RemoveDefaultBuyInResult = {
@@ -344,6 +393,9 @@ export async function setPlayerBuyInCountAction(
   playerId: string,
   targetCount: number,
   defaultAmount: number,
+  // One id pair per buy-in being added (only consumed when growing the count),
+  // so the optimistic rows match the persisted ones.
+  addIds?: BuyInClientIds[],
 ): Promise<void> {
   if (targetCount < 0) return
 
@@ -365,7 +417,7 @@ export async function setPlayerBuyInCountAction(
 
   if (diff > 0) {
     for (let i = 0; i < diff; i++) {
-      await addBuyInAction(gameId, playerId, defaultAmount)
+      await addBuyInAction(gameId, playerId, defaultAmount, undefined, addIds?.[i])
     }
   } else if (diff < 0) {
     for (let i = 0; i < Math.abs(diff); i++) {
@@ -380,6 +432,107 @@ export async function setPlayerBuyInCountAction(
       throw new Error('cannot_remove_player_with_expenses')
     }
   }
+}
+
+// Remove one specific buy-in by id (used by the per-player manage sheet, where
+// the manager can delete an individual buy-in regardless of its amount). The
+// tail logic mirrors removeDefaultBuyInAction: dropping a player's last buy-in
+// removes them from the table, unless they have expenses tying them to it.
+export async function removeBuyInAction(
+  gameId: string,
+  buyInId: string,
+): Promise<RemoveDefaultBuyInResult | null> {
+  const { userId, db } = await authorizeActiveGameMutation(gameId)
+
+  const { data: target, error: selectError } = await db
+    .from('buy_ins')
+    .select('*')
+    .eq('id', buyInId)
+    .eq('game_id', gameId)
+    .maybeSingle()
+
+  if (selectError) throw selectError
+  if (!target) return null
+
+  const playerId = target.player_id
+
+  const { error: deleteError } = await db
+    .from('buy_ins')
+    .delete()
+    .eq('id', buyInId)
+
+  if (deleteError) throw deleteError
+
+  const removeEvent = await addGameEvent(db, gameId, 'buy_in_removed', userId, {
+    playerId,
+    amount: target.amount,
+  })
+
+  const { count, error: countError } = await db
+    .from('buy_ins')
+    .select('*', { count: 'exact', head: true })
+    .eq('game_id', gameId)
+    .eq('player_id', playerId)
+
+  if (countError) throw countError
+
+  if (count === 0) {
+    if (await playerHasGameExpenses(db, gameId, playerId)) {
+      await dbAddBuyIn(db, gameId, playerId, target.amount, userId)
+      throw new Error('cannot_remove_player_with_expenses')
+    }
+
+    await dbRemoveGamePlayer(db, gameId, playerId)
+    const playerRemovedEvent = await addGameEvent(
+      db,
+      gameId,
+      'buy_in_removed',
+      userId,
+      { playerId, description: 'הוסר מהשולחן' },
+    )
+    return {
+      removedBuyIn: target,
+      removeEvent,
+      playerRemoved: { event: playerRemovedEvent },
+    }
+  }
+
+  return { removedBuyIn: target, removeEvent }
+}
+
+// Record (or update) how much a player left the table with, mid-game. The
+// final settlement at close reads these same rows, so a mid-game cash-out
+// reconciles automatically.
+export async function setCashOutAction(
+  gameId: string,
+  playerId: string,
+  amount: number,
+): Promise<CashOut> {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error('Invalid cash-out amount')
+  }
+  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  await assertPlayerInActiveGame(db, gameId, playerId)
+  return dbUpsertCashOut(db, gameId, playerId, amount, userId)
+}
+
+export async function clearCashOutAction(
+  gameId: string,
+  playerId: string,
+): Promise<void> {
+  const { db } = await authorizeActiveGameMutation(gameId)
+  await assertPlayerInActiveGame(db, gameId, playerId)
+  await dbDeleteCashOut(db, gameId, playerId)
+}
+
+// Set who is responsible for the money. Empty list = everyone may manage.
+// Editable by any group member (a soft guardrail against chaos, not a lock).
+export async function setGameManagersAction(
+  gameId: string,
+  managerPlayerIds: string[],
+): Promise<void> {
+  const { db } = await authorizeActiveGameMutation(gameId)
+  await dbSetGameManagers(db, gameId, managerPlayerIds)
 }
 
 export type AddExpenseResult = {

@@ -10,16 +10,16 @@ import {
 import { useRouter } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
-import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { PlayerCard } from '@/components/games/player-card'
+import { PokerTable } from '@/components/games/poker-table'
 import { AddPlayerToGameSheet } from '@/components/games/add-player-to-game-sheet'
 import { ExpenseSheet } from '@/components/expenses/expense-sheet'
 import { GameActivityLog } from '@/components/games/game-activity-log'
 import { createClient } from '@/lib/supabase/client'
-import { getGame, getGameRosterPlayers } from '@/lib/db/games'
+import { getGame, getGameRosterPlayers, getGamePlayers } from '@/lib/db/games'
 import { getGroupPlayers } from '@/lib/db/players'
 import { getGameBuyIns } from '@/lib/db/buy-ins'
+import { getGameCashOuts } from '@/lib/db/cashouts'
 import { getGameExpensesWithParticipants } from '@/lib/db/expenses'
 import { getGameEvents } from '@/lib/db/game-events'
 import { useGameRealtime } from '@/hooks/use-game-realtime'
@@ -28,16 +28,25 @@ import {
   addDefaultBuyInAction,
   removeDefaultBuyInAction,
   setPlayerBuyInCountAction,
+  addBuyInAction,
+  removeBuyInAction,
+  setCashOutAction,
+  clearCashOutAction,
+  setGameManagersAction,
   addExpenseAction,
   addPlayerToGameAction,
   addNewPlayerToGameAction,
   deleteGameAction,
 } from '@/app/actions/games'
 import { ConfirmSheet } from '@/components/ui/confirm-sheet'
+import { PlayerManageSheet } from '@/components/games/player-manage-sheet'
+import { GameSettingsSheet } from '@/components/games/game-settings-sheet'
+import { HeaderIconButton } from '@/components/ui/header-icon-button'
 import type {
   Game,
   Player,
   BuyIn,
+  CashOut,
   Expense,
   ExpenseParticipant,
   ExpenseSplitType,
@@ -51,9 +60,13 @@ interface ActiveGameClientProps {
   initialPlayers: Player[]
   initialAllGroupPlayers: Player[]
   initialBuyIns: BuyIn[]
+  initialCashOuts: CashOut[]
   initialExpenses: Expense[]
   initialExpenseParticipants: ExpenseParticipant[]
   initialEvents: GameEvent[]
+  initialManagerPlayerIds: string[]
+  currentUserId: string | null
+  currentUserPlayerId: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -70,7 +83,9 @@ interface ActiveGameClientProps {
 type ServerState = {
   players: Player[]
   allGroupPlayers: Player[]
+  managerPlayerIds: string[]
   buyIns: BuyIn[]
+  cashOuts: CashOut[]
   expenses: Expense[]
   expenseParticipants: ExpenseParticipant[]
   events: GameEvent[]
@@ -104,18 +119,25 @@ type OptimisticAction =
       participants: ExpenseParticipant[]
       event: GameEvent
     }
+  | { type: 'set_cash_out'; cashOut: CashOut }
+  | { type: 'clear_cash_out'; playerId: string }
+  | { type: 'set_managers'; managerPlayerIds: string[] }
 
 function optimisticReducer(
   state: ServerState,
   action: OptimisticAction,
 ): ServerState {
   switch (action.type) {
-    case 'add_buy_ins':
-      return {
-        ...state,
-        buyIns: [...state.buyIns, ...action.buyIns],
-        events: [...action.events, ...state.events],
-      }
+    case 'add_buy_ins': {
+      // Dedupe by id: the optimistic rows carry the same id the server will
+      // persist, so once the real/refetched row lands the optimistic twin is
+      // a no-op instead of stacking a second buy-in on top (the overshoot bug).
+      let buyIns = state.buyIns
+      for (const b of action.buyIns) buyIns = appendUnique(buyIns, b)
+      let events = state.events
+      for (const e of action.events) events = prependUnique(events, e)
+      return { ...state, buyIns, events }
+    }
     case 'remove_buy_in': {
       const newBuyIns = state.buyIns.filter((b) => b.id !== action.buyInId)
       const eventsAfterRemove = [action.removeEvent, ...state.events]
@@ -132,8 +154,12 @@ function optimisticReducer(
       return {
         ...state,
         players: alreadyHas ? state.players : [...state.players, action.player],
-        buyIns: action.buyIn ? [...state.buyIns, action.buyIn] : state.buyIns,
-        events: action.event ? [action.event, ...state.events] : state.events,
+        buyIns: action.buyIn
+          ? appendUnique(state.buyIns, action.buyIn)
+          : state.buyIns,
+        events: action.event
+          ? prependUnique(state.events, action.event)
+          : state.events,
       }
     }
     case 'add_new_player':
@@ -143,8 +169,12 @@ function optimisticReducer(
         allGroupPlayers: action.addToGroupRoster
           ? [...state.allGroupPlayers, action.player]
           : state.allGroupPlayers,
-        buyIns: action.buyIn ? [...state.buyIns, action.buyIn] : state.buyIns,
-        events: action.event ? [action.event, ...state.events] : state.events,
+        buyIns: action.buyIn
+          ? appendUnique(state.buyIns, action.buyIn)
+          : state.buyIns,
+        events: action.event
+          ? prependUnique(state.events, action.event)
+          : state.events,
       }
     case 'add_expense':
       return {
@@ -156,6 +186,21 @@ function optimisticReducer(
         ],
         events: [action.event, ...state.events],
       }
+    case 'set_cash_out': {
+      // Cash-out is unique per (game, player) — replace any existing row for
+      // the player rather than appending, so it never doubles up.
+      const others = state.cashOuts.filter(
+        (c) => c.player_id !== action.cashOut.player_id,
+      )
+      return { ...state, cashOuts: [...others, action.cashOut] }
+    }
+    case 'clear_cash_out':
+      return {
+        ...state,
+        cashOuts: state.cashOuts.filter((c) => c.player_id !== action.playerId),
+      }
+    case 'set_managers':
+      return { ...state, managerPlayerIds: action.managerPlayerIds }
   }
 }
 
@@ -191,16 +236,22 @@ export default function ActiveGameClient({
   initialPlayers,
   initialAllGroupPlayers,
   initialBuyIns,
+  initialCashOuts,
   initialExpenses,
   initialExpenseParticipants,
   initialEvents,
+  initialManagerPlayerIds,
+  currentUserId,
+  currentUserPlayerId,
 }: ActiveGameClientProps) {
   const router = useRouter()
   const [game, setGame] = useState<Game>(initialGame)
   const [serverState, setServerState] = useState<ServerState>({
     players: initialPlayers,
     allGroupPlayers: initialAllGroupPlayers,
+    managerPlayerIds: initialManagerPlayerIds,
     buyIns: initialBuyIns,
+    cashOuts: initialCashOuts,
     expenses: initialExpenses,
     expenseParticipants: initialExpenseParticipants,
     events: initialEvents,
@@ -216,8 +267,26 @@ export default function ActiveGameClient({
   const [showDeleteGame, setShowDeleteGame] = useState(false)
   const [deletingGame, setDeletingGame] = useState(false)
   const [buyInError, setBuyInError] = useState('')
+  const [managePlayerId, setManagePlayerId] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
 
-  const { players, allGroupPlayers, buyIns, expenses, events } = optimisticState
+  const {
+    players,
+    allGroupPlayers,
+    managerPlayerIds,
+    buyIns,
+    cashOuts,
+    expenses,
+    events,
+  } = optimisticState
+
+  // Who may manage the money. Empty managers list = everyone. The game creator
+  // is always allowed (so the host can never lock themselves out).
+  const canManage =
+    managerPlayerIds.length === 0 ||
+    currentUserId === game.created_by ||
+    (currentUserPlayerId != null &&
+      managerPlayerIds.includes(currentUserPlayerId))
 
   // Realtime + slow polling refreshes the authoritative serverState.
   const fetchData = useCallback(async () => {
@@ -225,16 +294,20 @@ export default function ActiveGameClient({
     try {
       const [
         gameData,
+        gamePlayersData,
         rosterPlayers,
         allPlayers,
         buyInsData,
+        cashOutsData,
         { expenses: expensesData, participants },
         eventsData,
       ] = await Promise.all([
         getGame(supabase, gameId),
+        getGamePlayers(supabase, gameId),
         getGameRosterPlayers(supabase, gameId),
         getGroupPlayers(supabase, groupId),
         getGameBuyIns(supabase, gameId),
+        getGameCashOuts(supabase, gameId),
         getGameExpensesWithParticipants(supabase, gameId),
         getGameEvents(supabase, gameId).catch(() => [] as GameEvent[]),
       ])
@@ -243,7 +316,11 @@ export default function ActiveGameClient({
       setServerState({
         players: rosterPlayers,
         allGroupPlayers: allPlayers,
+        managerPlayerIds: gamePlayersData
+          .filter((gp) => gp.is_manager)
+          .map((gp) => gp.player_id),
         buyIns: buyInsData,
+        cashOuts: cashOutsData,
         expenses: expensesData,
         expenseParticipants: participants,
         events: eventsData,
@@ -259,6 +336,37 @@ export default function ActiveGameClient({
     () => players.filter((p) => calcPlayerBuyIns(buyIns, p.id) > 0),
     [players, buyIns],
   )
+
+  const cashOutByPlayer = useMemo(
+    () => new Map(cashOuts.map((c) => [c.player_id, c])),
+    [cashOuts],
+  )
+
+  const tableSeats = useMemo(
+    () =>
+      visiblePlayers.map((p) => ({
+        id: p.id,
+        name: p.display_name,
+        buyIns: buyIns.filter((b) => b.player_id === p.id),
+        cashOut: cashOutByPlayer.get(p.id) ?? null,
+      })),
+    [visiblePlayers, buyIns, cashOutByPlayer],
+  )
+
+  const managePlayer = useMemo(
+    () => players.find((p) => p.id === managePlayerId) ?? null,
+    [players, managePlayerId],
+  )
+  const managePlayerBuyIns = useMemo(
+    () =>
+      managePlayerId
+        ? buyIns.filter((b) => b.player_id === managePlayerId)
+        : [],
+    [buyIns, managePlayerId],
+  )
+  const managePlayerCashOut = managePlayerId
+    ? cashOutByPlayer.get(managePlayerId) ?? null
+    : null
 
   const playerNames = useMemo(
     () => new Map(visiblePlayers.map((p) => [p.id, p.display_name])),
@@ -280,8 +388,11 @@ export default function ActiveGameClient({
   const handleAddDefaultBuyIn = (playerId: string) => {
     setBuyInError('')
     const nowIso = new Date().toISOString()
+    // Stable ids shared with the persisted rows — see optimisticReducer.
+    const buyInId = crypto.randomUUID()
+    const eventId = crypto.randomUUID()
     const optimisticBuyIn: BuyIn = {
-      id: pendingId(),
+      id: buyInId,
       game_id: gameId,
       player_id: playerId,
       amount: game.default_buy_in,
@@ -290,7 +401,7 @@ export default function ActiveGameClient({
       note: null,
     }
     const optimisticEvent: GameEvent = {
-      id: pendingId(),
+      id: eventId,
       game_id: gameId,
       event_type: 'buy_in_added',
       player_id: playerId,
@@ -311,6 +422,7 @@ export default function ActiveGameClient({
           gameId,
           playerId,
           game.default_buy_in,
+          { buyInId, eventId },
         )
         setServerState((prev) => ({
           ...prev,
@@ -420,13 +532,22 @@ export default function ActiveGameClient({
 
     const nowIso = new Date().toISOString()
 
+    // Stable id pairs for the rows we're about to add, shared with the server.
+    const addIds =
+      diff > 0
+        ? Array.from({ length: diff }, () => ({
+            buyInId: crypto.randomUUID(),
+            eventId: crypto.randomUUID(),
+          }))
+        : []
+
     startTransition(async () => {
       if (diff > 0) {
         const newBuyIns: BuyIn[] = []
         const newEvents: GameEvent[] = []
         for (let i = 0; i < diff; i++) {
           newBuyIns.push({
-            id: pendingId(),
+            id: addIds[i].buyInId,
             game_id: gameId,
             player_id: playerId,
             amount: game.default_buy_in,
@@ -435,7 +556,7 @@ export default function ActiveGameClient({
             note: null,
           })
           newEvents.push({
-            id: pendingId(),
+            id: addIds[i].eventId,
             game_id: gameId,
             event_type: 'buy_in_added',
             player_id: playerId,
@@ -494,6 +615,7 @@ export default function ActiveGameClient({
           playerId,
           count,
           game.default_buy_in,
+          addIds,
         )
         // The action does N internal inserts/deletes — refetch to learn the
         // real IDs and reconcile any drift.
@@ -598,11 +720,13 @@ export default function ActiveGameClient({
 
     const nowIso = new Date().toISOString()
     const buyInAmount = withBuyIn ? game.default_buy_in : 0
+    const buyInId = crypto.randomUUID()
+    const eventId = crypto.randomUUID()
 
     const optimisticBuyIn: BuyIn | null =
       buyInAmount > 0
         ? {
-            id: pendingId(),
+            id: buyInId,
             game_id: gameId,
             player_id: playerId,
             amount: buyInAmount,
@@ -615,7 +739,7 @@ export default function ActiveGameClient({
     const optimisticEvent: GameEvent | null =
       buyInAmount > 0
         ? {
-            id: pendingId(),
+            id: eventId,
             game_id: gameId,
             event_type: 'buy_in_added',
             player_id: playerId,
@@ -639,6 +763,7 @@ export default function ActiveGameClient({
           gameId,
           playerId,
           buyInAmount,
+          { buyInId, eventId },
         )
         setServerState((prev) => ({
           ...prev,
@@ -673,6 +798,13 @@ export default function ActiveGameClient({
     const trimmedName = name.trim()
     if (!trimmedName) return
 
+    // Guard against two players sharing a name on the same table.
+    const normalized = trimmedName.replace(/\s+/g, ' ').toLowerCase()
+    const nameTaken = optimisticState.players.some(
+      (p) => p.display_name.trim().replace(/\s+/g, ' ').toLowerCase() === normalized,
+    )
+    if (nameTaken) return
+
     const nowIso = new Date().toISOString()
     const tempPlayerId = pendingId()
 
@@ -688,10 +820,14 @@ export default function ActiveGameClient({
     }
 
     const buyInAmount = withBuyIn ? game.default_buy_in : 0
+    // The player id is server-generated (temp until then), but the buy-in and
+    // event ids are stable and shared with the server so they don't double up.
+    const buyInId = crypto.randomUUID()
+    const eventId = crypto.randomUUID()
     const optimisticBuyIn: BuyIn | null =
       buyInAmount > 0
         ? {
-            id: pendingId(),
+            id: buyInId,
             game_id: gameId,
             player_id: tempPlayerId,
             amount: buyInAmount,
@@ -704,7 +840,7 @@ export default function ActiveGameClient({
     const optimisticEvent: GameEvent | null =
       buyInAmount > 0
         ? {
-            id: pendingId(),
+            id: eventId,
             game_id: gameId,
             event_type: 'buy_in_added',
             player_id: tempPlayerId,
@@ -728,6 +864,8 @@ export default function ActiveGameClient({
         const result = await addNewPlayerToGameAction(groupId, gameId, trimmedName, {
           addToGroup,
           initialBuyIn: buyInAmount,
+          buyInId,
+          eventId,
         })
         setServerState((prev) => ({
           ...prev,
@@ -749,12 +887,220 @@ export default function ActiveGameClient({
     })
   }
 
+  // Manual buy-in of any amount (from the per-player manage sheet). Shares the
+  // stable-id optimistic path with the default +/− so it never overshoots.
+  const handleAddCustomBuyIn = (playerId: string, amount: number) => {
+    setBuyInError('')
+    if (!Number.isInteger(amount) || amount <= 0) return
+
+    const nowIso = new Date().toISOString()
+    const buyInId = crypto.randomUUID()
+    const eventId = crypto.randomUUID()
+    const optimisticBuyIn: BuyIn = {
+      id: buyInId,
+      game_id: gameId,
+      player_id: playerId,
+      amount,
+      created_by: '',
+      created_at: nowIso,
+      note: null,
+    }
+    const optimisticEvent: GameEvent = {
+      id: eventId,
+      game_id: gameId,
+      event_type: 'buy_in_added',
+      player_id: playerId,
+      amount,
+      description: null,
+      created_by: '',
+      created_at: nowIso,
+    }
+
+    startTransition(async () => {
+      applyOptimistic({
+        type: 'add_buy_ins',
+        buyIns: [optimisticBuyIn],
+        events: [optimisticEvent],
+      })
+      try {
+        const { buyIn, event } = await addBuyInAction(
+          gameId,
+          playerId,
+          amount,
+          undefined,
+          { buyInId, eventId },
+        )
+        setServerState((prev) => ({
+          ...prev,
+          buyIns: appendUnique(prev.buyIns, buyIn),
+          events: prependUnique(prev.events, event),
+        }))
+      } catch (err) {
+        console.error('Failed to add buy-in:', err)
+        void fetchData()
+      }
+    })
+  }
+
+  // Remove one specific buy-in by id (manage sheet). Drops the player from the
+  // table if it was their last one — mirrors the default − behaviour.
+  const handleRemoveBuyIn = (playerId: string, buyInId: string) => {
+    setBuyInError('')
+
+    const remainingForPlayer = optimisticState.buyIns.filter(
+      (b) => b.player_id === playerId && b.id !== buyInId,
+    )
+    const willDropPlayer = remainingForPlayer.length === 0
+    const removed = optimisticState.buyIns.find((b) => b.id === buyInId)
+    if (!removed) return
+
+    const nowIso = new Date().toISOString()
+    const optimisticRemoveEvent: GameEvent = {
+      id: crypto.randomUUID(),
+      game_id: gameId,
+      event_type: 'buy_in_removed',
+      player_id: playerId,
+      amount: removed.amount,
+      description: null,
+      created_by: '',
+      created_at: nowIso,
+    }
+    const optimisticPlayerRemovedEvent: GameEvent | undefined = willDropPlayer
+      ? {
+          id: crypto.randomUUID(),
+          game_id: gameId,
+          event_type: 'buy_in_removed',
+          player_id: playerId,
+          amount: null,
+          description: 'הוסר מהשולחן',
+          created_by: '',
+          created_at: nowIso,
+        }
+      : undefined
+
+    if (willDropPlayer) setManagePlayerId(null)
+
+    startTransition(async () => {
+      applyOptimistic({
+        type: 'remove_buy_in',
+        buyInId,
+        removeEvent: optimisticRemoveEvent,
+        alsoRemovePlayerId: willDropPlayer ? playerId : undefined,
+        playerRemovedEvent: optimisticPlayerRemovedEvent,
+      })
+      try {
+        const result = await removeBuyInAction(gameId, buyInId)
+        if (!result) {
+          void fetchData()
+          return
+        }
+        setServerState((prev) => {
+          const eventsAfterRemove = prependUnique(prev.events, result.removeEvent)
+          const events = result.playerRemoved
+            ? prependUnique(eventsAfterRemove, result.playerRemoved.event)
+            : eventsAfterRemove
+          return {
+            ...prev,
+            buyIns: prev.buyIns.filter((b) => b.id !== result.removedBuyIn.id),
+            events,
+            players: result.playerRemoved
+              ? prev.players.filter((p) => p.id !== playerId)
+              : prev.players,
+          }
+        })
+      } catch (err) {
+        const msg = getBuyInErrorMessage(err)
+        if (msg) setBuyInError(msg)
+        else console.error('Failed to remove buy-in:', err)
+        void fetchData()
+      }
+    })
+  }
+
+  // Record / update how much a player left with, mid-game.
+  const handleSetCashOut = (playerId: string, amount: number) => {
+    setBuyInError('')
+    if (!Number.isInteger(amount) || amount < 0) return
+
+    const nowIso = new Date().toISOString()
+    const existing = optimisticState.cashOuts.find(
+      (c) => c.player_id === playerId,
+    )
+    const optimisticCashOut: CashOut = {
+      id: existing?.id ?? crypto.randomUUID(),
+      game_id: gameId,
+      player_id: playerId,
+      amount,
+      created_by: existing?.created_by ?? '',
+      created_at: existing?.created_at ?? nowIso,
+      updated_at: nowIso,
+    }
+
+    startTransition(async () => {
+      applyOptimistic({ type: 'set_cash_out', cashOut: optimisticCashOut })
+      try {
+        const cashOut = await setCashOutAction(gameId, playerId, amount)
+        setServerState((prev) => ({
+          ...prev,
+          cashOuts: [
+            ...prev.cashOuts.filter((c) => c.player_id !== playerId),
+            cashOut,
+          ],
+        }))
+      } catch (err) {
+        console.error('Failed to set cash-out:', err)
+        void fetchData()
+      }
+    })
+  }
+
+  const handleClearCashOut = (playerId: string) => {
+    setBuyInError('')
+    startTransition(async () => {
+      applyOptimistic({ type: 'clear_cash_out', playerId })
+      try {
+        await clearCashOutAction(gameId, playerId)
+        setServerState((prev) => ({
+          ...prev,
+          cashOuts: prev.cashOuts.filter((c) => c.player_id !== playerId),
+        }))
+      } catch (err) {
+        console.error('Failed to clear cash-out:', err)
+        void fetchData()
+      }
+    })
+  }
+
+  const handleSetManagers = (nextManagerPlayerIds: string[]) => {
+    setShowSettings(false)
+    const previous = serverState.managerPlayerIds
+    startTransition(async () => {
+      applyOptimistic({ type: 'set_managers', managerPlayerIds: nextManagerPlayerIds })
+      try {
+        await setGameManagersAction(gameId, nextManagerPlayerIds)
+        setServerState((prev) => ({
+          ...prev,
+          managerPlayerIds: nextManagerPlayerIds,
+        }))
+      } catch (err) {
+        console.error('Failed to update managers:', err)
+        // Roll back to the last known server value, then resync.
+        setServerState((prev) => ({ ...prev, managerPlayerIds: previous }))
+        void fetchData()
+      }
+    })
+  }
+
   const handleDeleteGame = async () => {
     if (deletingGame) return
     setDeletingGame(true)
     try {
       await deleteGameAction(groupId, gameId)
-      router.push(`/groups/${groupId}`)
+      // replace (not push) so the now-deleted game page leaves the history —
+      // otherwise Back lands on a 404. refresh re-pulls the group's data so
+      // the deleted table is gone from its lists.
+      router.replace(`/groups/${groupId}`)
+      router.refresh()
     } catch (err) {
       console.error('Failed to delete game:', err)
       throw err
@@ -769,42 +1115,61 @@ export default function ActiveGameClient({
 
   return (
     <>
-      <PageHeader title={game.name} showBack />
+      <PageHeader
+        title={game.name}
+        showBack
+        action={
+          <HeaderIconButton
+            label={t.game.gameSettings}
+            onClick={() => setShowSettings(true)}
+          >
+            <GearIcon />
+          </HeaderIconButton>
+        }
+      />
 
       <main className="flex-1 px-4 py-4 flex flex-col gap-4">
-        <div className="grid grid-cols-3 gap-2">
-          <SummaryCard label={t.game.totalBuyIns} value={`${symbol}${totalBuyIns}`} />
-          <SummaryCard label={t.game.playersCount} value={String(visiblePlayers.length)} />
-          <SummaryCard label={t.game.expensesTotal} value={`${symbol}${totalExpenses}`} />
-        </div>
-
         {buyInError && (
           <p className="text-sm text-negative text-center px-2">{buyInError}</p>
         )}
 
-        <div className="flex flex-col gap-1.5">
-          {visiblePlayers.map((player) => (
-            <PlayerCard
-              key={player.id}
-              name={player.display_name}
-              buyIns={buyIns.filter((b) => b.player_id === player.id)}
-              defaultBuyIn={game.default_buy_in}
-              currency={game.currency}
-              onAddDefault={() => handleAddDefaultBuyIn(player.id)}
-              onRemoveDefault={() => handleRemoveDefaultBuyIn(player.id)}
-              onSetCount={(count) => handleSetBuyInCount(player.id, count)}
-            />
-          ))}
-        </div>
+        {!canManage && (
+          <p className="text-xs text-text-muted text-center bg-surface-elevated rounded-lg py-2 px-3">
+            {t.game.readOnlyNotice}
+          </p>
+        )}
 
-        <button
-          type="button"
-          onClick={() => setShowAddPlayer(true)}
-          className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-border text-text-muted text-sm active:bg-surface-elevated transition-colors min-h-[44px]"
-        >
-          <span className="text-lg leading-none">+</span>
-          {t.players.addToGame}
-        </button>
+        <PokerTable
+          seats={tableSeats}
+          defaultBuyIn={game.default_buy_in}
+          currency={game.currency}
+          pot={totalBuyIns}
+          readOnly={!canManage}
+          onAddDefault={handleAddDefaultBuyIn}
+          onRemoveDefault={handleRemoveDefaultBuyIn}
+          onSetCount={handleSetBuyInCount}
+          onSeatClick={setManagePlayerId}
+        />
+
+        {totalExpenses > 0 && (
+          <p className="text-center text-sm text-text-muted">
+            {t.game.expensesTotal}:{' '}
+            <span className="font-semibold text-text-secondary" dir="ltr">
+              {symbol}{totalExpenses}
+            </span>
+          </p>
+        )}
+
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setShowAddPlayer(true)}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-border text-text-muted text-sm active:bg-surface-elevated transition-colors min-h-[44px]"
+          >
+            <span className="text-lg leading-none">+</span>
+            {t.players.addToGame}
+          </button>
+        )}
 
         <GameActivityLog
           events={events}
@@ -812,31 +1177,33 @@ export default function ActiveGameClient({
           currency={game.currency}
         />
 
-        <div className="flex flex-col gap-3 mt-auto pt-4">
-          <Button
-            variant="secondary"
-            fullWidth
-            size="lg"
-            onClick={() => setShowExpense(true)}
-          >
-            {t.expenses.title}
-          </Button>
-          <Button
-            fullWidth
-            size="lg"
-            onClick={() => router.push(`/groups/${groupId}/games/${gameId}/close`)}
-          >
-            {t.game.closeGame}
-          </Button>
-          <Button
-            variant="danger"
-            fullWidth
-            size="lg"
-            onClick={() => setShowDeleteGame(true)}
-          >
-            {t.game.deleteGame}
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex flex-col gap-3 mt-auto pt-4">
+            <Button
+              variant="secondary"
+              fullWidth
+              size="lg"
+              onClick={() => setShowExpense(true)}
+            >
+              {t.expenses.title}
+            </Button>
+            <Button
+              fullWidth
+              size="lg"
+              onClick={() => router.push(`/groups/${groupId}/games/${gameId}/close`)}
+            >
+              {t.game.closeGame}
+            </Button>
+            <Button
+              variant="danger"
+              fullWidth
+              size="lg"
+              onClick={() => setShowDeleteGame(true)}
+            >
+              {t.game.deleteGame}
+            </Button>
+          </div>
+        )}
       </main>
 
       <ConfirmSheet
@@ -866,6 +1233,7 @@ export default function ActiveGameClient({
         currency={game.currency}
         playersNotInGame={playersNotInGame}
         playersAtZeroBuyIn={playersAtZeroBuyIn}
+        existingNames={players.map((p) => p.display_name)}
         addingPlayerId={null}
         savingNew={false}
         onAddExisting={async (playerId, withBuyIn) => {
@@ -878,17 +1246,54 @@ export default function ActiveGameClient({
           handleAddNewPlayer(name, addToGroup, withBuyIn)
         }}
       />
+
+      <PlayerManageSheet
+        open={managePlayer != null}
+        onClose={() => setManagePlayerId(null)}
+        player={managePlayer}
+        buyIns={managePlayerBuyIns}
+        cashOut={managePlayerCashOut}
+        defaultBuyIn={game.default_buy_in}
+        currency={game.currency}
+        onAddBuyIn={(amount) =>
+          managePlayer && handleAddCustomBuyIn(managePlayer.id, amount)
+        }
+        onRemoveBuyIn={(buyInId) =>
+          managePlayer && handleRemoveBuyIn(managePlayer.id, buyInId)
+        }
+        onSetCashOut={(amount) =>
+          managePlayer && handleSetCashOut(managePlayer.id, amount)
+        }
+        onClearCashOut={() =>
+          managePlayer && handleClearCashOut(managePlayer.id)
+        }
+      />
+
+      <GameSettingsSheet
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        players={visiblePlayers}
+        managerPlayerIds={managerPlayerIds}
+        onSave={handleSetManagers}
+      />
     </>
   )
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function GearIcon() {
   return (
-    <Card className="text-center">
-      <p className="text-xs text-text-muted">{label}</p>
-      <p className="text-lg font-bold text-text-primary" dir="ltr">
-        {value}
-      </p>
-    </Card>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-[18px] h-[18px]"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
   )
 }

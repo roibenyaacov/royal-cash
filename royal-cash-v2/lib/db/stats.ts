@@ -23,6 +23,44 @@ export async function getGroupAllTimeGameWins(
   supabase: SupabaseClient,
   groupId: string,
 ): Promise<GroupWinRecord[]> {
+  const { data, error } = await supabase.rpc(
+    'get_group_all_time_wins_for_member',
+    { p_group_id: groupId },
+  )
+
+  const rpcMissing =
+    error &&
+    (error.code === 'PGRST202' ||
+      error.message?.includes('get_group_all_time_wins_for_member'))
+
+  if (!rpcMissing) {
+    if (error) throw error
+    return (data ?? []).map(
+      (row: {
+        id: string
+        player_id: string
+        game_id: string
+        game_net: number
+        created_at: string
+        game_name: string | null
+        game_date: string | null
+        finalized_at: string | null
+      }) => ({
+        id: row.id,
+        group_id: groupId,
+        player_id: row.player_id,
+        game_id: row.game_id,
+        amount: row.game_net,
+        achieved_at: row.finalized_at ?? row.created_at,
+        game:
+          row.game_name && row.game_date
+            ? { name: row.game_name, date: row.game_date }
+            : undefined,
+      }),
+    )
+  }
+
+  // Pre-024 fallback: aggregate per-game RPC results (bypasses RLS on game_results).
   const { data: games, error: gamesError } = await supabase
     .from('games')
     .select('id, name, date, finalized_at')
@@ -32,30 +70,31 @@ export async function getGroupAllTimeGameWins(
   if (gamesError) throw gamesError
   if (!games?.length) return []
 
-  const gameIds = games.map((g) => g.id)
   const gameById = new Map(games.map((g) => [g.id, g]))
+  const records: GroupWinRecord[] = []
 
-  const { data: results, error: resultsError } = await supabase
-    .from('game_results')
-    .select('id, player_id, game_id, game_net, created_at')
-    .in('game_id', gameIds)
-    .gt('game_net', 0)
-    .order('game_net', { ascending: false })
+  for (const game of games) {
+    const { data: results, error: resultsError } = await supabase.rpc(
+      'get_game_results_for_member',
+      { p_game_id: game.id },
+    )
+    if (resultsError) throw resultsError
 
-  if (resultsError) throw resultsError
-
-  return (results ?? []).map((r) => {
-    const game = gameById.get(r.game_id)
-    return {
-      id: r.id,
-      group_id: groupId,
-      player_id: r.player_id,
-      game_id: r.game_id,
-      amount: r.game_net,
-      achieved_at: game?.finalized_at ?? r.created_at,
-      game: game ? { name: game.name, date: game.date } : undefined,
+    for (const r of results ?? []) {
+      if (r.game_net <= 0) continue
+      records.push({
+        id: r.id,
+        group_id: groupId,
+        player_id: r.player_id,
+        game_id: r.game_id,
+        amount: r.game_net,
+        achieved_at: game.finalized_at ?? r.created_at,
+        game: { name: game.name, date: game.date },
+      })
     }
-  })
+  }
+
+  return records.sort((a, b) => b.amount - a.amount)
 }
 
 /** Top poker wins (game_net, before food) from all finalized games. */

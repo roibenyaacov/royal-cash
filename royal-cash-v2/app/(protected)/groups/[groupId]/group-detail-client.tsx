@@ -27,6 +27,16 @@ import type {
   Currency,
 } from '@/lib/domain/types'
 
+function formatGameDate(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('he-IL', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 function PlayerAvatar({ name }: { name: string }) {
   return (
     <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-surface border border-border">
@@ -155,20 +165,47 @@ export default function GroupDetailClient({
         </section>
 
         {activeGames.length > 0 && (
-          <IosListGroup>
-            {activeGames.map((g) => (
-              <IosListRow
-                key={g.id}
-                href={`/groups/${groupId}/games/${g.id}`}
-                className="py-3.5 min-h-[56px]"
-              >
-                <p className="text-[17px] font-medium text-text-primary truncate leading-snug">
-                  {g.name}
-                </p>
-              </IosListRow>
-            ))}
-          </IosListGroup>
+          <section>
+            <p className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wider">
+              {t.game.activeGames}
+            </p>
+            <IosListGroup>
+              {activeGames.map((g) => (
+                <IosListRow
+                  key={g.id}
+                  href={`/groups/${groupId}/games/${g.id}`}
+                  className="py-3.5 min-h-[56px]"
+                  trailing={
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-positive animate-pulse" />
+                      <span className="text-xs font-medium text-positive">
+                        {t.game.activeNow}
+                      </span>
+                    </span>
+                  }
+                >
+                  <p className="text-[17px] font-medium text-text-primary truncate leading-snug">
+                    {g.name}
+                  </p>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {formatGameDate(g.date ?? g.created_at)}
+                  </p>
+                </IosListRow>
+              ))}
+            </IosListGroup>
+          </section>
         )}
+
+        <section className="pt-2">
+          <p className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wider">
+            {t.groups.podiumTitle}
+          </p>
+          <WinPodium
+            records={winRecords}
+            playerNames={playerNames}
+            currency={defaultCurrency}
+          />
+        </section>
 
         {players.length === 0 ? (
           <p className="text-sm text-text-muted text-center py-6">{t.common.noData}</p>
@@ -191,19 +228,6 @@ export default function GroupDetailClient({
               </IosListRow>
             ))}
           </IosListGroup>
-        )}
-
-        {winRecords.length > 0 && (
-          <section className="pt-2">
-            <p className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wider">
-              {t.groups.podiumTitle}
-            </p>
-            <WinPodium
-              records={winRecords}
-              playerNames={playerNames}
-              currency={defaultCurrency}
-            />
-          </section>
         )}
 
         {historyGames.length > 0 && (

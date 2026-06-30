@@ -14,6 +14,7 @@ import type {
   Game,
   Player,
   BuyIn,
+  CashOut,
   Expense,
   ExpenseParticipant,
 } from '@/lib/domain/types'
@@ -24,6 +25,7 @@ interface CloseGameClientProps {
   game: Game
   players: Player[]
   buyIns: BuyIn[]
+  cashOuts: CashOut[]
   expenses: Expense[]
   expenseParticipants: ExpenseParticipant[]
 }
@@ -34,13 +36,24 @@ export default function CloseGameClient({
   game,
   players,
   buyIns,
+  cashOuts,
   expenses,
   expenseParticipants,
 }: CloseGameClientProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  // Pre-fill any cash-out already recorded mid-game, so the close screen
+  // starts from those amounts instead of blank — the two flows reconcile.
   const [cashOutValues, setCashOutValues] = useState<Record<string, string>>(
-    () => Object.fromEntries(players.map((p) => [p.id, ''])),
+    () => {
+      const byPlayer = new Map(cashOuts.map((c) => [c.player_id, c.amount]))
+      return Object.fromEntries(
+        players.map((p) => [
+          p.id,
+          byPlayer.has(p.id) ? String(byPlayer.get(p.id)) : '',
+        ]),
+      )
+    },
   )
   const [errors, setErrors] = useState<string[]>([])
 

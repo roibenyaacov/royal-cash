@@ -15,6 +15,21 @@ export async function getGroupGames(
   return data ?? []
 }
 
+// Active games across every group the current user belongs to (RLS scopes the
+// result to their memberships). Powers the app-wide "return to table" shortcut.
+export async function getMyActiveGames(
+  supabase: SupabaseClient,
+): Promise<Game[]> {
+  const { data, error } = await supabase
+    .from('games')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data ?? []
+}
+
 export async function getGame(
   supabase: SupabaseClient,
   gameId: string,
@@ -97,12 +112,38 @@ export async function addGamePlayer(
   supabase: SupabaseClient,
   gameId: string,
   playerId: string,
+  isManager = false,
 ): Promise<void> {
   const { error } = await supabase
     .from('game_players')
-    .insert({ game_id: gameId, player_id: playerId })
+    .insert({ game_id: gameId, player_id: playerId, is_manager: isManager })
 
   if (error) throw error
+}
+
+// Set exactly which players are responsible for the money. An empty list means
+// "everyone" (no one is singled out, so the app lets all members manage).
+export async function setGameManagers(
+  supabase: SupabaseClient,
+  gameId: string,
+  managerPlayerIds: string[],
+): Promise<void> {
+  const { error: resetError } = await supabase
+    .from('game_players')
+    .update({ is_manager: false })
+    .eq('game_id', gameId)
+
+  if (resetError) throw resetError
+
+  if (managerPlayerIds.length > 0) {
+    const { error } = await supabase
+      .from('game_players')
+      .update({ is_manager: true })
+      .eq('game_id', gameId)
+      .in('player_id', managerPlayerIds)
+
+    if (error) throw error
+  }
 }
 
 export async function removeGamePlayer(

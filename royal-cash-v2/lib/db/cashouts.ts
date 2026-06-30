@@ -38,3 +38,17 @@ export async function upsertCashOut(
   if (error) throw error
   return data
 }
+
+export async function deleteCashOut(
+  supabase: SupabaseClient,
+  gameId: string,
+  playerId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('cash_outs')
+    .delete()
+    .eq('game_id', gameId)
+    .eq('player_id', playerId)
+
+  if (error) throw error
+}

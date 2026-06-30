@@ -28,6 +28,9 @@ export default function CreateGamePage({
   const [defaultBuyIn, setDefaultBuyIn] = useState('')
   const [currency] = useState<Currency>('ILS')
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
+  // Money managers: false = everyone manages (default), true = only a subset.
+  const [restrictManagers, setRestrictManagers] = useState(false)
+  const [managerIds, setManagerIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     params.then((p) => setGroupId(p.groupId))
@@ -57,10 +60,37 @@ export default function CreateGamePage({
       else next.add(id)
       return next
     })
+    // A player who's no longer playing can't be a money manager.
+    setManagerIds((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
   }
 
+  const toggleManager = (id: string) => {
+    setManagerIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const managerPlayerIds = Array.from(managerIds).filter((id) =>
+    selectedPlayerIds.has(id),
+  )
+
   const handleStart = async () => {
-    if (!gameName.trim() || !defaultBuyIn || selectedPlayerIds.size < 2 || saving) return
+    if (
+      !gameName.trim() ||
+      !defaultBuyIn ||
+      selectedPlayerIds.size < 2 ||
+      saving ||
+      (restrictManagers && managerPlayerIds.length === 0)
+    )
+      return
     setSaving(true)
 
     try {
@@ -70,6 +100,7 @@ export default function CreateGamePage({
         parseInt(defaultBuyIn),
         currency,
         Array.from(selectedPlayerIds),
+        restrictManagers ? managerPlayerIds : [],
       )
 
       router.push(`/groups/${groupId}/games/${game.id}`)
@@ -80,7 +111,11 @@ export default function CreateGamePage({
     }
   }
 
-  const canStart = gameName.trim() && defaultBuyIn && selectedPlayerIds.size >= 2
+  const canStart =
+    gameName.trim() &&
+    defaultBuyIn &&
+    selectedPlayerIds.size >= 2 &&
+    (!restrictManagers || managerPlayerIds.length > 0)
 
   if (loading) {
     return (
@@ -142,6 +177,65 @@ export default function CreateGamePage({
                   </button>
                 )
               })}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-sm text-text-secondary mb-2">
+            {t.game.managersQuestion}
+          </h3>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setRestrictManagers(false)}
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                !restrictManagers
+                  ? 'bg-accent/15 text-accent'
+                  : 'bg-surface text-text-muted'
+              }`}
+            >
+              {t.game.managersEveryone}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRestrictManagers(true)}
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                restrictManagers
+                  ? 'bg-accent/15 text-accent'
+                  : 'bg-surface text-text-muted'
+              }`}
+            >
+              {t.game.managersSome}
+            </button>
+          </div>
+          <p className="text-xs text-text-muted mt-1.5">{t.game.managersHint}</p>
+
+          {restrictManagers && (
+            <div className="mt-3">
+              <p className="text-xs text-text-secondary mb-2">
+                {t.game.selectManagers}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {players
+                  .filter((p) => selectedPlayerIds.has(p.id))
+                  .map((p) => {
+                    const isManager = managerIds.has(p.id)
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => toggleManager(p.id)}
+                        className={`rounded-full px-4 py-2 text-sm transition-colors border min-h-[40px] ${
+                          isManager
+                            ? 'bg-accent/20 border-accent text-accent'
+                            : 'bg-surface-elevated border-border text-text-secondary'
+                        }`}
+                      >
+                        {p.display_name}
+                      </button>
+                    )
+                  })}
+              </div>
             </div>
           )}
         </div>
