@@ -17,6 +17,23 @@ export async function getGroupPlayers(
   return data ?? []
 }
 
+// Resolve players by id WITHOUT the is_active filter — needed wherever we must
+// display names for one-night/temporary players (is_active = false), e.g. the
+// results & settlements screen.
+export async function getPlayersByIds(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<Player[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .in('id', ids)
+
+  if (error) throw error
+  return data ?? []
+}
+
 export type PlayerGameHistoryEntry = {
   game_id: string
   game_name: string
