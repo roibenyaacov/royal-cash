@@ -53,6 +53,24 @@ import type {
   ExpenseSplitType,
 } from '@/lib/domain/types'
 
+/**
+ * Purge the client Router Cache for a game's screens.
+ *
+ * Back/forward navigation deliberately reuses its cached entry — the docs
+ * for `staleTimes` call this out: it "doesn't change back/forward caching
+ * behavior to prevent layout shift and to prevent losing the browser scroll
+ * position". So without an explicit revalidate, tapping "close game" and
+ * then going back re-renders the table from the payload captured *before*
+ * the mutation: a cashed-out player comes back ungreyed, a buy-in vanishes.
+ *
+ * The realtime hook eventually corrects it (8-30s), which is why this only
+ * ever looked like a fast-navigation glitch.
+ */
+function revalidateGame(groupId: string, gameId: string): void {
+  revalidatePath(`/groups/${groupId}/games/${gameId}`)
+  revalidatePath(`/groups/${groupId}/games/${gameId}/close`)
+}
+
 const MAX_GAME_NAME_LENGTH = 80
 const MAX_EXPENSE_DESCRIPTION_LENGTH = 120
 const MAX_NOTE_LENGTH = 200
@@ -114,6 +132,8 @@ export async function createGameAction(
     })
   }
 
+  // The group page lists active games.
+  revalidatePath(`/groups/${groupId}`)
   return game
 }
 
@@ -133,7 +153,7 @@ export async function addPlayerToGameAction(
   buyInAmount: number,
   ids?: BuyInClientIds,
 ): Promise<AddPlayerToGameResult> {
-  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  const { userId, db, game } = await authorizeActiveGameMutation(gameId)
 
   await dbAddGamePlayer(db, gameId, playerId)
 
@@ -153,9 +173,11 @@ export async function addPlayerToGameAction(
       description: 'הצטרפות למשחק',
       id: ids?.eventId,
     })
+    revalidateGame(game.group_id, gameId)
     return { buyIn, event }
   }
 
+  revalidateGame(game.group_id, gameId)
   return { buyIn: null, event: null }
 }
 
@@ -209,9 +231,11 @@ export async function addNewPlayerToGameAction(
       description: 'הצטרפות למשחק',
       id: options.eventId,
     })
+    revalidateGame(groupId, gameId)
     return { player, buyIn, event }
   }
 
+  revalidateGame(groupId, gameId)
   return { player, buyIn: null, event: null }
 }
 
@@ -254,7 +278,7 @@ export async function removePlayerFromGameAction(
   gameId: string,
   playerId: string,
 ): Promise<{ success: true } | { success: false; error: 'has_expenses' }> {
-  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  const { userId, db, game } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
 
   if (await playerHasGameExpenses(db, gameId, playerId)) {
@@ -276,6 +300,7 @@ export async function removePlayerFromGameAction(
     description: 'הוסר מהשולחן',
   })
 
+  revalidateGame(game.group_id, gameId)
   return { success: true }
 }
 
@@ -296,7 +321,7 @@ export async function addBuyInAction(
     throw new Error('Note too long')
   }
 
-  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  const { userId, db, game } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
 
   const buyIn = await dbAddBuyIn(
@@ -316,6 +341,7 @@ export async function addBuyInAction(
     id: ids?.eventId,
   })
 
+  revalidateGame(game.group_id, gameId)
   return { buyIn, event }
 }
 
@@ -340,7 +366,7 @@ export async function removeDefaultBuyInAction(
   playerId: string,
   defaultAmount: number,
 ): Promise<RemoveDefaultBuyInResult | null> {
-  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  const { userId, db, game } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
 
   const removed = await removeLatestBuyIn(
@@ -378,6 +404,7 @@ export async function removeDefaultBuyInAction(
       userId,
       { playerId, description: 'הוסר מהשולחן' },
     )
+    revalidateGame(game.group_id, gameId)
     return {
       removedBuyIn: removed,
       removeEvent,
@@ -385,6 +412,7 @@ export async function removeDefaultBuyInAction(
     }
   }
 
+  revalidateGame(game.group_id, gameId)
   return { removedBuyIn: removed, removeEvent }
 }
 
@@ -399,6 +427,9 @@ export async function setPlayerBuyInCountAction(
 ): Promise<void> {
   if (targetCount < 0) return
 
+  // No revalidate here on purpose: every mutating path below delegates to
+  // addBuyInAction / removeDefaultBuyInAction / removePlayerFromGameAction,
+  // and each of those purges the cache itself.
   const { db } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
 
@@ -442,7 +473,7 @@ export async function removeBuyInAction(
   gameId: string,
   buyInId: string,
 ): Promise<RemoveDefaultBuyInResult | null> {
-  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  const { userId, db, game } = await authorizeActiveGameMutation(gameId)
 
   const { data: target, error: selectError } = await db
     .from('buy_ins')
@@ -490,6 +521,7 @@ export async function removeBuyInAction(
       userId,
       { playerId, description: 'הוסר מהשולחן' },
     )
+    revalidateGame(game.group_id, gameId)
     return {
       removedBuyIn: target,
       removeEvent,
@@ -497,6 +529,7 @@ export async function removeBuyInAction(
     }
   }
 
+  revalidateGame(game.group_id, gameId)
   return { removedBuyIn: target, removeEvent }
 }
 
@@ -511,18 +544,21 @@ export async function setCashOutAction(
   if (!Number.isInteger(amount) || amount < 0) {
     throw new Error('Invalid cash-out amount')
   }
-  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  const { userId, db, game } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
-  return dbUpsertCashOut(db, gameId, playerId, amount, userId)
+  const cashOut = await dbUpsertCashOut(db, gameId, playerId, amount, userId)
+  revalidateGame(game.group_id, gameId)
+  return cashOut
 }
 
 export async function clearCashOutAction(
   gameId: string,
   playerId: string,
 ): Promise<void> {
-  const { db } = await authorizeActiveGameMutation(gameId)
+  const { db, game } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, playerId)
   await dbDeleteCashOut(db, gameId, playerId)
+  revalidateGame(game.group_id, gameId)
 }
 
 // Set who is responsible for the money. Empty list = everyone may manage.
@@ -531,8 +567,9 @@ export async function setGameManagersAction(
   gameId: string,
   managerPlayerIds: string[],
 ): Promise<void> {
-  const { db } = await authorizeActiveGameMutation(gameId)
+  const { db, game } = await authorizeActiveGameMutation(gameId)
   await dbSetGameManagers(db, gameId, managerPlayerIds)
+  revalidateGame(game.group_id, gameId)
 }
 
 export type AddExpenseResult = {
@@ -573,7 +610,7 @@ export async function addExpenseAction(
     throw new Error('Expense participants must sum to expense amount')
   }
 
-  const { userId, db } = await authorizeActiveGameMutation(gameId)
+  const { userId, db, game } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, paidByPlayerId)
 
   for (const participant of participants) {
@@ -597,6 +634,7 @@ export async function addExpenseAction(
     description: trimmedDescription || undefined,
   })
 
+  revalidateGame(game.group_id, gameId)
   return { expense, participants: insertedParticipants, event }
 }
 
