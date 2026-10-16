@@ -782,7 +782,11 @@ export async function closeGameAction(
 // Undo a close so the cash-out amounts can be corrected. Only possible while
 // the game has not been finalized — finalizing writes player stats and win
 // records, which are not reversed here.
-export async function reopenGameAction(gameId: string): Promise<void> {
+export type ReopenGameResult = { wasFinalized: boolean }
+
+export async function reopenGameAction(
+  gameId: string,
+): Promise<ReopenGameResult> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -794,12 +798,12 @@ export async function reopenGameAction(gameId: string): Promise<void> {
 
   await assertGroupMember(supabase, game.group_id, user.id)
 
-  if (game.finalized_at) throw new Error('game_finalized')
+  const wasFinalized = Boolean(game.finalized_at)
 
   // Already reopened (a second tap, or another manager got there first).
   if (game.status === 'active') {
     revalidatePath(`/groups/${game.group_id}/games/${gameId}/close`)
-    return
+    return { wasFinalized: false }
   }
   if (game.status !== 'closed') throw new Error('game_not_closed')
 
@@ -822,6 +826,12 @@ export async function reopenGameAction(gameId: string): Promise<void> {
     // run then leaves an active game whose stale snapshots the next close
     // overwrites, whereas the reverse order would leave a closed game with
     // no results to display.
+    //
+    // A finalized game is refused here: undoing it means recomputing
+    // player_group_stats from the remaining games (biggest_win / biggest_loss
+    // are MAX/MIN and have no inverse), which is only safe inside the
+    // single transaction that migration 027 provides.
+    if (wasFinalized) throw new Error('reopen_needs_migration')
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('reopen_unavailable')
     }
@@ -855,6 +865,13 @@ export async function reopenGameAction(gameId: string): Promise<void> {
   revalidatePath(`/groups/${game.group_id}/games/${gameId}`)
   revalidatePath(`/groups/${game.group_id}/games/${gameId}/close`)
   revalidatePath(`/groups/${game.group_id}/games/${gameId}/results`)
+  // Reversing a finalize changes the group's stats and podium.
+  if (wasFinalized) {
+    revalidatePath('/stats')
+    revalidatePath('/profile')
+  }
+
+  return { wasFinalized }
 }
 
 export async function finalizeGameAction(

@@ -182,6 +182,12 @@ export const en = {
     reopening: 'Reopening...',
     reopenFailed: 'Could not go back to editing. Please try again.',
     reopenFinalized: 'This game was already closed and saved — it can no longer be edited.',
+    reopenNeedsMigration:
+      'Editing a saved game needs a database update. Run migration 027.',
+    reopenFinalizedTitle: 'Edit a saved game?',
+    reopenFinalizedWarning:
+      'This game is already saved to the group history. Reopening it removes it from the stats and records until you close and save it again.',
+    reopenFinalizedConfirm: 'Yes, go back to editing',
     paysTo: 'pays',
     buyIn: 'Buy-ins',
     cashOut: 'Cash out',

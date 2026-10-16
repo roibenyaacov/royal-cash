@@ -180,6 +180,12 @@ export const he = {
     reopening: 'חוזר לעריכה...',
     reopenFailed: 'לא הצלחנו לחזור לעריכה. נסה שוב.',
     reopenFinalized: 'המשחק כבר נסגר ונשמר — לא ניתן לערוך אותו.',
+    reopenNeedsMigration:
+      'עריכת משחק שכבר נשמר דורשת עדכון במסד הנתונים. הרץ את מיגרציה 027.',
+    reopenFinalizedTitle: 'לערוך משחק שכבר נשמר?',
+    reopenFinalizedWarning:
+      'המשחק הזה כבר נשמר בהיסטוריית החבורה. עריכה מחדש תסיר אותו מהסטטיסטיקות ומהשיאים עד שתסגור ותשמור אותו שוב.',
+    reopenFinalizedConfirm: 'כן, חזור לעריכה',
     paysTo: 'משלם ל',
     buyIn: 'כניסות',
     cashOut: 'יציאה',

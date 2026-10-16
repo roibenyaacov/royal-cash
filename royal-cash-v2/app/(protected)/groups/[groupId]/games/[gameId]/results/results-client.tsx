@@ -6,6 +6,7 @@ import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { generateWhatsAppSettlementText } from '@/lib/calculations/summary'
 import { finalizeGameAction, reopenGameAction } from '@/app/actions/games'
 import type { Game, Player, GameResult, Settlement } from '@/lib/domain/types'
@@ -31,6 +32,7 @@ export default function ResultsClient({
   const [finalizing, setFinalizing] = useState(false)
   const [reopening, setReopening] = useState(false)
   const [reopenError, setReopenError] = useState('')
+  const [showReopenConfirm, setShowReopenConfirm] = useState(false)
 
   const playerNames = useMemo(
     () => new Map(players.map((p) => [p.id, p.display_name])),
@@ -81,14 +83,29 @@ export default function ResultsClient({
       router.replace(`/groups/${groupId}/games/${gameId}/close`)
     } catch (err) {
       console.error('Failed to reopen game:', err)
+      const code = err instanceof Error ? err.message : ''
       setReopenError(
-        err instanceof Error && err.message === 'game_finalized'
-          ? t.results.reopenFinalized
-          : t.results.reopenFailed,
+        code === 'reopen_needs_migration'
+          ? t.results.reopenNeedsMigration
+          : code === 'game_finalized'
+            ? t.results.reopenFinalized
+            : t.results.reopenFailed,
       )
       setReopening(false)
     }
   }, [gameId, groupId, reopening, finalizing, router])
+
+  // A finalized game is already in the group's stats and podium, so reopening
+  // it rewrites history — ask first. An unfinalized one goes straight back.
+  const requestBackToEditing = useCallback(() => {
+    if (reopening || finalizing) return
+    setReopenError('')
+    if (isFinalized) {
+      setShowReopenConfirm(true)
+      return
+    }
+    void handleBackToEditing()
+  }, [isFinalized, reopening, finalizing, handleBackToEditing])
 
   const handleWhatsAppShareAndClose = useCallback(async () => {
     if (finalizing) return
@@ -232,21 +249,30 @@ export default function ResultsClient({
           >
             {buttonLabel}
           </Button>
-          {/* Editing stops once the game is finalized — that write updated the
-              group stats and records. */}
-          {!isFinalized && (
-            <Button
-              variant="secondary"
-              fullWidth
-              size="lg"
-              onClick={handleBackToEditing}
-              disabled={finalizing || reopening}
-            >
-              {reopening ? t.results.reopening : t.results.editData}
-            </Button>
-          )}
+          {/* Available after finalizing too: a miscount found the next morning
+              still needs a way back. Reopening a finalized game pulls it out of
+              the group stats and podium until it is closed and saved again. */}
+          <Button
+            variant="secondary"
+            fullWidth
+            size="lg"
+            onClick={requestBackToEditing}
+            disabled={finalizing || reopening}
+          >
+            {reopening ? t.results.reopening : t.results.editData}
+          </Button>
         </div>
       </main>
+
+      <ConfirmSheet
+        open={showReopenConfirm}
+        onClose={() => setShowReopenConfirm(false)}
+        title={t.results.reopenFinalizedTitle}
+        message={t.results.reopenFinalizedWarning}
+        confirmLabel={t.results.reopenFinalizedConfirm}
+        cancelLabel={t.common.cancel}
+        onConfirm={handleBackToEditing}
+      />
     </>
   )
 }
