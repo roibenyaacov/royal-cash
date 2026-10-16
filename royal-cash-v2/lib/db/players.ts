@@ -154,6 +154,11 @@ export async function createPlayer(
   phone?: string,
   linkedUserId?: string,
   isActive = true,
+  // Optional client-generated id, matching how buy_ins and game_events are
+  // already created, so an optimistic row keeps the same identity once it is
+  // persisted. A colliding id fails the insert on the primary key; it cannot
+  // overwrite another player, and RLS still gates the write.
+  id?: string,
 ): Promise<Player> {
   const trimmedName = displayName.trim()
   if (!trimmedName) throw new Error('Player name required')
@@ -169,6 +174,7 @@ export async function createPlayer(
   const { data, error } = await supabase
     .from('players')
     .insert({
+      ...(id ? { id } : {}),
       group_id: groupId,
       display_name: trimmedName,
       phone: trimmedPhone ?? null,

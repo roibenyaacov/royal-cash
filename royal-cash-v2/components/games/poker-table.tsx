@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '@/lib/i18n/dictionary'
 import { resolveSeatNames } from '@/lib/display/seat-names'
+import { PlayerAvatar } from '@/components/games/player-avatar'
 import type { BuyIn, CashOut, Currency } from '@/lib/domain/types'
 
 // ---------------------------------------------------------------------------
@@ -72,6 +73,7 @@ export function PokerTable({
   const renderSeat = (seat: TableSeatData) => (
     <TableSeat
       key={seat.id}
+      playerId={seat.id}
       name={seatLabels.get(seat.id) ?? seat.name}
       fullName={seat.name}
       buyIns={seat.buyIns}
@@ -128,6 +130,8 @@ export function PokerTable({
 // ---------------------------------------------------------------------------
 
 type TableSeatProps = {
+  /** Seeds the seat's poker character. */
+  playerId: string
   /** Short label shown on the seat — usually just the first name. */
   name: string
   /** Full name, kept for the accessible label and the native tooltip. */
@@ -144,6 +148,7 @@ type TableSeatProps = {
 }
 
 function TableSeat({
+  playerId,
   name,
   fullName,
   buyIns,
@@ -159,7 +164,6 @@ function TableSeat({
   const symbol = t.currency[currency]
   const totalBuyIn = buyIns.reduce((s, b) => s + b.amount, 0)
   const defaultCount = buyIns.filter((b) => b.amount === defaultBuyIn).length
-  const initial = fullName.trim().charAt(0) || '?'
   const isCashedOut = cashOut != null
   const net = isCashedOut ? cashOut.amount - totalBuyIn : 0
 
@@ -198,15 +202,9 @@ function TableSeat({
         className="flex w-full flex-col items-center gap-1 rounded-2xl transition-opacity disabled:cursor-default enabled:active:opacity-70"
       >
         {/* Avatar with gold frame */}
-        <div
-          className={`rounded-full p-[1.5px] bg-gradient-to-b from-[#e0c476] to-[#9a7c3a] shadow-[0_0_6px_rgba(201,168,76,0.4)] ${
-            isCashedOut ? 'opacity-60 grayscale' : ''
-          }`}
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-surface-elevated to-surface border border-black/40">
-            <span className="text-[15px] font-semibold leading-none text-accent">
-              {initial}
-            </span>
+        <div className="rounded-full p-[1.5px] bg-gradient-to-b from-[#e0c476] to-[#9a7c3a] shadow-[0_0_6px_rgba(201,168,76,0.4)]">
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/40">
+            <PlayerAvatar playerId={playerId} size={36} muted={isCashedOut} />
           </div>
         </div>
 

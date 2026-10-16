@@ -808,10 +808,14 @@ export default function ActiveGameClient({
     if (nameTaken) return
 
     const nowIso = new Date().toISOString()
-    const tempPlayerId = pendingId()
+    // Generated here and sent to the server, so the optimistic player keeps
+    // its identity once persisted. Without that the row is replaced by one
+    // with a different id, which re-rolls anything derived from it (the
+    // seat avatar) a few hundred milliseconds after it appears.
+    const newPlayerId = crypto.randomUUID()
 
     const optimisticPlayer: Player = {
-      id: tempPlayerId,
+      id: newPlayerId,
       group_id: groupId,
       display_name: trimmedName,
       phone: null,
@@ -831,7 +835,7 @@ export default function ActiveGameClient({
         ? {
             id: buyInId,
             game_id: gameId,
-            player_id: tempPlayerId,
+            player_id: newPlayerId,
             amount: buyInAmount,
             created_by: '',
             created_at: nowIso,
@@ -845,7 +849,7 @@ export default function ActiveGameClient({
             id: eventId,
             game_id: gameId,
             event_type: 'buy_in_added',
-            player_id: tempPlayerId,
+            player_id: newPlayerId,
             amount: buyInAmount,
             description: 'הצטרפות למשחק',
             created_by: '',
@@ -866,6 +870,7 @@ export default function ActiveGameClient({
         const result = await addNewPlayerToGameAction(groupId, gameId, trimmedName, {
           addToGroup,
           initialBuyIn: buyInAmount,
+          playerId: newPlayerId,
           buyInId,
           eventId,
         })

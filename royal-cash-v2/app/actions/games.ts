@@ -194,6 +194,7 @@ export async function addNewPlayerToGameAction(
   options: {
     addToGroup: boolean
     initialBuyIn: number
+    playerId?: string
     buyInId?: string
     eventId?: string
   },
@@ -211,6 +212,7 @@ export async function addNewPlayerToGameAction(
     undefined,
     undefined,
     options.addToGroup,
+    options.playerId,
   )
 
   await dbAddGamePlayer(db, gameId, player.id)
