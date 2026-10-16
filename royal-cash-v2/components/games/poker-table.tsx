@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '@/lib/i18n/dictionary'
+import { resolveSeatNames } from '@/lib/display/seat-names'
 import type { BuyIn, CashOut, Currency } from '@/lib/domain/types'
 
 // ---------------------------------------------------------------------------
@@ -47,6 +48,11 @@ export function PokerTable({
 }: PokerTableProps) {
   const symbol = t.currency[currency]
 
+  // Seats are ~96px wide, so a full "Roi Ben Yaacov" used to be truncated by
+  // the amount next to it ("₪1050 · ...ti"). Show the first name instead,
+  // widened only as far as it takes to keep two seats apart.
+  const seatLabels = useMemo(() => resolveSeatNames(seats), [seats])
+
   // top + bottom caps, the rest alternate down the right and left rails so the
   // two columns stay balanced (right gets the extra seat on odd counts).
   const top = seats[0] ?? null
@@ -66,7 +72,8 @@ export function PokerTable({
   const renderSeat = (seat: TableSeatData) => (
     <TableSeat
       key={seat.id}
-      name={seat.name}
+      name={seatLabels.get(seat.id) ?? seat.name}
+      fullName={seat.name}
       buyIns={seat.buyIns}
       cashOut={seat.cashOut}
       defaultBuyIn={defaultBuyIn}
@@ -121,7 +128,10 @@ export function PokerTable({
 // ---------------------------------------------------------------------------
 
 type TableSeatProps = {
+  /** Short label shown on the seat — usually just the first name. */
   name: string
+  /** Full name, kept for the accessible label and the native tooltip. */
+  fullName: string
   buyIns: BuyIn[]
   cashOut: CashOut | null
   defaultBuyIn: number
@@ -135,6 +145,7 @@ type TableSeatProps = {
 
 function TableSeat({
   name,
+  fullName,
   buyIns,
   cashOut,
   defaultBuyIn,
@@ -148,7 +159,7 @@ function TableSeat({
   const symbol = t.currency[currency]
   const totalBuyIn = buyIns.reduce((s, b) => s + b.amount, 0)
   const defaultCount = buyIns.filter((b) => b.amount === defaultBuyIn).length
-  const initial = name.trim().charAt(0) || '?'
+  const initial = fullName.trim().charAt(0) || '?'
   const isCashedOut = cashOut != null
   const net = isCashedOut ? cashOut.amount - totalBuyIn : 0
 
@@ -182,6 +193,8 @@ function TableSeat({
         type="button"
         onClick={onClick}
         disabled={readOnly}
+        title={fullName}
+        aria-label={fullName}
         className="flex w-full flex-col items-center gap-1 rounded-2xl transition-opacity disabled:cursor-default enabled:active:opacity-70"
       >
         {/* Avatar with gold frame */}
