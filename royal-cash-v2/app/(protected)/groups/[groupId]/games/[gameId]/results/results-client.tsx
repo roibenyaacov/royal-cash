@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { generateWhatsAppSettlementText } from '@/lib/calculations/summary'
-import { finalizeGameAction } from '@/app/actions/games'
+import { finalizeGameAction, reopenGameAction } from '@/app/actions/games'
 import type { Game, Player, GameResult, Settlement } from '@/lib/domain/types'
 
 interface ResultsClientProps {
@@ -29,6 +29,8 @@ export default function ResultsClient({
 }: ResultsClientProps) {
   const router = useRouter()
   const [finalizing, setFinalizing] = useState(false)
+  const [reopening, setReopening] = useState(false)
+  const [reopenError, setReopenError] = useState('')
 
   const playerNames = useMemo(
     () => new Map(players.map((p) => [p.id, p.display_name])),
@@ -67,6 +69,26 @@ export default function ResultsClient({
       setFinalizing(false)
     }
   }, [gameId, groupId, finalizing, router])
+
+  // Send the game back to the cash-out form with the entered amounts intact,
+  // for when the settlements come out wrong and need a correction.
+  const handleBackToEditing = useCallback(async () => {
+    if (reopening || finalizing) return
+    setReopenError('')
+    setReopening(true)
+    try {
+      await reopenGameAction(gameId)
+      router.replace(`/groups/${groupId}/games/${gameId}/close`)
+    } catch (err) {
+      console.error('Failed to reopen game:', err)
+      setReopenError(
+        err instanceof Error && err.message === 'game_finalized'
+          ? t.results.reopenFinalized
+          : t.results.reopenFailed,
+      )
+      setReopening(false)
+    }
+  }, [gameId, groupId, reopening, finalizing, router])
 
   const handleWhatsAppShareAndClose = useCallback(async () => {
     if (finalizing) return
@@ -197,15 +219,32 @@ export default function ResultsClient({
           </section>
         )}
 
+        {reopenError && (
+          <p className="text-sm text-negative text-center">{reopenError}</p>
+        )}
+
         <div className="flex flex-col gap-3 mt-auto pt-4">
           <Button
             fullWidth
             size="lg"
             onClick={handleWhatsAppShareAndClose}
-            disabled={finalizing}
+            disabled={finalizing || reopening}
           >
             {buttonLabel}
           </Button>
+          {/* Editing stops once the game is finalized — that write updated the
+              group stats and records. */}
+          {!isFinalized && (
+            <Button
+              variant="secondary"
+              fullWidth
+              size="lg"
+              onClick={handleBackToEditing}
+              disabled={finalizing || reopening}
+            >
+              {reopening ? t.results.reopening : t.results.editData}
+            </Button>
+          )}
         </div>
       </main>
     </>

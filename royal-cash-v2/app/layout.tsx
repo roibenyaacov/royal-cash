@@ -2,9 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { LocaleShell } from '@/components/layout/locale-shell'
 import { getLocale, localeMeta } from '@/lib/i18n/get-translations'
-import { absoluteUrl, getSiteUrl } from '@/lib/site-url'
 
-const siteUrl = getSiteUrl()
+const metadataBase = new URL('https://royalcash.app')
 
 const siteName = 'Royal Cash'
 const title = 'Royal Cash | סוגרים את הערב בלי כאב ראש'
@@ -13,11 +12,9 @@ const description =
 const ogDescription =
   'עוקבים אחרי כניסות, הוצאות וסגירת ערב הוגנת עם החבורה. סוגרים את הערב בלי כאב ראש — מהטלפון, בזמן אמת.'
 const imageAlt = 'Royal Cash — סוגרים את הערב בלי כאב ראש'
-const ogImageUrl = absoluteUrl('/opengraph-image.png')
-const twitterImageUrl = absoluteUrl('/twitter-image.png')
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase,
   title: {
     default: title,
     template: '%s | Royal Cash',
@@ -38,7 +35,7 @@ export const metadata: Metadata = {
     url: '/',
     images: [
       {
-        url: ogImageUrl,
+        url: '/opengraph-image.png',
         width: 1200,
         height: 630,
         alt: imageAlt,
@@ -50,7 +47,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description: ogDescription,
-    images: [twitterImageUrl],
+    images: ['/twitter-image.png'],
   },
 }
 

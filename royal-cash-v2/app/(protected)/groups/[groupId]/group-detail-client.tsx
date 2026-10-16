@@ -54,6 +54,7 @@ interface GroupDetailClientProps {
   initialGames: Game[]
   playerStats: PlayerGroupStats[]
   winRecords: GroupWinRecord[]
+  winRecordPlayers: Player[]
   currentUserId: string | null
 }
 
@@ -64,6 +65,7 @@ export default function GroupDetailClient({
   initialGames,
   playerStats,
   winRecords,
+  winRecordPlayers,
   currentUserId,
 }: GroupDetailClientProps) {
   const router = useRouter()
@@ -84,10 +86,13 @@ export default function GroupDetailClient({
     [playerStats],
   )
 
-  const playerNames = useMemo(
-    () => new Map(players.map((p) => [p.id, p.display_name])),
-    [players],
-  )
+  // Win records can reference temporary players who never joined the group
+  // roster, so their names are merged in on top of the roster names.
+  const playerNames = useMemo(() => {
+    const names = new Map(winRecordPlayers.map((p) => [p.id, p.display_name]))
+    for (const p of players) names.set(p.id, p.display_name)
+    return names
+  }, [players, winRecordPlayers])
 
   const activeGames = initialGames.filter((g) => g.status === 'active')
   const historyGames = initialGames.filter((g) => g.status === 'closed' && g.finalized_at)

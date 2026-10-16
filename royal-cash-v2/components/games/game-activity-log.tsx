@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { ChevronForward } from '@/components/ui/chevron'
 import { t } from '@/lib/i18n/dictionary'
@@ -35,16 +35,22 @@ export function GameActivityLog({
   const symbol = t.currency[currency]
   const grouped = useMemo(() => groupConsecutiveEvents(events), [events])
 
-  // While the log is open, mark every visible entry as seen.
-  useEffect(() => {
-    if (!expanded || events.length === 0) return
-    const newest = Math.max(
-      ...events.map((e) => new Date(e.created_at).getTime()),
-    )
-    setSeenWatermark((prev) =>
-      prev === null ? newest : Math.max(prev, newest),
-    )
-  }, [expanded, events])
+  const newestEventAt = useMemo(() => {
+    if (events.length === 0) return null
+    return Math.max(...events.map((e) => new Date(e.created_at).getTime()))
+  }, [events])
+
+  // Opening the log shows every entry, so on close we bank the newest
+  // timestamp that was on screen. Doing this in the handler (rather than an
+  // effect that mirrors `expanded`) keeps it a single render pass.
+  const handleToggle = () => {
+    if (expanded && newestEventAt !== null) {
+      setSeenWatermark((prev) =>
+        prev === null ? newestEventAt : Math.max(prev, newestEventAt),
+      )
+    }
+    setExpanded((open) => !open)
+  }
 
   const unseenCount = useMemo(() => {
     if (seenWatermark === null) return grouped.length
@@ -57,7 +63,7 @@ export function GameActivityLog({
     <section>
       <button
         type="button"
-        onClick={() => setExpanded((open) => !open)}
+        onClick={handleToggle}
         aria-expanded={expanded}
         aria-label={expanded ? t.game.activityLogCollapse : t.game.activityLogExpand}
         className="flex items-center justify-between w-full gap-2 mb-3 min-h-[44px] -mx-1 px-1 rounded-lg active:bg-surface-elevated/60 transition-colors"

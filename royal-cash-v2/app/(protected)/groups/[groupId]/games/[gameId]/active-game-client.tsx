@@ -260,7 +260,9 @@ export default function ActiveGameClient({
     serverState,
     optimisticReducer,
   )
-  const [, startTransition] = useTransition()
+  // Pending flag gates the close button: leaving the table mid-write would
+  // hand the close screen a pot that is still missing the last buy-ins.
+  const [mutating, startTransition] = useTransition()
 
   const [showExpense, setShowExpense] = useState(false)
   const [showAddPlayer, setShowAddPlayer] = useState(false)
@@ -1190,9 +1192,10 @@ export default function ActiveGameClient({
             <Button
               fullWidth
               size="lg"
+              disabled={mutating}
               onClick={() => router.push(`/groups/${groupId}/games/${gameId}/close`)}
             >
-              {t.game.closeGame}
+              {mutating ? t.common.loading : t.game.closeGame}
             </Button>
             <Button
               variant="danger"

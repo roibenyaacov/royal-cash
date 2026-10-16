@@ -779,6 +779,84 @@ export async function closeGameAction(
   revalidatePath(`/groups/${game.group_id}/games/${gameId}/results`)
 }
 
+// Undo a close so the cash-out amounts can be corrected. Only possible while
+// the game has not been finalized — finalizing writes player stats and win
+// records, which are not reversed here.
+export async function reopenGameAction(gameId: string): Promise<void> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const game = await dbGetGame(supabase, gameId)
+  if (!game) throw new Error('Game not found')
+
+  await assertGroupMember(supabase, game.group_id, user.id)
+
+  if (game.finalized_at) throw new Error('game_finalized')
+
+  // Already reopened (a second tap, or another manager got there first).
+  if (game.status === 'active') {
+    revalidatePath(`/groups/${game.group_id}/games/${gameId}/close`)
+    return
+  }
+  if (game.status !== 'closed') throw new Error('game_not_closed')
+
+  const rpc = await supabase.rpc('reopen_game_atomic', { p_game_id: gameId })
+
+  const rpcMissing =
+    rpc.error &&
+    (rpc.error.code === 'PGRST202' ||
+      rpc.error.message?.includes('reopen_game_atomic'))
+
+  if (!rpcMissing) {
+    if (rpc.error) throw new Error(rpc.error.message)
+    const payload = rpc.data as { success?: boolean; error?: string } | null
+    if (payload?.error) throw new Error(payload.error)
+    if (!payload?.success) throw new Error('reopen_failed')
+  } else {
+    // Pre-026 fallback — not atomic. Group members hold no DELETE policy on
+    // game_results / settlements, so the snapshots are cleared with the
+    // service-role client. The status flips first on purpose: an interrupted
+    // run then leaves an active game whose stale snapshots the next close
+    // overwrites, whereas the reverse order would leave a closed game with
+    // no results to display.
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('reopen_unavailable')
+    }
+    const admin = createAdminClient()
+
+    const { error: statusError } = await admin
+      .from('games')
+      .update({ status: 'active', closed_at: null })
+      .eq('id', gameId)
+      .eq('status', 'closed')
+      .is('finalized_at', null)
+    if (statusError) throw new Error(statusError.message)
+
+    const { error: settlementsError } = await admin
+      .from('settlements')
+      .delete()
+      .eq('game_id', gameId)
+    if (settlementsError) throw new Error(settlementsError.message)
+
+    const { error: resultsError } = await admin
+      .from('game_results')
+      .delete()
+      .eq('game_id', gameId)
+    if (resultsError) throw new Error(resultsError.message)
+  }
+
+  const reopened = await dbGetGame(supabase, gameId)
+  if (reopened?.status !== 'active') throw new Error('reopen_failed')
+
+  revalidatePath(`/groups/${game.group_id}`)
+  revalidatePath(`/groups/${game.group_id}/games/${gameId}`)
+  revalidatePath(`/groups/${game.group_id}/games/${gameId}/close`)
+  revalidatePath(`/groups/${game.group_id}/games/${gameId}/results`)
+}
+
 export async function finalizeGameAction(
   gameId: string,
   groupId: string,

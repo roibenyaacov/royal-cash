@@ -70,7 +70,6 @@ export async function getGroupAllTimeGameWins(
   if (gamesError) throw gamesError
   if (!games?.length) return []
 
-  const gameById = new Map(games.map((g) => [g.id, g]))
   const records: GroupWinRecord[] = []
 
   for (const game of games) {

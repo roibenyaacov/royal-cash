@@ -17,7 +17,19 @@ const HEALTHY_POLL_MS = 30_000
 // errors, etc.) fall back to a tighter cadence so the UI stays current.
 const FALLBACK_POLL_MS = 8_000
 
-export function useGameRealtime(gameId: string | null, onRefresh: () => void) {
+type Options = {
+  // Refresh once right after subscribing, for screens whose server-rendered
+  // props may already be stale when they mount (e.g. the close form reached
+  // from a cached route after more buy-ins were added).
+  refreshOnMount?: boolean
+}
+
+export function useGameRealtime(
+  gameId: string | null,
+  onRefresh: () => void,
+  options: Options = {},
+) {
+  const { refreshOnMount = false } = options
   const onRefreshRef = useRef(onRefresh)
   useEffect(() => {
     onRefreshRef.current = onRefresh
@@ -114,6 +126,8 @@ export function useGameRealtime(gameId: string | null, onRefresh: () => void) {
     // switch to the healthy (slow) cadence.
     startPolling(FALLBACK_POLL_MS)
 
+    if (refreshOnMount) scheduleRefresh()
+
     return () => {
       cancelled = true
       authSubscription.unsubscribe()
@@ -121,5 +135,5 @@ export function useGameRealtime(gameId: string | null, onRefresh: () => void) {
       if (pollTimer) clearInterval(pollTimer)
       if (channel) void supabase.removeChannel(channel)
     }
-  }, [gameId])
+  }, [gameId, refreshOnMount])
 }

@@ -54,7 +54,7 @@ export function WinPodium({ records, playerNames, currency }: WinPodiumProps) {
             >
               <div className="w-full mb-2 text-center px-1">
                 <p className="text-lg leading-none mb-1">{meta.emoji}</p>
-                <p className="font-semibold text-text-primary text-sm truncate w-full">
+                <p className="font-semibold text-text-primary text-sm leading-tight w-full break-words">
                   {name}
                 </p>
                 <p

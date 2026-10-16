@@ -42,11 +42,11 @@ export default async function CloseGamePage({
       groupId={groupId}
       gameId={gameId}
       game={game}
-      players={gamePlayers}
-      buyIns={buyIns}
-      cashOuts={cashOuts}
-      expenses={expenses}
-      expenseParticipants={participants}
+      initialPlayers={gamePlayers}
+      initialBuyIns={buyIns}
+      initialCashOuts={cashOuts}
+      initialExpenses={expenses}
+      initialExpenseParticipants={participants}
     />
   )
 }

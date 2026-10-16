@@ -182,7 +182,7 @@ function TableSeat({
         type="button"
         onClick={onClick}
         disabled={readOnly}
-        className="flex max-w-full flex-col items-center gap-1 rounded-2xl px-1 transition-opacity disabled:cursor-default enabled:active:opacity-70"
+        className="flex w-full flex-col items-center gap-1 rounded-2xl transition-opacity disabled:cursor-default enabled:active:opacity-70"
       >
         {/* Avatar with gold frame */}
         <div
@@ -197,15 +197,16 @@ function TableSeat({
           </div>
         </div>
 
-        {/* Name · total */}
-        <div className="flex max-w-full items-center gap-1 rounded-full border border-border bg-surface/90 px-2 py-0.5 backdrop-blur-sm">
-          <span className="truncate text-[11px] font-semibold text-text-primary">
+        {/* Name over total — stacked (not side by side) so the name gets the
+            full seat width and long names wrap instead of being clipped. */}
+        <div className="flex w-full flex-col items-center gap-0.5 rounded-2xl border border-border bg-surface/90 px-1.5 py-1 backdrop-blur-sm">
+          <span className="w-full break-words text-center text-[11px] font-semibold leading-tight text-text-primary">
             {name}
           </span>
-          <span className="shrink-0 text-[10px] text-text-muted/60" aria-hidden>
-            ·
-          </span>
-          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-accent" dir="ltr">
+          <span
+            className="text-[11px] font-semibold leading-none tabular-nums text-accent"
+            dir="ltr"
+          >
             {symbol}{totalBuyIn}
           </span>
         </div>

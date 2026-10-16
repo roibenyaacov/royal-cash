@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
 import { PageHeader } from '@/components/layout/page-header'
@@ -10,6 +10,13 @@ import { Button } from '@/components/ui/button'
 import { validateGameForClose } from '@/lib/calculations/validation'
 import { translateValidationErrors } from '@/lib/i18n/translate-validation'
 import { closeGameAction } from '@/app/actions/games'
+import { createClient } from '@/lib/supabase/client'
+import { getGameRosterPlayers } from '@/lib/db/games'
+import { getGameBuyIns } from '@/lib/db/buy-ins'
+import { getGameCashOuts } from '@/lib/db/cashouts'
+import { getGameExpensesWithParticipants } from '@/lib/db/expenses'
+import { calcPlayerBuyIns } from '@/lib/calculations/buy-ins'
+import { useGameRealtime } from '@/hooks/use-game-realtime'
 import type {
   Game,
   Player,
@@ -23,9 +30,16 @@ interface CloseGameClientProps {
   groupId: string
   gameId: string
   game: Game
+  initialPlayers: Player[]
+  initialBuyIns: BuyIn[]
+  initialCashOuts: CashOut[]
+  initialExpenses: Expense[]
+  initialExpenseParticipants: ExpenseParticipant[]
+}
+
+type CloseGameData = {
   players: Player[]
   buyIns: BuyIn[]
-  cashOuts: CashOut[]
   expenses: Expense[]
   expenseParticipants: ExpenseParticipant[]
 }
@@ -34,21 +48,33 @@ export default function CloseGameClient({
   groupId,
   gameId,
   game,
-  players,
-  buyIns,
-  cashOuts,
-  expenses,
-  expenseParticipants,
+  initialPlayers,
+  initialBuyIns,
+  initialCashOuts,
+  initialExpenses,
+  initialExpenseParticipants,
 }: CloseGameClientProps) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [data, setData] = useState<CloseGameData>({
+    players: initialPlayers,
+    buyIns: initialBuyIns,
+    expenses: initialExpenses,
+    expenseParticipants: initialExpenseParticipants,
+  })
+  // The server-rendered props can already be stale by the time this screen is
+  // read (buy-ins added seconds earlier, a cached RSC payload from an earlier
+  // visit). Until the first client refetch lands, closing is held back so the
+  // cash-outs are never balanced against a total that isn't the real pot.
+  const [synced, setSynced] = useState(false)
+  const { players, buyIns, expenses, expenseParticipants } = data
   // Pre-fill any cash-out already recorded mid-game, so the close screen
   // starts from those amounts instead of blank — the two flows reconcile.
   const [cashOutValues, setCashOutValues] = useState<Record<string, string>>(
     () => {
-      const byPlayer = new Map(cashOuts.map((c) => [c.player_id, c.amount]))
+      const byPlayer = new Map(initialCashOuts.map((c) => [c.player_id, c.amount]))
       return Object.fromEntries(
-        players.map((p) => [
+        initialPlayers.map((p) => [
           p.id,
           byPlayer.has(p.id) ? String(byPlayer.get(p.id)) : '',
         ]),
@@ -56,6 +82,57 @@ export default function CloseGameClient({
     },
   )
   const [errors, setErrors] = useState<string[]>([])
+
+  const fetchData = useCallback(async () => {
+    const supabase = createClient()
+    try {
+      const [
+        rosterPlayers,
+        buyInsData,
+        cashOutsData,
+        { expenses: expensesData, participants },
+      ] = await Promise.all([
+        getGameRosterPlayers(supabase, gameId),
+        getGameBuyIns(supabase, gameId),
+        getGameCashOuts(supabase, gameId),
+        getGameExpensesWithParticipants(supabase, gameId),
+      ])
+
+      // Same roster rule as the server: players with at least one buy-in.
+      const seated = rosterPlayers.filter(
+        (p) => calcPlayerBuyIns(buyInsData, p.id) > 0,
+      )
+
+      setData({
+        players: seated,
+        buyIns: buyInsData,
+        expenses: expensesData,
+        expenseParticipants: participants,
+      })
+
+      // Never overwrite an amount the user is in the middle of typing — only
+      // seed inputs for players who joined the table since the last render.
+      setCashOutValues((prev) => {
+        const recorded = new Map(cashOutsData.map((c) => [c.player_id, c.amount]))
+        return Object.fromEntries(
+          seated.map((p) => [
+            p.id,
+            p.id in prev
+              ? prev[p.id]
+              : recorded.has(p.id)
+                ? String(recorded.get(p.id))
+                : '',
+          ]),
+        )
+      })
+    } catch (err) {
+      console.error('Failed to refresh close screen:', err)
+    } finally {
+      setSynced(true)
+    }
+  }, [gameId])
+
+  useGameRealtime(gameId, fetchData, { refreshOnMount: true })
 
   const participantsByExpense = useMemo(() => {
     const map = new Map<string, ExpenseParticipant[]>()
@@ -220,9 +297,9 @@ export default function CloseGameClient({
             fullWidth
             size="lg"
             onClick={handleCalculate}
-            disabled={saving}
+            disabled={saving || !synced}
           >
-            {saving ? t.common.loading : t.close.calculateResults}
+            {saving || !synced ? t.common.loading : t.close.calculateResults}
           </Button>
         </div>
       </main>
