@@ -6,11 +6,12 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BottomSheet } from '@/components/ui/bottom-sheet'
+import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { Loading } from '@/components/ui/loading'
 import { ProfileStatCard } from '@/components/profile/profile-stat-card'
 import { createClient } from '@/lib/supabase/client'
 import { getPersonalStats, type PersonalStats } from '@/lib/db/profile'
-import { updateProfileAction } from '@/app/actions/profile'
+import { updateProfileAction, resetMyStatsAction } from '@/app/actions/profile'
 import { ContactLink } from '@/components/layout/contact-link'
 
 function getSaveErrorMessage(err: unknown): string {
@@ -109,6 +110,9 @@ export default function ProfilePage() {
   const [nameDraft, setNameDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [resetError, setResetError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -172,6 +176,32 @@ export default function ProfilePage() {
       console.error('Failed to update profile:', err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleResetStats() {
+    if (resetting) return
+    setResetting(true)
+    setResetError('')
+    try {
+      await resetMyStatsAction()
+
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) setStats(await getPersonalStats(supabase, user.id))
+
+      setResetOpen(false)
+    } catch (err) {
+      console.error('Failed to reset stats:', err)
+      setResetError(
+        err instanceof Error && err.message === 'reset_needs_migration'
+          ? t.profile.resetStatsNeedsMigration
+          : t.profile.resetStatsFailed,
+      )
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -352,6 +382,30 @@ export default function ProfilePage() {
         <section className="pt-1">
           <ContactLink variant="row" />
         </section>
+
+        {/* Start the personal count over. Nothing is deleted — a reset mark
+            on the profile means only later games count towards these
+            numbers, so the group history is left intact. */}
+        <section className="pt-2 pb-2">
+          {resetError && (
+            <p className="mb-2 text-sm text-negative text-center">
+              {resetError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setResetError('')
+              setResetOpen(true)
+            }}
+            className="w-full py-3 rounded-[10px] border border-negative/30 bg-negative/5 text-[14px] font-medium text-negative active:bg-negative/10 transition-colors min-h-[44px]"
+          >
+            {resetting ? t.profile.resetting : t.profile.resetStats}
+          </button>
+          <p className="mt-2 text-xs text-text-muted text-center px-1">
+            {t.profile.resetStatsHint}
+          </p>
+        </section>
       </main>
 
       <BottomSheet
@@ -389,6 +443,16 @@ export default function ProfilePage() {
           </div>
         </div>
       </BottomSheet>
+
+      <ConfirmSheet
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        title={t.profile.resetStatsTitle}
+        message={t.profile.resetStatsWarning}
+        confirmLabel={t.profile.resetStatsConfirm}
+        cancelLabel={t.common.cancel}
+        onConfirm={handleResetStats}
+      />
     </>
   )
 }

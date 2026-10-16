@@ -29,6 +29,8 @@ export type PersonalStats = {
   hasLinkedPlayers: boolean
   linkedIdentities: LinkedPlayerIdentity[]
   gameHistory: PersonalGameHistoryEntry[]
+  /** Set once the user has reset their count; everything here is since then. */
+  statsResetAt: string | null
 }
 
 const PROFILE_BASE_COLUMNS =
@@ -36,6 +38,26 @@ const PROFILE_BASE_COLUMNS =
 
 function isMissingPhoneColumn(message: string): boolean {
   return message.includes('profiles.phone') || message.includes("'phone'")
+}
+
+/**
+ * The caller's personal stats reset mark — only games finalized after it
+ * count towards their totals. Returns null when unset, and also when the
+ * column does not exist yet (migration 028 not applied), which reads as
+ * "count the full history".
+ */
+async function fetchStatsResetAt(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('stats_reset_at')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) return null
+  return (data?.stats_reset_at as string | null) ?? null
 }
 
 async function fetchProfileRow(
@@ -208,6 +230,7 @@ async function buildPersonalGameHistory(
   supabase: SupabaseClient,
   linkedPlayers: LinkedPlayerRow[],
   groupNameById: Map<string, string>,
+  statsResetAt: string | null,
 ): Promise<PersonalGameHistoryEntry[]> {
   if (!linkedPlayers.length) return []
 
@@ -234,12 +257,18 @@ async function buildPersonalGameHistory(
 
   const gameIds = [...new Set(results.map((r) => r.game_id))]
 
-  const { data: games, error: gamesError } = await supabase
+  let gamesQuery = supabase
     .from('games')
     .select('id, name, date, group_id, finalized_at')
     .in('id', gameIds)
     .not('finalized_at', 'is', null)
-    .order('finalized_at', { ascending: false })
+  // Everything before the reset mark belongs to the previous count.
+  if (statsResetAt) gamesQuery = gamesQuery.gt('finalized_at', statsResetAt)
+
+  const { data: games, error: gamesError } = await gamesQuery.order(
+    'finalized_at',
+    { ascending: false },
+  )
 
   if (gamesError) throw gamesError
   if (!games?.length) return []
@@ -296,15 +325,18 @@ export async function getPersonalStats(
     hasLinkedPlayers: false,
     linkedIdentities: [],
     gameHistory: [],
+    statsResetAt: null,
   }
 
   if (!profile) return empty
+
+  const statsResetAt = await fetchStatsResetAt(supabase, userId)
 
   const { players: linkedPlayers, groupNameById } = await fetchLinkedPlayers(
     supabase,
     userId,
   )
-  if (!linkedPlayers.length) return empty
+  if (!linkedPlayers.length) return { ...empty, statsResetAt }
 
   const linkedIdentities: LinkedPlayerIdentity[] = linkedPlayers.map((row) => ({
     displayName: row.display_name,
@@ -317,6 +349,7 @@ export async function getPersonalStats(
     supabase,
     linkedPlayers,
     groupNameById,
+    statsResetAt,
   ).catch(() => [] as PersonalGameHistoryEntry[])
 
   const { data: results, error: resultsError } = await supabase
@@ -326,15 +359,27 @@ export async function getPersonalStats(
 
   if (resultsError) throw resultsError
   if (!results?.length) {
-    return { ...empty, hasLinkedPlayers: true, linkedIdentities, gameHistory }
+    return {
+      ...empty,
+      hasLinkedPlayers: true,
+      linkedIdentities,
+      gameHistory,
+      statsResetAt,
+    }
   }
 
   const gameIds = [...new Set(results.map((r) => r.game_id))]
-  const { data: finalizedGames, error: gamesError } = await supabase
+  let finalizedQuery = supabase
     .from('games')
     .select('id')
     .in('id', gameIds)
     .not('finalized_at', 'is', null)
+  // Everything before the reset mark belongs to the previous count.
+  if (statsResetAt) {
+    finalizedQuery = finalizedQuery.gt('finalized_at', statsResetAt)
+  }
+
+  const { data: finalizedGames, error: gamesError } = await finalizedQuery
 
   if (gamesError) throw gamesError
 
@@ -378,6 +423,7 @@ export async function getPersonalStats(
     winCount,
     winRatePercent: calcWinRatePercent(winCount, gamesPlayed),
     hasLinkedPlayers: true,
+    statsResetAt,
     linkedIdentities,
     gameHistory,
   }

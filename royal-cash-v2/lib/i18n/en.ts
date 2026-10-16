@@ -218,6 +218,18 @@ export const en = {
     greeting: 'Hello',
     gameHistoryTitle: 'Your game history',
     noGameHistory: 'No closed games yet',
+    resetStats: 'Reset my count',
+    resetStatsHint:
+      'Resets your balance, games played and personal records. The group history and everyone else’s numbers stay as they are.',
+    resetStatsTitle: 'Reset your count?',
+    resetStatsWarning:
+      'Your balance, games played and personal records go back to zero, and counting starts again from your next game. No game is deleted — the group history and everyone else’s numbers stay as they are.',
+    resetStatsConfirm: 'Yes, reset',
+    resetting: 'Resetting...',
+    resetStatsFailed: 'Could not reset. Please try again.',
+    resetStatsNeedsMigration:
+      'Resetting your count needs a database update. Run migration 028.',
+    statsSinceReset: 'Counting since {date}',
     playedAs: 'Played as',
   },
   stats: {

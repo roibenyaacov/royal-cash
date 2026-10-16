@@ -216,6 +216,18 @@ export const he = {
     greeting: 'שלום',
     gameHistoryTitle: 'היסטוריית משחקים שלך',
     noGameHistory: 'עדיין אין משחקים סגורים',
+    resetStats: 'אפס את הספירה שלי',
+    resetStatsHint:
+      'מאפס את המאזן, מספר המשחקים והשיאים האישיים שלך. היסטוריית החבורה והנתונים של שאר השחקנים לא משתנים.',
+    resetStatsTitle: 'לאפס את הספירה שלך?',
+    resetStatsWarning:
+      'המאזן, מספר המשחקים והשיאים האישיים שלך יתאפסו, והספירה תתחיל מהמשחק הבא. שום משחק לא נמחק — היסטוריית החבורה והנתונים של שאר השחקנים נשארים כמו שהם.',
+    resetStatsConfirm: 'כן, אפס',
+    resetting: 'מאפס...',
+    resetStatsFailed: 'לא הצלחנו לאפס. נסה שוב.',
+    resetStatsNeedsMigration:
+      'איפוס הספירה דורש עדכון במסד הנתונים. הרץ את מיגרציה 028.',
+    statsSinceReset: 'הספירה מתחילה מ־{date}',
     playedAs: 'שיחקת כ',
   },
   stats: {
