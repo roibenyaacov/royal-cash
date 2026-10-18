@@ -1,9 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { t } from '@/lib/i18n/dictionary'
 import { resolveSeatNames } from '@/lib/display/seat-names'
 import { PlayerAvatar } from '@/components/games/player-avatar'
+import { useSeatArrange } from '@/hooks/use-seat-arrange'
+import { hashString as hashSeed } from '@/lib/display/avatar'
 import type { BuyIn, CashOut, Currency } from '@/lib/domain/types'
 
 // ---------------------------------------------------------------------------
@@ -34,6 +43,8 @@ type PokerTableProps = {
   onRemoveDefault: (playerId: string) => void
   onSetCount: (playerId: string, count: number) => void
   onSeatClick: (playerId: string) => void
+  /** Commit a new seating order. Omit to leave the table unarrangeable. */
+  onReorder?: (orderedPlayerIds: string[]) => void
 }
 
 export function PokerTable({
@@ -46,8 +57,27 @@ export function PokerTable({
   onRemoveDefault,
   onSetCount,
   onSeatClick,
+  onReorder,
 }: PokerTableProps) {
   const symbol = t.currency[currency]
+
+  const seatIds = useMemo(() => seats.map((s) => s.id), [seats])
+  const noopReorder = useCallback(() => {}, [])
+  const {
+    state: arrange,
+    registerSeat,
+    onSeatPointerDown,
+    cancelPress,
+    toggleArranging,
+    stopArranging,
+    suppressNextClick,
+  } = useSeatArrange({
+    orderedIds: seatIds,
+    onReorder: onReorder ?? noopReorder,
+    disabled: readOnly || !onReorder,
+  })
+
+  const canArrange = !readOnly && !!onReorder && seats.length > 1
 
   // Seats are ~96px wide, so a full "Roi Ben Yaacov" used to be truncated by
   // the amount next to it ("₪1050 · ...ti"). Show the first name instead,
@@ -70,26 +100,71 @@ export function PokerTable({
     right: right[i] ?? null,
   }))
 
-  const renderSeat = (seat: TableSeatData) => (
-    <TableSeat
-      key={seat.id}
-      playerId={seat.id}
-      name={seatLabels.get(seat.id) ?? seat.name}
-      fullName={seat.name}
-      buyIns={seat.buyIns}
-      cashOut={seat.cashOut}
-      defaultBuyIn={defaultBuyIn}
-      currency={currency}
-      readOnly={readOnly}
-      onAddDefault={() => onAddDefault(seat.id)}
-      onRemoveDefault={() => onRemoveDefault(seat.id)}
-      onSetCount={(count) => onSetCount(seat.id, count)}
-      onClick={() => onSeatClick(seat.id)}
-    />
-  )
+  const renderSeat = (seat: TableSeatData) => {
+    const index = seatIds.indexOf(seat.id)
+    const isDragging = arrange.draggingId === seat.id
+    return (
+      <TableSeat
+        key={seat.id}
+        ref={(el) => registerSeat(seat.id, el)}
+        playerId={seat.id}
+        name={seatLabels.get(seat.id) ?? seat.name}
+        fullName={seat.name}
+        buyIns={seat.buyIns}
+        cashOut={seat.cashOut}
+        defaultBuyIn={defaultBuyIn}
+        currency={currency}
+        readOnly={readOnly}
+        arranging={arrange.arranging}
+        dragging={isDragging}
+        dropTarget={
+          arrange.draggingId !== null &&
+          !isDragging &&
+          arrange.dropIndex === index
+        }
+        dragOffset={isDragging ? arrange.dragOffset : null}
+        onPointerDown={(e) => canArrange && onSeatPointerDown(seat.id, e)}
+        onPointerLeave={cancelPress}
+        onAddDefault={() => onAddDefault(seat.id)}
+        onRemoveDefault={() => onRemoveDefault(seat.id)}
+        onSetCount={(count) => onSetCount(seat.id, count)}
+        onClick={() => {
+          // A long press that turned into a drag must not also open the
+          // manage sheet when the finger comes up.
+          if (suppressNextClick || arrange.arranging) return
+          onSeatClick(seat.id)
+        }}
+      />
+    )
+  }
 
   return (
-    <div className="relative mx-auto w-full max-w-[340px] min-h-[240px] py-3">
+    <div className="flex flex-col items-center">
+      {canArrange && (
+        <div className="mb-1 flex w-full max-w-[340px] justify-end px-1">
+          <button
+            type="button"
+            onClick={arrange.arranging ? stopArranging : toggleArranging}
+            aria-pressed={arrange.arranging}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors min-h-[36px] ${
+              arrange.arranging
+                ? 'border-accent bg-accent/15 text-accent'
+                : 'border-border bg-surface text-text-muted active:bg-surface-elevated'
+            }`}
+          >
+            <ArrangeIcon />
+            {arrange.arranging ? t.game.arrangeDone : t.game.arrangeSeats}
+          </button>
+        </div>
+      )}
+
+      {arrange.arranging && (
+        <p className="mb-2 px-4 text-center text-[11px] text-text-muted">
+          {t.game.arrangeHint}
+        </p>
+      )}
+
+      <div className="relative mx-auto w-full max-w-[340px] min-h-[240px] py-3">
       {/* Felt + gold rail — a contained oval table */}
       <div className="absolute inset-0 rounded-full p-1.5 bg-gradient-to-b from-[#caa85a] via-[#9a7c3a] to-[#6b5421] shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
         <div className="h-full w-full rounded-full border border-black/40 bg-[radial-gradient(ellipse_at_50%_38%,#56565d_0%,#3a3a40_52%,#26262b_100%)] shadow-[inset_0_2px_22px_rgba(0,0,0,0.45)]" />
@@ -122,8 +197,28 @@ export function PokerTable({
         {bottom && (
           <div className="col-span-2 flex justify-center">{renderSeat(bottom)}</div>
         )}
+        </div>
       </div>
     </div>
+  )
+}
+
+function ArrangeIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-3.5 w-3.5 shrink-0"
+      aria-hidden
+    >
+      <path d="M8 2v12M2 8h12" />
+      <path d="M8 2 6 4M8 2l2 2M8 14l-2-2M8 14l2-2" />
+      <path d="M2 8l2-2M2 8l2 2M14 8l-2-2M14 8l-2 2" />
+    </svg>
   )
 }
 
@@ -132,6 +227,16 @@ export function PokerTable({
 type TableSeatProps = {
   /** Seeds the seat's poker character. */
   playerId: string
+  /** The table is in arrange mode — seats jiggle and steppers stand down. */
+  arranging: boolean
+  /** This seat is the one being held. */
+  dragging: boolean
+  /** The held seat would land here on release. */
+  dropTarget: boolean
+  /** Live px offset while held, else null. */
+  dragOffset: { x: number; y: number } | null
+  onPointerDown: (e: React.PointerEvent) => void
+  onPointerLeave: () => void
   /** Short label shown on the seat — usually just the first name. */
   name: string
   /** Full name, kept for the accessible label and the native tooltip. */
@@ -147,20 +252,29 @@ type TableSeatProps = {
   onClick: () => void
 }
 
-function TableSeat({
-  playerId,
-  name,
-  fullName,
-  buyIns,
-  cashOut,
-  defaultBuyIn,
-  currency,
-  readOnly,
-  onAddDefault,
-  onRemoveDefault,
-  onSetCount,
-  onClick,
-}: TableSeatProps) {
+const TableSeat = forwardRef<HTMLDivElement, TableSeatProps>(function TableSeat(
+  {
+    playerId,
+    name,
+    fullName,
+    buyIns,
+    cashOut,
+    defaultBuyIn,
+    currency,
+    readOnly,
+    arranging,
+    dragging,
+    dropTarget,
+    dragOffset,
+    onPointerDown,
+    onPointerLeave,
+    onAddDefault,
+    onRemoveDefault,
+    onSetCount,
+    onClick,
+  },
+  ref,
+) {
   const symbol = t.currency[currency]
   const totalBuyIn = buyIns.reduce((s, b) => s + b.amount, 0)
   const defaultCount = buyIns.filter((b) => b.amount === defaultBuyIn).length
@@ -191,7 +305,29 @@ function TableSeat({
     'flex items-center justify-center w-7 h-7 rounded-md text-base leading-none font-medium transition-transform active:scale-90'
 
   return (
-    <div className="flex w-[96px] max-w-full flex-col items-center gap-1">
+    <div
+      ref={ref}
+      onPointerDown={onPointerDown}
+      onPointerLeave={onPointerLeave}
+      className={`flex w-[96px] max-w-full flex-col items-center gap-1 ${
+        arranging ? 'seat-jiggle touch-none select-none' : ''
+      } ${dragging ? 'z-50 scale-110 opacity-90' : ''} ${
+        dropTarget ? 'rounded-2xl ring-2 ring-accent/70' : ''
+      }`}
+      style={
+        dragging && dragOffset
+          ? {
+              transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) scale(1.1)`,
+              // Follow the finger exactly — no easing lag while dragging.
+              transition: 'none',
+              animation: 'none',
+            }
+          : // Desynchronise the wobble so the seats do not shake in lockstep.
+            ({
+              '--jiggle-delay': `${(hashSeed(playerId) % 7) * 0.04}s`,
+            } as React.CSSProperties)
+      }
+    >
       {/* Tap avatar + name to open the player manage sheet */}
       <button
         type="button"
@@ -239,7 +375,7 @@ function TableSeat({
       </button>
 
       {/* Stepper — hidden for non-managers (read-only view) */}
-      {!readOnly && (
+      {!readOnly && !arranging && (
         <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface/90 p-0.5 backdrop-blur-sm">
           <button
             type="button"
@@ -279,4 +415,4 @@ function TableSeat({
       )}
     </div>
   )
-}
+})

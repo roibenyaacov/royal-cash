@@ -574,6 +574,54 @@ export async function setGameManagersAction(
   revalidateGame(game.group_id, gameId)
 }
 
+/**
+ * Persist where everyone sits, so the on-screen table matches the room.
+ *
+ * Takes the player ids in their new clockwise order. Written through an RPC
+ * so the whole arrangement lands in one statement — a partial write would
+ * leave two players sharing a seat index.
+ */
+export async function setSeatOrderAction(
+  gameId: string,
+  orderedPlayerIds: string[],
+): Promise<void> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const game = await dbGetGame(supabase, gameId)
+  if (!game) throw new Error('Game not found')
+
+  await assertGroupMember(supabase, game.group_id, user.id)
+
+  if (orderedPlayerIds.length === 0) return
+
+  const unique = new Set(orderedPlayerIds)
+  if (unique.size !== orderedPlayerIds.length) {
+    throw new Error('Duplicate player in seat order')
+  }
+
+  const { data, error } = await supabase.rpc('set_seat_order', {
+    p_game_id: gameId,
+    p_player_ids: orderedPlayerIds,
+  })
+
+  if (error) {
+    // Migration 029 not applied yet — say so instead of failing silently.
+    if (error.code === 'PGRST202' || error.message?.includes('set_seat_order')) {
+      throw new Error('seat_order_needs_migration')
+    }
+    throw new Error(error.message)
+  }
+
+  const payload = data as { success?: boolean; error?: string } | null
+  if (payload?.error) throw new Error(payload.error)
+
+  revalidateGame(game.group_id, gameId)
+}
+
 export type AddExpenseResult = {
   expense: Expense
   participants: ExpenseParticipant[]

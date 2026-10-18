@@ -91,6 +91,16 @@ export const en = {
     playersCount: 'Players',
     expensesTotal: 'Expenses',
     totalPot: 'Total pot',
+
+    arrangeSeats: 'Arrange seats',
+
+    arrangeDone: 'Done',
+
+    arrangeHint: 'Drag a player to move them, or press and hold a seat',
+
+    arrangeFailed: 'Could not save the arrangement.',
+
+    arrangeNeedsMigration: 'Arranging seats needs a database update. Run migration 029.',
     activePlayers: 'Active players',
     addBuyIn: 'Add buy-in',
     removeBuyIn: 'Remove buy-in',

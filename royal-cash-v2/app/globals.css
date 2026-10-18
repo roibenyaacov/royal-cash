@@ -72,3 +72,27 @@ input[type='number'] {
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* Seat "wobble" while the table is being rearranged, the way iOS home-screen
+   icons shake. Offset per seat via --jiggle-delay so they do not move in
+   lockstep, which reads as a glitch rather than an invitation to drag. */
+@keyframes seat-jiggle {
+  0%,
+  100% {
+    transform: rotate(-1.4deg);
+  }
+  50% {
+    transform: rotate(1.4deg);
+  }
+}
+
+.seat-jiggle {
+  animation: seat-jiggle 0.32s ease-in-out infinite;
+  animation-delay: var(--jiggle-delay, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seat-jiggle {
+    animation: none;
+  }
+}

@@ -175,5 +175,40 @@ export async function getGameRosterPlayers(
     .order('display_name')
 
   if (error) throw error
-  return data ?? []
+
+  return sortBySeatOrder(data ?? [], gamePlayers)
+}
+
+/**
+ * Orders the roster the way the table is arranged.
+ *
+ * Seats carrying an explicit seat_order come first in that order; anything
+ * still unarranged (a game nobody has rearranged, or a player added
+ * mid-game) keeps the alphabetical order it arrived in and sits after them.
+ * That way enabling this feature changes nothing until someone actually
+ * moves a seat.
+ */
+export function sortBySeatOrder(
+  players: Player[],
+  gamePlayers: Pick<GamePlayer, 'player_id' | 'seat_order'>[],
+): Player[] {
+  const orderByPlayer = new Map(
+    gamePlayers.map((gp) => [gp.player_id, gp.seat_order]),
+  )
+
+  return players
+    .map((player, index) => ({ player, index }))
+    .sort((a, b) => {
+      const aOrder = orderByPlayer.get(a.player.id)
+      const bOrder = orderByPlayer.get(b.player.id)
+      const aArranged = aOrder !== null && aOrder !== undefined
+      const bArranged = bOrder !== null && bOrder !== undefined
+
+      if (aArranged && bArranged) return aOrder! - bOrder!
+      if (aArranged) return -1
+      if (bArranged) return 1
+      // Both unarranged — keep the incoming (alphabetical) order.
+      return a.index - b.index
+    })
+    .map((entry) => entry.player)
 }

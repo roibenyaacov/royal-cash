@@ -62,6 +62,8 @@ export type GamePlayer = {
   player_id: string
   is_manager: boolean
   joined_at: string
+  /** Position around the table, 0-based. null = never arranged; sorts last. */
+  seat_order: number | null
 }
 
 export type BuyIn = {

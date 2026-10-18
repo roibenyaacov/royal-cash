@@ -33,6 +33,7 @@ import {
   setCashOutAction,
   clearCashOutAction,
   setGameManagersAction,
+  setSeatOrderAction,
   addExpenseAction,
   addPlayerToGameAction,
   addNewPlayerToGameAction,
@@ -122,6 +123,7 @@ type OptimisticAction =
   | { type: 'set_cash_out'; cashOut: CashOut }
   | { type: 'clear_cash_out'; playerId: string }
   | { type: 'set_managers'; managerPlayerIds: string[] }
+  | { type: 'reorder_players'; orderedIds: string[] }
 
 function optimisticReducer(
   state: ServerState,
@@ -186,6 +188,8 @@ function optimisticReducer(
         ],
         events: [action.event, ...state.events],
       }
+    case 'reorder_players':
+      return { ...state, players: applyOrder(state.players, action.orderedIds) }
     case 'set_cash_out': {
       // Cash-out is unique per (game, player) — replace any existing row for
       // the player rather than appending, so it never doubles up.
@@ -217,6 +221,24 @@ function appendUnique<T extends { id: string }>(arr: T[], item: T): T[] {
 
 function prependUnique<T extends { id: string }>(arr: T[], item: T): T[] {
   return arr.some((x) => x.id === item.id) ? arr : [item, ...arr]
+}
+
+/**
+ * Reorders the roster to match a new seating arrangement.
+ *
+ * `orderedIds` only covers the seats that are actually on the table —
+ * players sitting at zero buy-ins are not shown and so are not dragged.
+ * They keep their relative order and stay after the arranged ones, which
+ * is also how the server sorts them.
+ */
+function applyOrder(players: Player[], orderedIds: string[]): Player[] {
+  const byId = new Map(players.map((p) => [p.id, p]))
+  const arranged = orderedIds
+    .map((id) => byId.get(id))
+    .filter((p): p is Player => p !== undefined)
+  const arrangedIds = new Set(arranged.map((p) => p.id))
+  const rest = players.filter((p) => !arrangedIds.has(p.id))
+  return [...arranged, ...rest]
 }
 
 function getBuyInErrorMessage(err: unknown): string | null {
@@ -1025,6 +1047,25 @@ export default function ActiveGameClient({
   }
 
   // Record / update how much a player left with, mid-game.
+  // Persist where everyone sits. Optimistic so the seat lands under the
+  // finger immediately; a failure refetches rather than leaving the table
+  // showing an arrangement the server never accepted.
+  const handleReorderSeats = (orderedPlayerIds: string[]) => {
+    startTransition(async () => {
+      applyOptimistic({ type: 'reorder_players', orderedIds: orderedPlayerIds })
+      try {
+        await setSeatOrderAction(gameId, orderedPlayerIds)
+        setServerState((prev) => ({
+          ...prev,
+          players: applyOrder(prev.players, orderedPlayerIds),
+        }))
+      } catch (err) {
+        console.error('Failed to save seat order:', err)
+        void fetchData()
+      }
+    })
+  }
+
   const handleSetCashOut = (playerId: string, amount: number) => {
     setBuyInError('')
     if (!Number.isInteger(amount) || amount < 0) return
@@ -1156,6 +1197,7 @@ export default function ActiveGameClient({
           onRemoveDefault={handleRemoveDefaultBuyIn}
           onSetCount={handleSetBuyInCount}
           onSeatClick={setManagePlayerId}
+          onReorder={handleReorderSeats}
         />
 
         {totalExpenses > 0 && (
