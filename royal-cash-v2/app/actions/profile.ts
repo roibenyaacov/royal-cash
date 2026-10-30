@@ -62,3 +62,39 @@ export async function resetMyStatsAction(): Promise<void> {
   revalidatePath('/stats')
   revalidatePath('/groups')
 }
+
+/**
+ * Put back a personal count that was reset.
+ *
+ * The reset only ever stamped the profile, so the games, results and
+ * settlements behind it were never touched — this clears the stamp and
+ * rebuilds the aggregates from the full finalized history.
+ */
+export async function undoMyStatsResetAction(): Promise<void> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data, error } = await supabase.rpc('undo_my_stats_reset')
+
+  if (error) {
+    // Migration 032 not applied yet — say so instead of failing silently.
+    if (
+      error.code === 'PGRST202' ||
+      error.message?.includes('undo_my_stats_reset')
+    ) {
+      throw new Error('undo_reset_needs_migration')
+    }
+    throw new Error(error.message)
+  }
+
+  const payload = data as { success?: boolean; error?: string } | null
+  if (payload?.error) throw new Error(payload.error)
+  if (!payload?.success) throw new Error('undo_reset_failed')
+
+  revalidatePath('/profile')
+  revalidatePath('/stats')
+  revalidatePath('/groups')
+}

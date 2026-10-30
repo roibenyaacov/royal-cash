@@ -107,6 +107,11 @@ export default function ResultsClient({
     void handleBackToEditing()
   }, [isFinalized, reopening, finalizing, handleBackToEditing])
 
+  const handleCloseWithoutSharing = useCallback(async () => {
+    if (finalizing || reopening) return
+    await finalizeAndNavigate()
+  }, [finalizing, reopening, finalizeAndNavigate])
+
   const handleWhatsAppShareAndClose = useCallback(async () => {
     if (finalizing) return
 
@@ -249,6 +254,21 @@ export default function ResultsClient({
           >
             {buttonLabel}
           </Button>
+          {/* Saving the table to history and telling the group about it are
+              two different things. Sharing used to be the only route to the
+              first, so anyone who did not want a WhatsApp message had no way
+              to finish a table at all. */}
+          {!isFinalized && (
+            <Button
+              variant="secondary"
+              fullWidth
+              size="lg"
+              onClick={handleCloseWithoutSharing}
+              disabled={finalizing || reopening}
+            >
+              {finalizing ? t.results.savingGame : t.results.closeWithoutSharing}
+            </Button>
+          )}
           {/* Available after finalizing too: a miscount found the next morning
               still needs a way back. Reopening a finalized game pulls it out of
               the group stats and podium until it is closed and saved again. */}

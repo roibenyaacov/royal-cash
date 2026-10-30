@@ -11,7 +11,12 @@ import { Loading } from '@/components/ui/loading'
 import { ProfileStatCard } from '@/components/profile/profile-stat-card'
 import { createClient } from '@/lib/supabase/client'
 import { getPersonalStats, type PersonalStats } from '@/lib/db/profile'
-import { updateProfileAction, resetMyStatsAction } from '@/app/actions/profile'
+import {
+  updateProfileAction,
+  resetMyStatsAction,
+  undoMyStatsResetAction,
+} from '@/app/actions/profile'
+import { BalanceChart } from '@/components/profile/balance-chart'
 import { ContactLink } from '@/components/layout/contact-link'
 
 function getSaveErrorMessage(err: unknown): string {
@@ -112,6 +117,7 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState('')
   const [resetOpen, setResetOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [undoing, setUndoing] = useState(false)
   const [resetError, setResetError] = useState('')
 
   useEffect(() => {
@@ -176,6 +182,30 @@ export default function ProfilePage() {
       console.error('Failed to update profile:', err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleUndoReset() {
+    if (undoing) return
+    setUndoing(true)
+    setResetError('')
+    try {
+      await undoMyStatsResetAction()
+
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) setStats(await getPersonalStats(supabase, user.id))
+    } catch (err) {
+      console.error('Failed to undo stats reset:', err)
+      setResetError(
+        err instanceof Error && err.message === 'undo_reset_needs_migration'
+          ? t.profile.undoResetNeedsMigration
+          : t.profile.undoResetFailed,
+      )
+    } finally {
+      setUndoing(false)
     }
   }
 
@@ -327,6 +357,10 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {stats?.hasLinkedPlayers && !!stats.gameHistory?.length && (
+          <BalanceChart history={stats.gameHistory} />
+        )}
+
         {stats?.hasLinkedPlayers && (
           <section>
             <p className="text-sm font-semibold text-text-primary mb-2">
@@ -392,19 +426,40 @@ export default function ProfilePage() {
               {resetError}
             </p>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              setResetError('')
-              setResetOpen(true)
-            }}
-            className="w-full py-3 rounded-[10px] border border-negative/30 bg-negative/5 text-[14px] font-medium text-negative active:bg-negative/10 transition-colors min-h-[44px]"
-          >
-            {resetting ? t.profile.resetting : t.profile.resetStats}
-          </button>
-          <p className="mt-2 text-xs text-text-muted text-center px-1">
-            {t.profile.resetStatsHint}
-          </p>
+          {/* A reset hides rather than deletes, so the way back belongs right
+              here next to the way in — offered only once there is something
+              to put back. */}
+          {stats?.statsResetAt ? (
+            <>
+              <button
+                type="button"
+                onClick={handleUndoReset}
+                disabled={undoing}
+                className="w-full py-3 rounded-[10px] border border-accent/40 bg-accent/10 text-[14px] font-medium text-accent active:bg-accent/20 transition-colors min-h-[44px] disabled:opacity-50"
+              >
+                {undoing ? t.profile.undoResetting : t.profile.undoReset}
+              </button>
+              <p className="mt-2 text-xs text-text-muted text-center px-1">
+                {t.profile.undoResetHint}
+              </p>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetError('')
+                  setResetOpen(true)
+                }}
+                className="w-full py-3 rounded-[10px] border border-negative/30 bg-negative/5 text-[14px] font-medium text-negative active:bg-negative/10 transition-colors min-h-[44px]"
+              >
+                {resetting ? t.profile.resetting : t.profile.resetStats}
+              </button>
+              <p className="mt-2 text-xs text-text-muted text-center px-1">
+                {t.profile.resetStatsHint}
+              </p>
+            </>
+          )}
         </section>
       </main>
 
