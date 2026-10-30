@@ -283,6 +283,18 @@ export const en = {
       'Resetting your count needs a database update. Run migration 028.',
     statsSinceReset: 'Counting since {date}',
     playedAs: 'Played as',
+    photoTitle: 'Profile photo',
+    photoAdd: 'Add a photo',
+    photoChange: 'Change photo',
+    photoRemove: 'Remove photo',
+    photoUploading: 'Uploading...',
+    photoHint:
+      'Your photo shows next to your name at the table and in every group. Without one you get a sheep.',
+    photoInvalidType: 'Only an image can be uploaded — JPG, PNG or WEBP.',
+    photoTooLarge: 'That image is too large. Pick a smaller one.',
+    photoFailed: 'The upload failed. Please try again.',
+    photoNeedsMigration:
+      'Profile photos need a database update (migration 033).',
   },
   stats: {
     title: 'Statistics',

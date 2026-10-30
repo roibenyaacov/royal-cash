@@ -27,6 +27,39 @@ export async function updateProfileAction(fields: {
 }
 
 /**
+ * Point the caller's photo at a file they uploaded, or clear it with null.
+ *
+ * The RPC is what actually writes it: it checks the URL really is one of
+ * our own storage objects and fans the value out to every player row the
+ * caller is linked to, so the photo appears at every table at once rather
+ * than only the group that happened to be open.
+ */
+export async function setMyAvatarAction(url: string | null): Promise<void> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data, error } = await supabase.rpc('set_my_avatar', { p_url: url })
+
+  if (error) {
+    // Migration 033 not applied yet — say so instead of failing silently.
+    if (error.code === 'PGRST202' || error.message?.includes('set_my_avatar')) {
+      throw new Error('avatar_needs_migration')
+    }
+    throw new Error(error.message)
+  }
+
+  const payload = data as { success?: boolean; error?: string } | null
+  if (payload?.error) throw new Error(payload.error)
+  if (!payload?.success) throw new Error('avatar_failed')
+
+  revalidatePath('/profile')
+  revalidatePath('/groups')
+}
+
+/**
  * Start the caller's personal count over.
  *
  * Nothing is deleted: the profile gets a reset mark and every personal

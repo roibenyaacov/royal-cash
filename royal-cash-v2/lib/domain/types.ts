@@ -2,7 +2,10 @@ export type User = {
   id: string
   email: string
   full_name: string
+  /** Whatever the OAuth provider supplied at sign-in. */
   avatar_url: string | null
+  /** A photo the user uploaded themselves; this is the one that is shown. */
+  custom_avatar_url?: string | null
   phone: string | null
   created_at: string
   updated_at: string
@@ -33,6 +36,8 @@ export type Player = {
   phone: string | null
   linked_user_id: string | null
   is_active: boolean
+  /** Photo copied from the linked profile; null means show a sheep. */
+  avatar_url?: string | null
   created_at: string
   updated_at: string
 }

@@ -31,6 +31,14 @@ export type TableSeatData = {
   name: string
   buyIns: BuyIn[]
   cashOut: CashOut | null
+  /** Uploaded photo, if this player has one. Null falls back to a sheep. */
+  avatarUrl?: string | null
+  /**
+   * Seeds the fallback sheep. The linked account where there is one, so the
+   * same person keeps the same sheep across groups and on their own
+   * profile, rather than one per seat they happen to hold.
+   */
+  avatarSeed?: string
 }
 
 type PokerTableProps = {
@@ -108,6 +116,8 @@ export function PokerTable({
         key={seat.id}
         ref={(el) => registerSeat(seat.id, el)}
         playerId={seat.id}
+        avatarSeed={seat.avatarSeed ?? seat.id}
+        avatarUrl={seat.avatarUrl ?? null}
         name={seatLabels.get(seat.id) ?? seat.name}
         fullName={seat.name}
         buyIns={seat.buyIns}
@@ -225,8 +235,11 @@ function ArrangeIcon() {
 // ---------------------------------------------------------------------------
 
 type TableSeatProps = {
-  /** Seeds the seat's poker character. */
   playerId: string
+  /** Seeds the seat's sheep. */
+  avatarSeed: string
+  /** Uploaded photo, shown instead of the sheep. */
+  avatarUrl: string | null
   /** The table is in arrange mode — seats jiggle and steppers stand down. */
   arranging: boolean
   /** This seat is the one being held. */
@@ -255,6 +268,8 @@ type TableSeatProps = {
 const TableSeat = forwardRef<HTMLDivElement, TableSeatProps>(function TableSeat(
   {
     playerId,
+    avatarSeed,
+    avatarUrl,
     name,
     fullName,
     buyIns,
@@ -340,7 +355,13 @@ const TableSeat = forwardRef<HTMLDivElement, TableSeatProps>(function TableSeat(
         {/* Avatar with gold frame */}
         <div className="rounded-full p-[1.5px] bg-gradient-to-b from-[#e0c476] to-[#9a7c3a] shadow-[0_0_6px_rgba(201,168,76,0.4)]">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-black/40">
-            <PlayerAvatar playerId={playerId} size={36} muted={isCashedOut} />
+            <PlayerAvatar
+              playerId={avatarSeed}
+              imageUrl={avatarUrl}
+              name={fullName}
+              size={36}
+              muted={isCashedOut}
+            />
           </div>
         </div>
 

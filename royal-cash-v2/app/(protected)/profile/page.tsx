@@ -17,6 +17,8 @@ import {
   undoMyStatsResetAction,
 } from '@/app/actions/profile'
 import { BalanceChart } from '@/components/profile/balance-chart'
+import { AvatarUploader } from '@/components/profile/avatar-uploader'
+import { PlayerAvatar } from '@/components/games/player-avatar'
 import { ContactLink } from '@/components/layout/contact-link'
 
 function getSaveErrorMessage(err: unknown): string {
@@ -109,6 +111,7 @@ function IconEdit() {
 
 export default function ProfilePage() {
   const [stats, setStats] = useState<PersonalStats | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [phoneDraft, setPhoneDraft] = useState('')
@@ -125,6 +128,7 @@ export default function ProfilePage() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user || cancelled) return
+      setUserId(user.id)
       getPersonalStats(supabase, user.id)
         .then((data) => {
           if (cancelled) return
@@ -252,29 +256,22 @@ export default function ProfilePage() {
   const totalBalance = stats?.totalBalance ?? 0
   const biggestWin = stats?.biggestWin ?? 0
   const winRate = stats?.winRatePercent ?? 0
+  const customAvatarUrl = profile?.custom_avatar_url ?? null
 
   return (
     <>
       <PageHeader title={t.profile.title} />
 
       <main className="flex-1 px-4 py-3 flex flex-col gap-3">
-        {/* Avatar + greeting — compact row */}
+        {/* Greeting — the photo lives in its own card below, where there is
+            room for the two actions that go with it. */}
         <div className="flex items-center gap-3">
-          {profile?.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={profile.avatar_url}
-              alt={resolvedName}
-              className="w-14 h-14 shrink-0 rounded-full border border-border object-cover"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="w-14 h-14 shrink-0 rounded-full border border-border bg-surface-elevated flex items-center justify-center">
-              <span className="text-lg font-bold text-accent">
-                {(resolvedName || '?').charAt(0)}
-              </span>
-            </div>
-          )}
+          <PlayerAvatar
+            playerId={userId ?? resolvedName}
+            imageUrl={customAvatarUrl}
+            name={resolvedName}
+            size={56}
+          />
           {resolvedName && (
             <p className="text-lg font-bold text-text-primary leading-snug">
               {t.profile.greeting}, {resolvedName}
@@ -356,6 +353,27 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Changing the photo writes it to every player row the account is
+            linked to, so the seat and the member list pick it up with the
+            group screen's next load — no need to touch either from here. */}
+        {userId && (
+          <div className="rounded-[var(--radius-card)] bg-surface-elevated border border-border px-3 py-3">
+            <AvatarUploader
+              userId={userId}
+              seedId={userId}
+              name={resolvedName}
+              imageUrl={customAvatarUrl}
+              onChange={(url) =>
+                setStats((prev) =>
+                  prev
+                    ? { ...prev, profile: { ...prev.profile, custom_avatar_url: url } }
+                    : prev,
+                )
+              }
+            />
+          </div>
+        )}
 
         {stats?.hasLinkedPlayers && !!stats.gameHistory?.length && (
           <BalanceChart history={stats.gameHistory} />

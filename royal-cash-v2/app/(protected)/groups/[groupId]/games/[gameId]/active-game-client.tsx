@@ -430,6 +430,8 @@ export default function ActiveGameClient({
       visiblePlayers.map((p) => ({
         id: p.id,
         name: p.display_name,
+        avatarUrl: p.avatar_url ?? null,
+        avatarSeed: p.linked_user_id ?? p.id,
         buyIns: buyIns.filter((b) => b.player_id === p.id),
         cashOut: cashOutByPlayer.get(p.id) ?? null,
       })),

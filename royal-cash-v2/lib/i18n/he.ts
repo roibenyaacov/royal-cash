@@ -276,6 +276,18 @@ export const he = {
       'איפוס הספירה דורש עדכון במסד הנתונים. הרץ את מיגרציה 028.',
     statsSinceReset: 'הספירה מתחילה מ־{date}',
     playedAs: 'שיחקת כ',
+    photoTitle: 'תמונת פרופיל',
+    photoAdd: 'הוסף תמונה',
+    photoChange: 'החלף תמונה',
+    photoRemove: 'הסר תמונה',
+    photoUploading: 'מעלה...',
+    photoHint:
+      'התמונה תוצג ליד השם שלך בשולחן ובכל החבורות. בלי תמונה מקבלים כבש.',
+    photoInvalidType: 'אפשר להעלות רק תמונה — JPG, PNG או WEBP.',
+    photoTooLarge: 'התמונה גדולה מדי. בחר תמונה קטנה יותר.',
+    photoFailed: 'ההעלאה נכשלה. נסה שוב.',
+    photoNeedsMigration:
+      'תמונות פרופיל דורשות עדכון במסד הנתונים (מיגרציה 033).',
   },
   stats: {
     title: 'סטטיסטיקות',

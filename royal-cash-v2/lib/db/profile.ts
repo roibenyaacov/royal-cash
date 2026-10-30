@@ -19,7 +19,10 @@ export type PersonalGameHistoryEntry = {
 }
 
 export type PersonalStats = {
-  profile: Pick<User, 'full_name' | 'email' | 'avatar_url' | 'phone'>
+  profile: Pick<
+    User,
+    'full_name' | 'email' | 'avatar_url' | 'custom_avatar_url' | 'phone'
+  >
   gamesPlayed: number
   totalBalance: number
   biggestWin: number
@@ -58,6 +61,26 @@ async function fetchStatsResetAt(
 
   if (error) return null
   return (data?.stats_reset_at as string | null) ?? null
+}
+
+/**
+ * The photo the caller uploaded themselves, read on its own rather than
+ * added to PROFILE_BASE_COLUMNS: a missing column fails the whole select,
+ * and the profile screen has to keep working on a database where migration
+ * 033 has not been applied. Absent reads as "no photo".
+ */
+async function fetchCustomAvatarUrl(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('custom_avatar_url')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) return null
+  return (data?.custom_avatar_url as string | null) ?? null
 }
 
 async function fetchProfileRow(
@@ -308,12 +331,16 @@ export async function getPersonalStats(
   userId: string,
 ): Promise<PersonalStats> {
   const profile = await getProfile(supabase, userId)
+  const customAvatarUrl = profile
+    ? await fetchCustomAvatarUrl(supabase, userId)
+    : null
 
   const empty: PersonalStats = {
     profile: {
       full_name: profile?.full_name ?? '',
       email: profile?.email ?? '',
       avatar_url: profile?.avatar_url ?? null,
+      custom_avatar_url: customAvatarUrl,
       phone: profile?.phone ?? null,
     },
     gamesPlayed: 0,
@@ -414,6 +441,7 @@ export async function getPersonalStats(
       full_name: profile.full_name ?? '',
       email: profile.email ?? '',
       avatar_url: profile.avatar_url,
+      custom_avatar_url: customAvatarUrl,
       phone: profile.phone ?? null,
     },
     gamesPlayed,

@@ -12,6 +12,7 @@ import { InviteLink } from '@/components/ui/invite-link'
 import { IosListGroup, IosListRow } from '@/components/ui/ios-list'
 import { PlusIcon } from '@/components/ui/header-icon-button'
 import { PlayerSheet } from '@/components/groups/player-sheet'
+import { PlayerAvatar } from '@/components/games/player-avatar'
 import { WinPodium } from '@/components/groups/win-podium'
 import { Loading } from '@/components/ui/loading'
 import { createPlayerAction } from '@/app/actions/players'
@@ -35,16 +36,6 @@ function formatGameDate(iso: string): string {
     month: 'long',
     year: 'numeric',
   })
-}
-
-function PlayerAvatar({ name }: { name: string }) {
-  return (
-    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-surface border border-border">
-      <span className="text-accent font-bold text-lg leading-none">
-        {name.charAt(0)}
-      </span>
-    </div>
-  )
 }
 
 interface GroupDetailClientProps {
@@ -261,7 +252,14 @@ export default function GroupDetailClient({
               <IosListRow
                 key={p.id}
                 onClick={() => setSelectedPlayer(p)}
-                leading={<PlayerAvatar name={p.display_name} />}
+                leading={
+                  <PlayerAvatar
+                    playerId={p.linked_user_id ?? p.id}
+                    imageUrl={p.avatar_url ?? null}
+                    name={p.display_name}
+                    size={44}
+                  />
+                }
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-text-primary truncate">
