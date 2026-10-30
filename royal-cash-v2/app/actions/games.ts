@@ -628,14 +628,18 @@ export type AddExpenseResult = {
   event: GameEvent
 }
 
-export async function addExpenseAction(
-  gameId: string,
-  paidByPlayerId: string,
+/**
+ * Validates an expense payload and returns its trimmed description.
+ *
+ * Shared by the add and edit paths so the two cannot drift apart: an
+ * expense that one accepts and the other rejects would be creatable and
+ * then uneditable, or the reverse.
+ */
+function assertValidExpensePayload(
   amount: number,
   description: string,
-  splitType: ExpenseSplitType,
   participants: { playerId: string; amountOwed: number }[],
-): Promise<AddExpenseResult> {
+): string {
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new Error('Invalid expense amount')
   }
@@ -649,8 +653,15 @@ export async function addExpenseAction(
     throw new Error('Expense participants required')
   }
 
+  // A player listed twice would be charged twice while the split still
+  // summed to the total, so the sum check below cannot catch it.
+  const seen = new Set<string>()
   let participantSum = 0
   for (const p of participants) {
+    if (seen.has(p.playerId)) {
+      throw new Error('Duplicate expense participant')
+    }
+    seen.add(p.playerId)
     if (!Number.isInteger(p.amountOwed) || p.amountOwed < 0) {
       throw new Error('Invalid expense participant amount')
     }
@@ -659,6 +670,23 @@ export async function addExpenseAction(
   if (participantSum !== amount) {
     throw new Error('Expense participants must sum to expense amount')
   }
+
+  return trimmedDescription
+}
+
+export async function addExpenseAction(
+  gameId: string,
+  paidByPlayerId: string,
+  amount: number,
+  description: string,
+  splitType: ExpenseSplitType,
+  participants: { playerId: string; amountOwed: number }[],
+): Promise<AddExpenseResult> {
+  const trimmedDescription = assertValidExpensePayload(
+    amount,
+    description,
+    participants,
+  )
 
   const { userId, db, game } = await authorizeActiveGameMutation(gameId)
   await assertPlayerInActiveGame(db, gameId, paidByPlayerId)
@@ -686,6 +714,129 @@ export async function addExpenseAction(
 
   revalidateGame(game.group_id, gameId)
   return { expense, participants: insertedParticipants, event }
+}
+
+export type UpdateExpenseResult = {
+  expense: Expense
+  participants: ExpenseParticipant[]
+  event: GameEvent
+}
+
+/**
+ * Corrects an existing expense: payer, amount, description and split.
+ *
+ * Goes through `update_expense_atomic` rather than an UPDATE plus a
+ * DELETE/INSERT of the split, because an expense whose participants no
+ * longer sum to its amount silently corrupts every balance and settlement
+ * in the game. The RPC replaces the row and its split in one transaction,
+ * so a half-applied edit is not reachable.
+ */
+export async function updateExpenseAction(
+  gameId: string,
+  expenseId: string,
+  paidByPlayerId: string,
+  amount: number,
+  description: string,
+  splitType: ExpenseSplitType,
+  participants: { playerId: string; amountOwed: number }[],
+): Promise<UpdateExpenseResult> {
+  const trimmedDescription = assertValidExpensePayload(
+    amount,
+    description,
+    participants,
+  )
+
+  // Front-door gate: game exists, is active, caller is a member. The RPC
+  // re-checks all of it against the expense's own game, so this is defense
+  // in depth rather than the only guard.
+  const { db, game } = await authorizeActiveGameMutation(gameId)
+
+  const { data, error } = await db.rpc('update_expense_atomic', {
+    p_expense_id: expenseId,
+    p_paid_by_player_id: paidByPlayerId,
+    p_amount: amount,
+    p_description: trimmedDescription,
+    p_split_type: splitType,
+    p_player_ids: participants.map((p) => p.playerId),
+    p_amounts: participants.map((p) => p.amountOwed),
+  })
+
+  if (error) {
+    // Migration 030 not applied yet — say so instead of failing silently.
+    if (
+      error.code === 'PGRST202' ||
+      error.message?.includes('update_expense_atomic')
+    ) {
+      throw new Error('expense_edit_needs_migration')
+    }
+    throw new Error(error.message)
+  }
+
+  const payload = data as
+    | {
+        success?: boolean
+        error?: string
+        expense?: Expense
+        participants?: ExpenseParticipant[]
+        event?: GameEvent
+      }
+    | null
+
+  if (payload?.error) throw new Error(payload.error)
+  if (!payload?.success || !payload.expense || !payload.event) {
+    throw new Error('expense_update_failed')
+  }
+  // The expense id is the caller's; make sure it really belongs to the
+  // game whose cache we are about to revalidate.
+  if (payload.expense.game_id !== gameId) {
+    throw new Error('expense_not_in_game')
+  }
+
+  revalidateGame(game.group_id, gameId)
+  return {
+    expense: payload.expense,
+    participants: payload.participants ?? [],
+    event: payload.event,
+  }
+}
+
+export type DeleteExpenseResult = { event: GameEvent | null }
+
+/**
+ * Removes an expense entirely, cascading its split, and logs the removal.
+ *
+ * Deleting is the only way to undo a "this never happened" entry; editing
+ * it down to zero is not possible because `expenses.amount` is CHECK > 0.
+ */
+export async function deleteExpenseAction(
+  gameId: string,
+  expenseId: string,
+): Promise<DeleteExpenseResult> {
+  const { db, game } = await authorizeActiveGameMutation(gameId)
+
+  const { data, error } = await db.rpc('delete_expense_atomic', {
+    p_expense_id: expenseId,
+  })
+
+  if (error) {
+    if (
+      error.code === 'PGRST202' ||
+      error.message?.includes('delete_expense_atomic')
+    ) {
+      throw new Error('expense_edit_needs_migration')
+    }
+    throw new Error(error.message)
+  }
+
+  const payload = data as
+    | { success?: boolean; error?: string; event?: GameEvent }
+    | null
+
+  if (payload?.error) throw new Error(payload.error)
+  if (!payload?.success) throw new Error('expense_delete_failed')
+
+  revalidateGame(game.group_id, gameId)
+  return { event: payload.event ?? null }
 }
 
 export async function closeGameAction(

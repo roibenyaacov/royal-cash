@@ -99,7 +99,7 @@ export function GameActivityLog({
                     </p>
                     {entry.count === 1 &&
                       entry.description &&
-                      entry.event_type !== 'expense_added' && (
+                      !entry.event_type.startsWith('expense_') && (
                         <p className="text-xs text-text-muted mt-0.5">
                           {entry.description}
                         </p>
@@ -154,7 +154,9 @@ function groupConsecutiveEvents(events: GameEvent[]): GroupedEvent[] {
 }
 
 function canGroup(last: GroupedEvent, event: GameEvent): boolean {
-  if (event.event_type === 'expense_added') return false
+  // Expenses are one-offs carrying their own description; collapsing two
+  // of them into an "x2" row would hide which is which.
+  if (event.event_type.startsWith('expense_')) return false
   if (event.event_type !== last.event_type) return false
   if (event.player_id !== last.player_id) return false
   if ((event.amount ?? 0) !== last.unitAmount) return false
@@ -179,6 +181,10 @@ function formatGroupedText(
       return `${playerName} - ${t.game.eventBuyInRemoved} ${symbol}${amount}`
     case 'expense_added':
       return `${playerName} - ${t.expenses.title} ${symbol}${amount}${entry.description ? `: ${entry.description}` : ''}`
+    case 'expense_updated':
+      return `${playerName} - ${t.game.eventExpenseUpdated} ${symbol}${amount}${entry.description ? `: ${entry.description}` : ''}`
+    case 'expense_removed':
+      return `${playerName} - ${t.game.eventExpenseRemoved} ${symbol}${amount}${entry.description ? `: ${entry.description}` : ''}`
     default:
       return ''
   }

@@ -9,11 +9,14 @@ import {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { t } from '@/lib/i18n/dictionary'
+import { useLocale } from '@/lib/i18n/locale-context'
+import { ChevronForward } from '@/components/ui/chevron'
 import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { PokerTable } from '@/components/games/poker-table'
 import { AddPlayerToGameSheet } from '@/components/games/add-player-to-game-sheet'
-import { ExpenseSheet } from '@/components/expenses/expense-sheet'
+import { ExpenseSheet, type ExpenseDraft } from '@/components/expenses/expense-sheet'
+import { ExpenseListSheet } from '@/components/expenses/expense-list-sheet'
 import { GameActivityLog } from '@/components/games/game-activity-log'
 import { createClient } from '@/lib/supabase/client'
 import { getGame, getGameRosterPlayers, getGamePlayers } from '@/lib/db/games'
@@ -35,6 +38,8 @@ import {
   setGameManagersAction,
   setSeatOrderAction,
   addExpenseAction,
+  updateExpenseAction,
+  deleteExpenseAction,
   addPlayerToGameAction,
   addNewPlayerToGameAction,
   deleteGameAction,
@@ -120,6 +125,13 @@ type OptimisticAction =
       participants: ExpenseParticipant[]
       event: GameEvent
     }
+  | {
+      type: 'update_expense'
+      expense: Expense
+      participants: ExpenseParticipant[]
+      event: GameEvent
+    }
+  | { type: 'delete_expense'; expenseId: string; event: GameEvent }
   | { type: 'set_cash_out'; cashOut: CashOut }
   | { type: 'clear_cash_out'; playerId: string }
   | { type: 'set_managers'; managerPlayerIds: string[] }
@@ -188,6 +200,31 @@ function optimisticReducer(
         ],
         events: [action.event, ...state.events],
       }
+    case 'update_expense': {
+      // The split is replaced wholesale rather than diffed, matching what
+      // update_expense_atomic does in Postgres: every participant row for
+      // this expense goes, the new set lands.
+      const others = state.expenseParticipants.filter(
+        (p) => p.expense_id !== action.expense.id,
+      )
+      return {
+        ...state,
+        expenses: state.expenses.map((e) =>
+          e.id === action.expense.id ? action.expense : e,
+        ),
+        expenseParticipants: [...others, ...action.participants],
+        events: prependUnique(state.events, action.event),
+      }
+    }
+    case 'delete_expense':
+      return {
+        ...state,
+        expenses: state.expenses.filter((e) => e.id !== action.expenseId),
+        expenseParticipants: state.expenseParticipants.filter(
+          (p) => p.expense_id !== action.expenseId,
+        ),
+        events: prependUnique(state.events, action.event),
+      }
     case 'reorder_players':
       return { ...state, players: applyOrder(state.players, action.orderedIds) }
     case 'set_cash_out': {
@@ -251,6 +288,23 @@ function getBuyInErrorMessage(err: unknown): string | null {
   return null
 }
 
+/**
+ * Turns a failed expense edit into something the user can act on.
+ *
+ * The one case worth naming is a missing migration 030, because the fix is
+ * "apply the migration", not "try again" — everything else collapses into
+ * the generic retry message.
+ */
+function getExpenseErrorMessage(err: unknown, fallback: string): string {
+  if (
+    err instanceof Error &&
+    err.message === 'expense_edit_needs_migration'
+  ) {
+    return t.expenses.editNeedsMigration
+  }
+  return fallback
+}
+
 export default function ActiveGameClient({
   groupId,
   gameId,
@@ -286,7 +340,11 @@ export default function ActiveGameClient({
   // hand the close screen a pot that is still missing the last buy-ins.
   const [mutating, startTransition] = useTransition()
 
+  const { dir } = useLocale()
   const [showExpense, setShowExpense] = useState(false)
+  const [showExpenseList, setShowExpenseList] = useState(false)
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
+  const [expenseError, setExpenseError] = useState('')
   const [showAddPlayer, setShowAddPlayer] = useState(false)
   const [showDeleteGame, setShowDeleteGame] = useState(false)
   const [deletingGame, setDeletingGame] = useState(false)
@@ -301,6 +359,7 @@ export default function ActiveGameClient({
     buyIns,
     cashOuts,
     expenses,
+    expenseParticipants,
     events,
   } = optimisticState
 
@@ -406,6 +465,21 @@ export default function ActiveGameClient({
     () => players.filter((p) => calcPlayerBuyIns(buyIns, p.id) === 0),
     [players, buyIns],
   )
+
+  // The expense currently open for correction, paired with its split. Derived
+  // from the optimistic state rather than captured on tap, so a realtime
+  // refresh that changes the expense is reflected in the open form.
+  const editingExpense = useMemo<ExpenseDraft | null>(() => {
+    if (!editingExpenseId) return null
+    const expense = expenses.find((e) => e.id === editingExpenseId)
+    if (!expense) return null
+    return {
+      expense,
+      participants: expenseParticipants.filter(
+        (p) => p.expense_id === editingExpenseId,
+      ),
+    }
+  }, [editingExpenseId, expenses, expenseParticipants])
 
   // --- Handlers (optimistic) ------------------------------------------------
 
@@ -729,6 +803,128 @@ export default function ActiveGameClient({
         })
       } catch (err) {
         console.error('Failed to add expense:', err)
+        void fetchData()
+      }
+    })
+  }
+
+  const handleUpdateExpense = (
+    expenseId: string,
+    paidByPlayerId: string,
+    amount: number,
+    description: string,
+    splitType: ExpenseSplitType,
+    participants: { playerId: string; amountOwed: number }[],
+  ) => {
+    setExpenseError('')
+    setEditingExpenseId(null)
+
+    const existing = expenses.find((e) => e.id === expenseId)
+    if (!existing) return
+
+    const nowIso = new Date().toISOString()
+    const optimisticExpense: Expense = {
+      ...existing,
+      paid_by_player_id: paidByPlayerId,
+      amount,
+      description,
+      split_type: splitType,
+    }
+    const optimisticParticipants: ExpenseParticipant[] = participants.map(
+      (p) => ({
+        id: pendingId(),
+        expense_id: expenseId,
+        player_id: p.playerId,
+        amount_owed: p.amountOwed,
+      }),
+    )
+    const optimisticEvent: GameEvent = {
+      id: pendingId(),
+      game_id: gameId,
+      event_type: 'expense_updated',
+      player_id: paidByPlayerId,
+      amount,
+      description: description.trim() || null,
+      created_by: '',
+      created_at: nowIso,
+    }
+
+    startTransition(async () => {
+      applyOptimistic({
+        type: 'update_expense',
+        expense: optimisticExpense,
+        participants: optimisticParticipants,
+        event: optimisticEvent,
+      })
+
+      try {
+        const result = await updateExpenseAction(
+          gameId,
+          expenseId,
+          paidByPlayerId,
+          amount,
+          description,
+          splitType,
+          participants,
+        )
+        setServerState((prev) => ({
+          ...prev,
+          expenses: prev.expenses.map((e) =>
+            e.id === result.expense.id ? result.expense : e,
+          ),
+          expenseParticipants: [
+            ...prev.expenseParticipants.filter(
+              (p) => p.expense_id !== result.expense.id,
+            ),
+            ...result.participants,
+          ],
+          events: prependUnique(prev.events, result.event),
+        }))
+      } catch (err) {
+        console.error('Failed to update expense:', err)
+        setExpenseError(getExpenseErrorMessage(err, t.expenses.editFailed))
+        void fetchData()
+      }
+    })
+  }
+
+  const handleDeleteExpense = (expenseId: string) => {
+    setExpenseError('')
+    setEditingExpenseId(null)
+    setShowExpenseList(false)
+
+    const existing = expenses.find((e) => e.id === expenseId)
+    if (!existing) return
+
+    const optimisticEvent: GameEvent = {
+      id: pendingId(),
+      game_id: gameId,
+      event_type: 'expense_removed',
+      player_id: existing.paid_by_player_id,
+      amount: existing.amount,
+      description: existing.description,
+      created_by: '',
+      created_at: new Date().toISOString(),
+    }
+
+    startTransition(async () => {
+      applyOptimistic({ type: 'delete_expense', expenseId, event: optimisticEvent })
+
+      try {
+        const result = await deleteExpenseAction(gameId, expenseId)
+        setServerState((prev) => ({
+          ...prev,
+          expenses: prev.expenses.filter((e) => e.id !== expenseId),
+          expenseParticipants: prev.expenseParticipants.filter(
+            (p) => p.expense_id !== expenseId,
+          ),
+          events: result.event
+            ? prependUnique(prev.events, result.event)
+            : prev.events,
+        }))
+      } catch (err) {
+        console.error('Failed to delete expense:', err)
+        setExpenseError(getExpenseErrorMessage(err, t.expenses.deleteFailed))
         void fetchData()
       }
     })
@@ -1200,13 +1396,32 @@ export default function ActiveGameClient({
           onReorder={handleReorderSeats}
         />
 
-        {totalExpenses > 0 && (
-          <p className="text-center text-sm text-text-muted">
-            {t.game.expensesTotal}:{' '}
-            <span className="font-semibold text-text-secondary" dir="ltr">
-              {symbol}{totalExpenses}
-            </span>
+        {expenseError && (
+          <p className="text-sm text-negative text-center px-2">
+            {expenseError}
           </p>
+        )}
+
+        {/* The running total doubles as the way into the expense list, so
+            correcting a mistyped amount needs no new button on the table. */}
+        {totalExpenses > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowExpenseList(true)}
+            className="flex items-center justify-center gap-1.5 mx-auto text-sm
+              text-text-muted min-h-[44px] px-3 rounded-lg
+              active:bg-surface-elevated/60 transition-colors"
+          >
+            <span>
+              {t.game.expensesTotal}:{' '}
+              <span className="font-semibold text-text-secondary" dir="ltr">
+                {symbol}{totalExpenses}
+              </span>
+            </span>
+            <ChevronForward
+              className={dir === 'ltr' ? 'scale-x-[-1]' : undefined}
+            />
+          </button>
         )}
 
         {canManage && (
@@ -1266,12 +1481,37 @@ export default function ActiveGameClient({
         onConfirm={handleDeleteGame}
       />
 
-      <ExpenseSheet
-        open={showExpense}
-        onClose={() => setShowExpense(false)}
-        players={visiblePlayers}
+      <ExpenseListSheet
+        open={showExpenseList}
+        onClose={() => setShowExpenseList(false)}
+        expenses={expenses}
+        participants={expenseParticipants}
+        players={players}
         currency={game.currency}
+        onSelect={
+          canManage
+            ? (expenseId) => {
+                setShowExpenseList(false)
+                setExpenseError('')
+                setEditingExpenseId(expenseId)
+              }
+            : undefined
+        }
+      />
+
+      <ExpenseSheet
+        open={showExpense || editingExpense !== null}
+        onClose={() => {
+          setShowExpense(false)
+          setEditingExpenseId(null)
+        }}
+        players={visiblePlayers}
+        rosterPlayers={players}
+        currency={game.currency}
+        editing={editingExpense}
         onSubmit={handleAddExpense}
+        onUpdate={handleUpdateExpense}
+        onDelete={handleDeleteExpense}
       />
 
       <AddPlayerToGameSheet

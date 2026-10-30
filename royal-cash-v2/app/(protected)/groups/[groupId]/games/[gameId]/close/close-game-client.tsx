@@ -9,7 +9,18 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { Button } from '@/components/ui/button'
 import { validateGameForClose } from '@/lib/calculations/validation'
 import { translateValidationErrors } from '@/lib/i18n/translate-validation'
-import { closeGameAction } from '@/app/actions/games'
+import {
+  closeGameAction,
+  updateExpenseAction,
+  deleteExpenseAction,
+} from '@/app/actions/games'
+import {
+  ExpenseSheet,
+  type ExpenseDraft,
+} from '@/components/expenses/expense-sheet'
+import { ExpenseListSheet } from '@/components/expenses/expense-list-sheet'
+import { ChevronForward } from '@/components/ui/chevron'
+import { useLocale } from '@/lib/i18n/locale-context'
 import { createClient } from '@/lib/supabase/client'
 import { getGameRosterPlayers } from '@/lib/db/games'
 import { getGameBuyIns } from '@/lib/db/buy-ins'
@@ -55,7 +66,12 @@ export default function CloseGameClient({
   initialExpenseParticipants,
 }: CloseGameClientProps) {
   const router = useRouter()
+  const { dir } = useLocale()
   const [saving, setSaving] = useState(false)
+  const [showExpenseList, setShowExpenseList] = useState(false)
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
+  const [expenseError, setExpenseError] = useState('')
+  const [expenseBusy, setExpenseBusy] = useState(false)
   const [data, setData] = useState<CloseGameData>({
     players: initialPlayers,
     buyIns: initialBuyIns,
@@ -144,6 +160,78 @@ export default function CloseGameClient({
     return map
   }, [expenseParticipants])
 
+  const editingExpense = useMemo<ExpenseDraft | null>(() => {
+    if (!editingExpenseId) return null
+    const expense = expenses.find((e) => e.id === editingExpenseId)
+    if (!expense) return null
+    return {
+      expense,
+      participants: expenseParticipants.filter(
+        (p) => p.expense_id === editingExpenseId,
+      ),
+    }
+  }, [editingExpenseId, expenses, expenseParticipants])
+
+  // Corrections on this screen are rare and the amounts here are what the
+  // settlement is about to be built from, so these refetch rather than patch
+  // state optimistically: the totals shown must be the stored ones.
+  const handleUpdateExpense = async (
+    expenseId: string,
+    paidByPlayerId: string,
+    amount: number,
+    description: string,
+    splitType: Expense['split_type'],
+    participants: { playerId: string; amountOwed: number }[],
+  ) => {
+    if (expenseBusy) return
+    setExpenseError('')
+    setEditingExpenseId(null)
+    setExpenseBusy(true)
+    try {
+      await updateExpenseAction(
+        gameId,
+        expenseId,
+        paidByPlayerId,
+        amount,
+        description,
+        splitType,
+        participants,
+      )
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to update expense:', err)
+      setExpenseError(
+        err instanceof Error && err.message === 'expense_edit_needs_migration'
+          ? t.expenses.editNeedsMigration
+          : t.expenses.editFailed,
+      )
+    } finally {
+      setExpenseBusy(false)
+    }
+  }
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (expenseBusy) return
+    setExpenseError('')
+    setEditingExpenseId(null)
+    setShowExpenseList(false)
+    setExpenseBusy(true)
+    try {
+      await deleteExpenseAction(gameId, expenseId)
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to delete expense:', err)
+      setExpenseError(
+        err instanceof Error && err.message === 'expense_edit_needs_migration'
+          ? t.expenses.editNeedsMigration
+          : t.expenses.deleteFailed,
+      )
+    } finally {
+      setExpenseBusy(false)
+    }
+  }
+
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
   const totalBuyIns = buyIns.reduce((s, b) => s + b.amount, 0)
   const totalCashOuts = Object.values(cashOutValues).reduce(
     (s, v) => s + (parseInt(v) || 0),
@@ -272,6 +360,29 @@ export default function CloseGameClient({
               {symbol}{totalCashOuts}
             </span>
           </div>
+          {/* Expenses feed the settlements but had no place on this screen,
+              so a wrong one could only be found after the results were out.
+              The row is the way in to correcting it, right where the numbers
+              are being checked. */}
+          {totalExpenses > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowExpenseList(true)}
+              className="flex justify-between items-center w-full text-sm mt-1
+                min-h-[36px] -mx-1 px-1 rounded-lg
+                active:bg-surface/60 transition-colors"
+            >
+              <span className="flex items-center gap-1.5 text-text-secondary">
+                {t.game.expensesTotal}
+                <ChevronForward
+                  className={dir === 'ltr' ? 'scale-x-[-1]' : undefined}
+                />
+              </span>
+              <span className="text-text-primary font-mono" dir="ltr">
+                {symbol}{totalExpenses}
+              </span>
+            </button>
+          )}
           {difference !== 0 && (
             <div className="flex justify-between text-sm mt-1">
               <span className="text-warning">{t.close.difference}</span>
@@ -281,6 +392,12 @@ export default function CloseGameClient({
             </div>
           )}
         </Card>
+
+        {expenseError && (
+          <p className="text-sm text-negative text-center px-2">
+            {expenseError}
+          </p>
+        )}
 
         {errors.length > 0 && (
           <div className="bg-negative/10 rounded-[var(--radius-card)] p-3">
@@ -303,6 +420,31 @@ export default function CloseGameClient({
           </Button>
         </div>
       </main>
+
+      <ExpenseListSheet
+        open={showExpenseList}
+        onClose={() => setShowExpenseList(false)}
+        expenses={expenses}
+        participants={expenseParticipants}
+        players={players}
+        currency={game.currency}
+        onSelect={(expenseId) => {
+          setShowExpenseList(false)
+          setExpenseError('')
+          setEditingExpenseId(expenseId)
+        }}
+      />
+
+      <ExpenseSheet
+        open={editingExpense !== null}
+        onClose={() => setEditingExpenseId(null)}
+        players={players}
+        currency={game.currency}
+        editing={editingExpense}
+        onSubmit={() => {}}
+        onUpdate={handleUpdateExpense}
+        onDelete={handleDeleteExpense}
+      />
     </>
   )
 }

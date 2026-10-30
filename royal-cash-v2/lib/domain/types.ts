@@ -76,7 +76,12 @@ export type BuyIn = {
   note: string | null
 }
 
-export type GameEventType = 'buy_in_added' | 'buy_in_removed' | 'expense_added'
+export type GameEventType =
+  | 'buy_in_added'
+  | 'buy_in_removed'
+  | 'expense_added'
+  | 'expense_updated'
+  | 'expense_removed'
 
 export type GameEvent = {
   id: string
