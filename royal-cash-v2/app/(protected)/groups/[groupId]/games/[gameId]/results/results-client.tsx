@@ -261,6 +261,22 @@ export default function ResultsClient({
           >
             {reopening ? t.results.reopening : t.results.editData}
           </Button>
+          {/* Leaving a game that is not saved yet must not require either
+              finalizing it or trusting router.back(). Without this, the only
+              ways off this screen committed the game to history or guessed a
+              destination — and a game left closed-but-unsaved used to vanish
+              from the group screen entirely. */}
+          {!isFinalized && (
+            <button
+              type="button"
+              disabled={finalizing || reopening}
+              onClick={() => router.push(`/groups/${groupId}`)}
+              className="text-sm text-text-muted min-h-[44px] active:opacity-60
+                transition-opacity disabled:opacity-40"
+            >
+              {t.results.leaveWithoutSaving}
+            </button>
+          )}
         </div>
       </main>
 

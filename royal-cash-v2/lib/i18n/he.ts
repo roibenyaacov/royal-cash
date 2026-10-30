@@ -81,6 +81,10 @@ export const he = {
     startGame: 'התחל משחק',
     activeGames: 'משחקים פעילים',
     activeNow: 'פעיל',
+    unsavedGames: 'ממתינים לשמירה',
+    notSavedYet: 'לא נשמר',
+    unsavedGamesHint:
+      'השולחן נסגר אבל עוד לא נשמר להיסטוריה — הקש עליו ואז על "שתף וסגור" כדי שייכנס לסטטיסטיקות ולשיאים.',
     gameHistory: 'היסטוריית משחקים',
     previousGames: 'משחקים קודמים',
     viewSummary: 'צפה בסיכום',
@@ -216,6 +220,7 @@ export const he = {
     summaryCopied: 'הסיכום הועתק!',
     shareAndClose: 'שתף בוואטסאפ וסגור שולחן',
     backToGroup: 'חזור לשולחן',
+    leaveWithoutSaving: 'יציאה בלי לשמור להיסטוריה',
     savingGame: 'שומר משחק...',
     shareWhatsApp: 'שתף בוואטסאפ',
   },

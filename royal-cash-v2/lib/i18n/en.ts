@@ -83,6 +83,10 @@ export const en = {
     startGame: 'Start game',
     activeGames: 'Active games',
     activeNow: 'Active',
+    unsavedGames: 'Waiting to be saved',
+    notSavedYet: 'not saved',
+    unsavedGamesHint:
+      'These tables were closed but never saved to history — open one and tap share-and-save so it counts towards stats and records.',
     gameHistory: 'Game history',
     previousGames: 'Previous games',
     viewSummary: 'View summary',
@@ -223,6 +227,7 @@ export const en = {
     summaryCopied: 'Summary copied!',
     shareAndClose: 'Share on WhatsApp & close table',
     backToGroup: 'Back to group',
+    leaveWithoutSaving: 'Leave without saving to history',
     savingGame: 'Saving game...',
     shareWhatsApp: 'Share on WhatsApp',
   },

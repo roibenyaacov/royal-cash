@@ -95,6 +95,15 @@ export default function GroupDetailClient({
   }, [players, winRecordPlayers])
 
   const activeGames = initialGames.filter((g) => g.status === 'active')
+  // A table that was closed but never saved to history used to match neither
+  // list — not active, and not `closed && finalized_at` — so it dropped off
+  // this screen entirely and looked deleted. That is the state the app lands
+  // in whenever a game is reopened and then re-closed without tapping
+  // share-and-save, which is easy to do by accident. They get their own
+  // section so they are impossible to miss and one tap from being saved.
+  const unsavedGames = initialGames.filter(
+    (g) => g.status === 'closed' && !g.finalized_at,
+  )
   const historyGames = initialGames.filter((g) => g.status === 'closed' && g.finalized_at)
   const defaultCurrency = (initialGames[0]?.currency ?? 'ILS') as Currency
 
@@ -198,6 +207,38 @@ export default function GroupDetailClient({
                 </IosListRow>
               ))}
             </IosListGroup>
+          </section>
+        )}
+
+        {unsavedGames.length > 0 && (
+          <section>
+            <p className="text-xs font-semibold text-warning mb-3 uppercase tracking-wider">
+              {t.game.unsavedGames}
+            </p>
+            <IosListGroup>
+              {unsavedGames.map((g) => (
+                <IosListRow
+                  key={g.id}
+                  href={`/groups/${groupId}/games/${g.id}/results`}
+                  className="py-3.5 min-h-[56px]"
+                  trailing={
+                    <span className="text-xs font-medium text-warning shrink-0">
+                      {t.game.notSavedYet}
+                    </span>
+                  }
+                >
+                  <p className="text-[17px] font-medium text-text-primary truncate leading-snug">
+                    {g.name}
+                  </p>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {formatGameDate(g.date ?? g.created_at)}
+                  </p>
+                </IosListRow>
+              ))}
+            </IosListGroup>
+            <p className="text-xs text-text-muted mt-2 px-1">
+              {t.game.unsavedGamesHint}
+            </p>
           </section>
         )}
 

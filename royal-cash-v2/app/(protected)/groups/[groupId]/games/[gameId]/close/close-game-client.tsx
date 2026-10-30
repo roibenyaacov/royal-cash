@@ -418,6 +418,22 @@ export default function CloseGameClient({
           >
             {saving || !synced ? t.common.loading : t.close.calculateResults}
           </Button>
+          {/* A way out that is not "calculate results". This screen is where
+              a reopened table lands, and the only exit used to be the header
+              chevron, whose router.back() goes wherever the history happens
+              to point after two router.replace calls. Leaving had to mean
+              re-closing the game, which is how tables ended up closed but
+              never saved. This goes to the table itself, which is a fixed
+              destination and leaves the game exactly as it is. */}
+          <Button
+            variant="secondary"
+            fullWidth
+            size="lg"
+            disabled={saving}
+            onClick={() => router.push(`/groups/${groupId}/games/${gameId}`)}
+          >
+            {t.close.backToGame}
+          </Button>
         </div>
       </main>
 
