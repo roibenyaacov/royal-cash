@@ -27,6 +27,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Apple fetches the association file from this exact path and will not
+  // follow a redirect, so it is rewritten rather than redirected.
+  async rewrites() {
+    return [
+      {
+        source: '/.well-known/apple-app-site-association',
+        destination: '/api/apple-app-site-association',
+      },
+    ]
+  },
   async headers() {
     return [
       {

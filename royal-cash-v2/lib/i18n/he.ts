@@ -4,6 +4,7 @@ export const he = {
   },
   auth: {
     loginWithGoogle: 'כניסה עם Google',
+    loginWithApple: 'כניסה עם Apple',
     tagline: 'סוגרים את הערב בלי כאב ראש',
     loggingIn: 'מתחבר...',
     signOut: 'התנתקות',
@@ -288,6 +289,18 @@ export const he = {
     photoFailed: 'ההעלאה נכשלה. נסה שוב.',
     photoNeedsMigration:
       'תמונות פרופיל דורשות עדכון במסד הנתונים (מיגרציה 033).',
+    deleteAccount: 'מחיקת החשבון שלי',
+    deleteAccountHint:
+      'מוחק את החשבון, הפרופיל והחברות שלך בחבורות — לצמיתות ובלי דרך חזרה. היסטוריית המשחקים של החבורה נשארת, והשם שלך מתנתק ממנה. חבורות שאתה מנהל יעברו לחבר הוותיק הבא; חבורה שאתה היחיד בה תימחק.',
+    deleteAccountTitle: 'למחוק את החשבון?',
+    deleteAccountWarning:
+      'הפעולה לצמיתות. החשבון, הפרופיל, הטלפון והתמונה שלך יימחקו ולא ניתן לשחזר אותם. היסטוריית המשחקים של החבורות תישאר על כנה בלי השם שלך. כדי לאשר, הקלד/י: מחק',
+    deleteAccountConfirmWord: 'מחק',
+    deleteAccountConfirm: 'מחק לצמיתות',
+    deleting: 'מוחק...',
+    deleteAccountFailed: 'לא הצלחנו למחוק את החשבון. נסה שוב.',
+    deleteAccountNeedsMigration:
+      'מחיקת חשבון דורשת עדכון במסד הנתונים (מיגרציה 034).',
   },
   stats: {
     title: 'סטטיסטיקות',

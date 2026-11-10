@@ -1,7 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/proxy'
 
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/claim', '/invite', '/game']
+// '/legal' has to be reachable without an account: App Store Connect
+// requires a privacy policy at a URL a reviewer can open cold, and a policy
+// behind a login is no policy at all.
+const PUBLIC_PATHS = [
+  '/login',
+  '/auth/callback',
+  '/claim',
+  '/invite',
+  '/game',
+  '/legal',
+  // Apple fetches this with no session and will not follow a redirect.
+  '/.well-known',
+  '/api/apple-app-site-association',
+]
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl

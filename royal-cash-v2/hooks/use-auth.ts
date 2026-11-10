@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { hasSupabasePublicConfig } from '@/lib/supabase/config'
-import { startGoogleOAuth } from '@/lib/auth/google-oauth'
+import { startOAuth } from '@/lib/auth/oauth'
 import type { User } from '@supabase/supabase-js'
 
 export function useAuth() {
@@ -37,7 +37,17 @@ export function useAuth() {
     }
 
     const supabase = createClient()
-    await startGoogleOAuth(supabase, nextPath)
+    await startOAuth(supabase, 'google', nextPath)
+  }
+
+  // Required alongside Google by App Store review guideline 4.8.
+  const signInWithApple = async (nextPath?: string) => {
+    if (!hasSupabasePublicConfig()) {
+      throw new Error('Missing Supabase public configuration')
+    }
+
+    const supabase = createClient()
+    await startOAuth(supabase, 'apple', nextPath)
   }
 
   const signOut = async () => {
@@ -48,5 +58,5 @@ export function useAuth() {
     if (error) throw error
   }
 
-  return { user, loading, signInWithGoogle, signOut }
+  return { user, loading, signInWithGoogle, signInWithApple, signOut }
 }

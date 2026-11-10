@@ -15,11 +15,15 @@ import {
   updateProfileAction,
   resetMyStatsAction,
   undoMyStatsResetAction,
+  deleteMyAccountAction,
 } from '@/app/actions/profile'
+import { useAuth } from '@/hooks/use-auth'
+import { useRouter } from 'next/navigation'
 import { BalanceChart } from '@/components/profile/balance-chart'
 import { AvatarUploader } from '@/components/profile/avatar-uploader'
 import { PlayerAvatar } from '@/components/games/player-avatar'
 import { ContactLink } from '@/components/layout/contact-link'
+import { LegalLinks } from '@/components/legal/legal-links'
 
 function getSaveErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message
@@ -122,6 +126,10 @@ export default function ProfilePage() {
   const [resetting, setResetting] = useState(false)
   const [undoing, setUndoing] = useState(false)
   const [resetError, setResetError] = useState('')
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const { signOut } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
     let cancelled = false
@@ -210,6 +218,33 @@ export default function ProfilePage() {
       )
     } finally {
       setUndoing(false)
+    }
+  }
+
+  // Required by App Store guideline 5.1.1(v). The sign-out afterwards is
+  // not cosmetic: the session's refresh token is already dead once the
+  // account is gone, so without it the app sits on a token that cannot be
+  // renewed and fails on the next request instead of showing the login.
+  async function handleDeleteAccount() {
+    setDeleteError('')
+    try {
+      await deleteMyAccountAction()
+      try {
+        await signOut()
+      } catch (signOutErr) {
+        console.error('Account deleted but sign-out failed:', signOutErr)
+      }
+      router.replace('/login')
+    } catch (err) {
+      console.error('Failed to delete account:', err)
+      setDeleteError(
+        err instanceof Error && err.message === 'delete_account_needs_migration'
+          ? t.profile.deleteAccountNeedsMigration
+          : t.profile.deleteAccountFailed,
+      )
+      // Deliberately not re-thrown: the sheet has nowhere to show an
+      // error, so letting it close puts the message on the screen behind
+      // it instead of leaving the user staring at a sheet that did nothing.
     }
   }
 
@@ -433,6 +468,7 @@ export default function ProfilePage() {
 
         <section className="pt-1">
           <ContactLink variant="row" />
+          <LegalLinks className="mt-3" />
         </section>
 
         {/* Start the personal count over. Nothing is deleted — a reset mark
@@ -479,6 +515,31 @@ export default function ProfilePage() {
             </>
           )}
         </section>
+
+        {/* Leaving has to be as available as joining was — and an account
+            you cannot delete from inside the app is an automatic App Store
+            rejection under guideline 5.1.1(v). */}
+        <section className="pb-4">
+          {deleteError && (
+            <p className="mb-2 text-sm text-negative text-center">
+              {deleteError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteError('')
+              setDeleteOpen(true)
+            }}
+            className="w-full py-3 rounded-[10px] text-[14px] font-medium
+              text-negative active:opacity-60 transition-opacity min-h-[44px]"
+          >
+            {t.profile.deleteAccount}
+          </button>
+          <p className="mt-1 text-xs text-text-muted text-center px-1 leading-snug">
+            {t.profile.deleteAccountHint}
+          </p>
+        </section>
       </main>
 
       <BottomSheet
@@ -516,6 +577,17 @@ export default function ProfilePage() {
           </div>
         </div>
       </BottomSheet>
+
+      <ConfirmSheet
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title={t.profile.deleteAccountTitle}
+        message={t.profile.deleteAccountWarning}
+        confirmLabel={t.profile.deleteAccountConfirm}
+        cancelLabel={t.common.cancel}
+        requireTyping={t.profile.deleteAccountConfirmWord}
+        onConfirm={handleDeleteAccount}
+      />
 
       <ConfirmSheet
         open={resetOpen}

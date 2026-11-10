@@ -8,6 +8,8 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['lib/**/*.test.ts'],
+    // Not just `lib/**`: a test written anywhere else used to be
+    // collected by nothing and pass by never running.
+    include: ['{lib,app,components,hooks}/**/*.test.{ts,tsx}'],
   },
 })

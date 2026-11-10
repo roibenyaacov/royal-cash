@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Loading } from '@/components/ui/loading'
 import { useAuth } from '@/hooks/use-auth'
+import { AppleIcon } from '@/components/ui/apple-icon'
 import {
   consumeClaimAfterAuth,
   markClaimAfterAuth,
@@ -29,7 +30,7 @@ export default function ClaimPlayerPage({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading, signInWithGoogle } = useAuth()
+  const { user, loading: authLoading, signInWithGoogle, signInWithApple } = useAuth()
   const [state, setState] = useState<ClaimState>('loading')
   const [playerName, setPlayerName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
@@ -135,12 +136,21 @@ export default function ClaimPlayerPage({
 
   async function handleClaim() {
     if (!user) {
-      markClaimAfterAuth(token)
-      await signInWithGoogle(`/claim/${token}`)
+      await startSignIn('google')
       return
     }
 
     await executeClaim()
+  }
+
+  // Guideline 4.8 applies to every place the app offers a sign-in, not
+  // only the login screen.
+  async function startSignIn(provider: 'google' | 'apple') {
+    markClaimAfterAuth(token)
+    const next = `/claim/${token}`
+    await (provider === 'apple'
+      ? signInWithApple(next)
+      : signInWithGoogle(next))
   }
 
   if (authLoading || state === 'loading') {
@@ -183,6 +193,19 @@ export default function ClaimPlayerPage({
                 <Button fullWidth size="lg" onClick={handleClaim}>
                   {user ? t.invites.claimButton : t.auth.loginWithGoogle}
                 </Button>
+                {!user && (
+                  <button
+                    type="button"
+                    onClick={() => startSignIn('apple')}
+                    className="flex h-[52px] w-full items-center justify-center
+                      gap-3 rounded-xl bg-black text-base font-semibold
+                      text-white ring-1 ring-white/15 transition-transform
+                      active:scale-[0.98]"
+                  >
+                    <AppleIcon className="h-5 w-5 text-white" />
+                    <span>{t.auth.loginWithApple}</span>
+                  </button>
+                )}
               </>
             )}
 

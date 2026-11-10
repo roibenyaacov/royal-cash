@@ -11,6 +11,7 @@ import {
 import { t } from '@/lib/i18n/dictionary'
 import { resolveSeatNames } from '@/lib/display/seat-names'
 import { PlayerAvatar } from '@/components/games/player-avatar'
+import { impact } from '@/lib/native/feedback'
 import { useSeatArrange } from '@/hooks/use-seat-arrange'
 import { hashString as hashSeed } from '@/lib/display/avatar'
 import type { BuyIn, CashOut, Currency } from '@/lib/domain/types'
@@ -135,8 +136,16 @@ export function PokerTable({
         dragOffset={isDragging ? arrange.dragOffset : null}
         onPointerDown={(e) => canArrange && onSeatPointerDown(seat.id, e)}
         onPointerLeave={cancelPress}
-        onAddDefault={() => onAddDefault(seat.id)}
-        onRemoveDefault={() => onRemoveDefault(seat.id)}
+        // A host at a real table is looking at the chips, not the screen.
+        // The tap they feel is how they know the buy-in registered.
+        onAddDefault={() => {
+          void impact('medium')
+          onAddDefault(seat.id)
+        }}
+        onRemoveDefault={() => {
+          void impact('light')
+          onRemoveDefault(seat.id)
+        }}
         onSetCount={(count) => onSetCount(seat.id, count)}
         onClick={() => {
           // A long press that turned into a drag must not also open the

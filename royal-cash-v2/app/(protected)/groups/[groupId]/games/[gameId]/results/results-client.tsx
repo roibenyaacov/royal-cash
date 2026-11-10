@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { ConfirmSheet } from '@/components/ui/confirm-sheet'
 import { generateWhatsAppSettlementText } from '@/lib/calculations/summary'
 import { finalizeGameAction, reopenGameAction } from '@/app/actions/games'
+import { shareText } from '@/lib/native/share'
+import { notifySuccess } from '@/lib/native/feedback'
 import type { Game, Player, GameResult, Settlement } from '@/lib/domain/types'
 
 interface ResultsClientProps {
@@ -121,8 +123,21 @@ export default function ResultsClient({
     }
 
     const text = generateWhatsAppSettlementText(game, settlementTransfers, playerNames)
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
 
+    // In the app the system share sheet puts the settlement wherever the
+    // group actually talks, without bouncing out through Safari first. On
+    // the web, and if the sheet is dismissed, fall back to the wa.me link
+    // that has always been there.
+    const shared = await shareText(text, t.results.settlements)
+    if (!shared) {
+      window.open(
+        `https://wa.me/?text=${encodeURIComponent(text)}`,
+        '_blank',
+        'noopener,noreferrer',
+      )
+    }
+
+    await notifySuccess()
     await finalizeAndNavigate()
   }, [
     game,

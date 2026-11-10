@@ -55,7 +55,8 @@ export type Game = {
   currency: Currency
   status: GameStatus
   management_mode: ManagementMode
-  created_by: string
+  /** Null once the account that created it was deleted. */
+  created_by: string | null
   created_at: string
   closed_at: string | null
   finalized_at: string | null
@@ -76,7 +77,8 @@ export type BuyIn = {
   game_id: string
   player_id: string
   amount: number
-  created_by: string
+  /** Null once the account that created it was deleted. */
+  created_by: string | null
   created_at: string
   note: string | null
 }
@@ -95,7 +97,8 @@ export type GameEvent = {
   player_id: string | null
   amount: number | null
   description: string | null
-  created_by: string
+  /** Null once the account that created it was deleted. */
+  created_by: string | null
   created_at: string
 }
 
@@ -108,7 +111,8 @@ export type Expense = {
   amount: number
   description: string
   split_type: ExpenseSplitType
-  created_by: string
+  /** Null once the account that created it was deleted. */
+  created_by: string | null
   created_at: string
 }
 
@@ -124,7 +128,8 @@ export type CashOut = {
   game_id: string
   player_id: string
   amount: number
-  created_by: string
+  /** Null once the account that created it was deleted. */
+  created_by: string | null
   created_at: string
   updated_at: string
 }
@@ -177,7 +182,8 @@ export type PlayerClaimInvite = {
   id: string
   player_id: string
   token: string
-  created_by: string
+  /** Null once the account that created it was deleted. */
+  created_by: string | null
   created_at: string
   expires_at: string
   claimed_by: string | null
@@ -192,7 +198,8 @@ export type GroupInvite = {
   group_id: string
   token: string
   role: 'manager' | 'member'
-  created_by: string
+  /** Null once the account that created it was deleted. */
+  created_by: string | null
   created_at: string
   expires_at: string | null
   max_uses: number | null
@@ -207,7 +214,8 @@ export type GameAccessLink = {
   id: string
   game_id: string
   token: string
-  created_by: string
+  /** Null once the account that created it was deleted. */
+  created_by: string | null
   created_at: string
   expires_at: string | null
   access_level: GameAccessLevel

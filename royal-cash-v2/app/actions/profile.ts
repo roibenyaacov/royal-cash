@@ -26,6 +26,62 @@ export async function updateProfileAction(fields: {
   revalidatePath('/profile')
 }
 
+export type DeleteAccountResult = {
+  groupsTransferred: number
+  groupsDeleted: number
+  playersUnlinked: number
+}
+
+/**
+ * Erase the caller's account.
+ *
+ * Required by App Store review guideline 5.1.1(v): an app that creates
+ * accounts has to let you delete one from inside the app. It is also the
+ * honest counterpart to signing in — an account you cannot leave is not
+ * really yours.
+ *
+ * The groups' shared ledger survives on purpose. A game and its
+ * settlements are the evening the whole table played, not one player's
+ * record, so the seats are unlinked and the history stays standing.
+ */
+export async function deleteMyAccountAction(): Promise<DeleteAccountResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data, error } = await supabase.rpc('delete_my_account')
+
+  if (error) {
+    // Migration 034 not applied yet — say so instead of failing silently.
+    if (
+      error.code === 'PGRST202' ||
+      error.message?.includes('delete_my_account')
+    ) {
+      throw new Error('delete_account_needs_migration')
+    }
+    throw new Error(error.message)
+  }
+
+  const payload = data as {
+    success?: boolean
+    error?: string
+    groups_transferred?: number
+    groups_deleted?: number
+    players_unlinked?: number
+  } | null
+
+  if (payload?.error) throw new Error(payload.error)
+  if (!payload?.success) throw new Error('delete_account_failed')
+
+  return {
+    groupsTransferred: payload.groups_transferred ?? 0,
+    groupsDeleted: payload.groups_deleted ?? 0,
+    playersUnlinked: payload.players_unlinked ?? 0,
+  }
+}
+
 /**
  * Point the caller's photo at a file they uploaded, or clear it with null.
  *

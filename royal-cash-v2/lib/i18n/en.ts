@@ -6,6 +6,7 @@ export const en = {
   },
   auth: {
     loginWithGoogle: 'Sign in with Google',
+    loginWithApple: 'Sign in with Apple',
     tagline: 'Close the night without the headache',
     loggingIn: 'Signing in...',
     signOut: 'Sign out',
@@ -295,6 +296,18 @@ export const en = {
     photoFailed: 'The upload failed. Please try again.',
     photoNeedsMigration:
       'Profile photos need a database update (migration 033).',
+    deleteAccount: 'Delete my account',
+    deleteAccountHint:
+      'Deletes your account, profile and group memberships permanently, with no way back. The groups keep their game history and your name comes off it. Groups you run pass to the next longest-standing member; a group where you are the only member is deleted.',
+    deleteAccountTitle: 'Delete your account?',
+    deleteAccountWarning:
+      'This is permanent. Your account, profile, phone and photo are deleted and cannot be restored. The groups keep their game history, without your name on it. To confirm, type: DELETE',
+    deleteAccountConfirmWord: 'DELETE',
+    deleteAccountConfirm: 'Delete permanently',
+    deleting: 'Deleting...',
+    deleteAccountFailed: 'Could not delete the account. Please try again.',
+    deleteAccountNeedsMigration:
+      'Account deletion needs a database update (migration 034).',
   },
   stats: {
     title: 'Statistics',

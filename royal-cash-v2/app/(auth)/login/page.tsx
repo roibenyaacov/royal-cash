@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { GoogleIcon } from '@/components/ui/google-icon'
+import { AppleIcon } from '@/components/ui/apple-icon'
 import { useAuth } from '@/hooks/use-auth'
 import { useLocale } from '@/lib/i18n/locale-context'
 import { hasSupabasePublicConfig } from '@/lib/supabase/config'
 import { ContactLink } from '@/components/layout/contact-link'
+import { LegalLinks } from '@/components/legal/legal-links'
 
 function LockIcon() {
   return (
@@ -30,7 +32,7 @@ function LockIcon() {
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading, signInWithGoogle } = useAuth()
+  const { user, loading: authLoading, signInWithGoogle, signInWithApple } = useAuth()
   const { t } = useLocale()
   const [loading, setLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -46,7 +48,7 @@ export default function LoginPage() {
     }
   }, [authLoading, user, router])
 
-  async function handleGoogleSignIn() {
+  async function startSignIn(provider: 'google' | 'apple') {
     setSubmitError('')
     if (!hasSupabasePublicConfig()) {
       setSubmitError(t.auth.loginConfigError)
@@ -55,9 +57,9 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      await signInWithGoogle()
+      await (provider === 'apple' ? signInWithApple() : signInWithGoogle())
     } catch (err) {
-      console.error('Google sign-in failed:', err)
+      console.error(`${provider} sign-in failed:`, err)
       setSubmitError(t.auth.loginFailed)
       setLoading(false)
     }
@@ -98,12 +100,25 @@ export default function LoginPage() {
           ) : null}
           <button
             type="button"
-            onClick={handleGoogleSignIn}
+            onClick={() => startSignIn('google')}
             disabled={loading}
             className="flex h-[60px] w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-br from-[#f2ca50] via-[#d4af37] to-[#b8860b] text-lg font-bold text-black shadow-[0_4px_15px_rgba(212,175,55,0.22)] transition-transform active:scale-[0.98] disabled:opacity-60"
           >
             <GoogleIcon className="h-5 w-5 text-black" />
             <span>{loading ? t.auth.loggingIn : t.auth.loginWithGoogle}</span>
+          </button>
+
+          {/* Guideline 4.8: offering Google alone is a rejection. Apple's
+              own styling rules apply to this button — black fill, their
+              glyph, their wording. */}
+          <button
+            type="button"
+            onClick={() => startSignIn('apple')}
+            disabled={loading}
+            className="mt-3 flex h-[60px] w-full items-center justify-center gap-3 rounded-xl bg-black text-lg font-semibold text-white ring-1 ring-white/15 transition-transform active:scale-[0.98] disabled:opacity-60"
+          >
+            <AppleIcon className="h-5 w-5 text-white" />
+            <span>{t.auth.loginWithApple}</span>
           </button>
         </div>
       </main>
@@ -119,6 +134,7 @@ export default function LoginPage() {
           <div className="h-px w-12 bg-accent/20" />
         </div>
         <ContactLink />
+        <LegalLinks />
       </footer>
     </div>
   )

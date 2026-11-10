@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react'
 import { LocaleProvider } from '@/lib/i18n/locale-context'
 import { AppBrandBar } from '@/components/layout/app-brand-bar'
+import { NativeShell } from '@/components/layout/native-shell'
 import type { Locale } from '@/lib/i18n/types'
 
 export function LocaleShell({
@@ -14,6 +15,7 @@ export function LocaleShell({
 }) {
   return (
     <LocaleProvider initialLocale={initialLocale}>
+      <NativeShell />
       <AppBrandBar />
       {children}
     </LocaleProvider>
